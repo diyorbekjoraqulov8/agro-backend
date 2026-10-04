@@ -1,8 +1,8 @@
 # SuvTejam MVP — qadam-baqadam qo'llanma
 
-> **Nima uchun:** `auth-rbac-starter` skeleti ustiga fermerlar uchun Telegram bot +
+> **Nima uchun:** `agro` skeleti (project-v1 dan olingan auth + RBAC) ustiga fermerlar uchun Telegram bot +
 > sun'iy yo'ldosh tahlili xizmatini qurish.
-> **Qayerga qo'yiladi:** `docs/reference/suvtejam-mvp-qollanma.md`
+> **Qayerda:** `docs/suvtejam-mvp-qollanma.md`
 > **Bog'liq:** `CLAUDE.md` (skelet qoidalari va tuzoqlari shu yerda ham amal qiladi).
 > **Holat:** 2026-10-04 dagi reja. Versiya raqamlari va tashqi API'larni o'rnatishdan oldin
 > manbadan tekshiring.
@@ -93,30 +93,30 @@ sug'orish tavsiyasi. Bular keyingi bosqich.
 
 ## 3. LOYIHA TUZILISHI
 
-Bitta repo, ikki xizmat:
+Bitta repo. Repo ildizi — Java backend (hozirgi tuzilish o'zgarmaydi), Python xizmati
+va Mini App ildizda alohida papka bo'lib qo'shiladi:
 
 ```
-suvtejam/
-├── backend/                     ← auth-rbac-starter (init.sh bilan moslangan)
-│   └── src/main/java/uz/app/suvtejam/
-│       ├── common/ security/ auth/ user/ rbac/ audit/   (skeletdan, o'zgarmaydi)
-│       ├── farmer/      FarmerEntity, FarmerService, FarmerController (xodimlar uchun)
-│       ├── field/       FieldEntity, FieldService, FieldController
-│       ├── analysis/    AnalysisJob, AnalysisWorker, AnalysisService, AnalysisController
-│       ├── satellite/   SatelliteClient, SatelliteProperties, dto/
-│       └── bot/         BotConfig, BotUpdateHandler, BotStateService, BotMessages, keyboards/
-├── satellite-service/           ← Python
+agro/                            ← Gradle loyiha ildizi (Java backend)
+├── src/main/java/uz/app/agro/
+│   ├── common/ security/ auth/ user/ rbac/ audit/   (skeletdan, o'zgarmaydi)
+│   ├── farmer/      FarmerEntity, FarmerService, FarmerController (xodimlar uchun)
+│   ├── field/       FieldEntity, FieldService, FieldController
+│   ├── analysis/    AnalysisJob, AnalysisWorker, AnalysisService, AnalysisController
+│   ├── satellite/   SatelliteClient, SatelliteProperties, dto/
+│   └── bot/         BotConfig, BotUpdateHandler, BotStateService, BotMessages, keyboards/
+├── satellite-service/           ← Python (Gradle unga tegmaydi)
 │   ├── app/main.py  app/analysis.py  app/weather.py  app/render.py  app/schemas.py
 │   ├── requirements.txt
 │   └── Dockerfile
 ├── miniapp/
 │   └── index.html               ← poligon chizish sahifasi (static)
 ├── docker-compose.yml
-└── docs/reference/
+└── docs/
 ```
 
 Skeletdagi qoida saqlanadi: **package-by-feature**, har feature ichida
-`XController`, `XService`, `XRepository`, `entity/`, `dto/`.
+`XController`, `XService`, `XRepository`; papka faqat fayl ko'payganda (`dto/`).
 
 ---
 
@@ -127,9 +127,9 @@ faza oxirida.
 
 | Faza | Nima | Tekshiruv natijasi |
 |---|---|---|
-| **S0** | Tayyorgarlik: `init.sh`, BotFather, server | `./gradlew bootRun` ishlaydi, bot `/start` ga hech narsa demaydi |
+| **S0** | Tayyorgarlik: BotFather, server | `./gradlew bootRun` ishlaydi, bot `/start` ga hech narsa demaydi |
 | **S1** | Python: `/health` + `/analyze` | `curl` bilan bitta dala uchun JSON + PNG |
-| **S2** | Flyway V11–V15: farmers, fields, analysis_jobs, bot_states, huquqlar | Migratsiyalar toza bazada o'tadi |
+| **S2** | Flyway V6–V10: farmers, fields, analysis_jobs, bot_states, huquqlar | Migratsiyalar toza bazada o'tadi |
 | **S3** | Java entity/repo/service (farmer, field, analysis) | `ddl-auto: validate` xatosiz |
 | **S4** | `satellite/`: `SatelliteClient` + properties | Java'dan Python'ga so'rov o'tadi |
 | **S5** | `bot/`: long polling, `/start`, 4 savol | Bot savollarni beradi, javoblar `farmers` da |
@@ -146,16 +146,13 @@ faza oxirida.
 
 ### S0.1 Skeletni moslash
 
-```bash
-unzip auth-rbac-starter.zip && mv auth-rbac-starter backend && cd backend
-./init.sh uz.app.suvtejam suvtejam      # paket + baza nomi, RSA kalitlar yangidan
-createdb suvtejam
-export DB_USERNAME=<pg_user> DB_PASSWORD=<parol>
-./gradlew bootRun
-```
+Skelet allaqachon moslangan: paket `uz.app.agro`, `rootProject.name = 'agro'`.
 
-`CLAUDE.md` sarlavhasidagi `<LOYIHA NOMI>` ni `SuvTejam` ga almashtiring va unga shu
-faylga havola qo'shing.
+```bash
+createdb agro
+cp .env.example .env          # DB_USERNAME / DB_PASSWORD
+./gradlew bootRun             # RSA kalitlar birinchi build'da avtomatik yasaladi
+```
 
 ### S0.2 Telegram bot
 
@@ -403,10 +400,10 @@ ko'rgan joyingizga to'g'ri keladi; vaqt 90 s dan kam.
 
 ## FAZA S2 — Flyway migratsiyalar
 
-Skelet `V10` da tugaydi. Qoidalar skeletdagidek: soft delete → **qisman** unique index,
+Skelet `V5` da tugaydi (dev seed — `db/seed/R__dev_users.sql`). Qoidalar skeletdagidek: soft delete → **qisman** unique index,
 `ON CONFLICT ... WHERE deleted = FALSE`.
 
-### `V11__create_farmers.sql`
+### `V6__create_farmers.sql`
 
 ```sql
 CREATE TABLE farmers (
@@ -438,7 +435,7 @@ CREATE INDEX idx_farmers_lead   ON farmers (lead_status) WHERE deleted = FALSE;
 CREATE INDEX idx_farmers_source ON farmers (source);
 ```
 
-### `V12__create_fields.sql`
+### `V7__create_fields.sql`
 
 ```sql
 CREATE TABLE fields (
@@ -460,7 +457,7 @@ CREATE TABLE fields (
 CREATE INDEX idx_fields_farmer ON fields (farmer_id) WHERE deleted = FALSE;
 ```
 
-### `V13__create_analysis_jobs.sql`
+### `V8__create_analysis_jobs.sql`
 
 ```sql
 CREATE TABLE analysis_jobs (
@@ -490,7 +487,7 @@ CREATE INDEX idx_analysis_field ON analysis_jobs (field_id, created_date DESC);
 
 `analysis_jobs` **soft delete'siz** — tarix, o'chirilmaydi (skeletdagi `audit_logs` mantiqi).
 
-### `V14__create_bot_states.sql`
+### `V9__create_bot_states.sql`
 
 ```sql
 CREATE TABLE bot_states (
@@ -502,7 +499,7 @@ CREATE TABLE bot_states (
 );
 ```
 
-### `V15__seed_suvtejam_permissions.sql`
+### `V10__seed_agro_permissions.sql`
 
 ```sql
 INSERT INTO permissions (name, description) VALUES
@@ -560,7 +557,7 @@ Har biri o'z feature paketida (`farmer/entity/`, `analysis/entity/`).
 ### S3.2 `FarmerEntity`
 
 `BaseEntity` dan meros, `@SQLDelete` + `@SQLRestriction("deleted = false")`
-(`UserEntity` dagidek). Maydonlar — V11 ustunlari.
+(`UserEntity` dagidek). Maydonlar — V6 ustunlari.
 
 ### S3.3 `FieldEntity` — JSONB ustuni
 
@@ -770,8 +767,8 @@ Lotin yozuvida, qisqa, "siz"lab. Rus tili — keyinroq, `farmers.language` allaq
 ### S5 — Tekshirish
 
 ```bash
-psql -d suvtejam -c "SELECT telegram_user_id, region, main_crop, irrigation_type, water_source, source FROM farmers;"
-psql -d suvtejam -c "SELECT * FROM bot_states;"
+psql -d agro -c "SELECT telegram_user_id, region, main_crop, irrigation_type, water_source, source FROM farmers;"
+psql -d agro -c "SELECT * FROM bot_states;"
 ```
 
 Qo'lda: dev botga `/start test1` → 4 savolga javob → `farmers` da qator, `source = test1`.
@@ -838,8 +835,8 @@ Mini App — oddiy static fayl, HTTPS shart. Variantlar: o'z serveringizdagi ngi
 Dev bot'da tugmani bosing → chizing → yuboring.
 
 ```bash
-psql -d suvtejam -c "SELECT id, farmer_id, crop, jsonb_array_length(boundary_geojson->'coordinates'->0) AS nuqtalar FROM fields;"
-psql -d suvtejam -c "SELECT id, field_id, status FROM analysis_jobs;"
+psql -d agro -c "SELECT id, farmer_id, crop, jsonb_array_length(boundary_geojson->'coordinates'->0) AS nuqtalar FROM fields;"
+psql -d agro -c "SELECT id, field_id, status FROM analysis_jobs;"
 ```
 
 Ikkinchi marta yuboring → yangi `FREE` job **yaratilmasligi** kerak.
@@ -907,7 +904,7 @@ Telegram cheklovi: bitta chatga sekundiga ~1 xabar — 3 ta xabar orasida kichik
 ### S7 — Tekshirish
 
 ```bash
-psql -d suvtejam -c "SELECT id, status, attempts, error, finished_at - started_at AS davomiylik FROM analysis_jobs ORDER BY id DESC LIMIT 5;"
+psql -d agro -c "SELECT id, status, attempts, error, finished_at - started_at AS davomiylik FROM analysis_jobs ORDER BY id DESC LIMIT 5;"
 # Python'ni o'chirib qo'ying → job PENDING'da qoladi, attempts oshadi, next_try_at uzayadi
 # Python'ni yoqing → keyingi poll'da DONE, fermer hisobotni oladi
 # Ilovani RUNNING paytida o'ldiring (kill -9) → qayta ishga tushganda job qayta olinadi
@@ -932,7 +929,7 @@ ekanini tekshiring (boshqa odamning kontaktini yuborish mumkin). Teng bo'lsa —
 xabar: ism, viloyat, ekin, maydon, sug'orish usuli, havola. Shunda lead'ni bir soat ichida
 ko'rasiz — bu sotuvda juda muhim.
 
-Javoblar uchun alohida jadval kerak bo'lsa (savollar ko'p o'zgarsa) — `V16__create_survey_answers.sql`
+Javoblar uchun alohida jadval kerak bo'lsa (savollar ko'p o'zgarsa) — `V11__create_survey_answers.sql`
 (`farmer_id`, `question_key`, `answer`, `created_at`). Boshida `farmers` ustunlari yetarli.
 
 ---
@@ -975,14 +972,14 @@ curl -s -b $J localhost:8081/api/v1/stats/sources | jq
 services:
   db:
     image: postgres:16
-    environment: [POSTGRES_DB=suvtejam, POSTGRES_USER=suvtejam, POSTGRES_PASSWORD=${DB_PASSWORD}]
+    environment: [POSTGRES_DB=agro, POSTGRES_USER=agro, POSTGRES_PASSWORD=${DB_PASSWORD}]
     volumes: [pgdata:/var/lib/postgresql/data]
   backend:
-    build: ./backend
+    build: .
     environment:
       - SPRING_PROFILES_ACTIVE=prod
-      - DB_URL=jdbc:postgresql://db:5432/suvtejam
-      - DB_USERNAME=suvtejam
+      - DB_URL=jdbc:postgresql://db:5432/agro
+      - DB_USERNAME=agro
       - DB_PASSWORD=${DB_PASSWORD}
       - JWT_PRIVATE_KEY=${JWT_PRIVATE_KEY}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}

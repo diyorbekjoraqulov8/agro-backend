@@ -1,6 +1,6 @@
 spring:
   application:
-    name: auth-rbac-starter
+    name: agro
 
   # Lokal sirlar (DB_PASSWORD, ...) — .env.example dan nusxa oling. .env git'ga tushmaydi.
   # Haqiqiy env o'zgaruvchisi .env dagidan ustun turadi.
@@ -8,7 +8,7 @@ spring:
     import: optional:file:.env[.properties]
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/auth_rbac_starter}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/agro}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
@@ -36,7 +36,7 @@ server:
 jwt:
   public-key: classpath:keys/public.pem
   private-key: ${JWT_PRIVATE_KEY:classpath:keys/private.pem}
-  issuer: auth-rbac-starter
+  issuer: agro
   access-token-ttl: 15m
   refresh-token-ttl: 3d
 

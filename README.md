@@ -1,4 +1,4 @@
-# Spring Boot 4 — Auth + RBAC starter
+# Agro — Spring Boot 4 (Auth + RBAC asosida)
 
 `project-v1` dan olingan, **ishlab turgan** auth/RBAC boilerplate.
 Klon qiling, nomini almashtiring, ishlating. Barcha qarorlar va tuzoqlar — **`CLAUDE.md`** da.
@@ -12,7 +12,7 @@ Stack: Spring Boot **4.1.1**, Java **26**, PostgreSQL 16+, Gradle.
 ```bash
 git clone <repo-url> my-app && cd my-app
 
-createdb auth_rbac_starter
+createdb agro
 cp .env.example .env              # DB_USERNAME / DB_PASSWORD
 ./gradlew bootRun
 ```
@@ -35,8 +35,8 @@ Dev foydalanuvchilar, paroli `Parol12345`:
 
 | Nima | Qayerda |
 |---|---|
-| Paket `uz.app.starter` | IntelliJ → *Refactor → Rename*. Keyin `grep -rn "uz.app.starter" src` — `WebConfig` va `application-*.yml` dagi satrlar |
-| Main klass | `StarterApplication` |
+| Paket `uz.app.agro` | IntelliJ → *Refactor → Rename*. Keyin `grep -rn "uz.app.agro" src` — `WebConfig` va `application-*.yml` dagi satrlar |
+| Main klass | `AgroApplication` |
 | Loyiha nomi | `settings.gradle`, `build.gradle` (`description`) |
 | Ilova / baza / issuer | `application.yml` → `spring.application.name`, `DB_URL` default, `jwt.issuer` |
 | Swagger sarlavhasi | `common/config/OpenApiConfig` |
@@ -106,8 +106,8 @@ POST/PUT/DELETE    →  X-XSRF-TOKEN header bilan
 ## Fayl tuzilishi
 
 ```
-src/main/java/uz/app/starter/
-    StarterApplication.java
+src/main/java/uz/app/agro/
+    AgroApplication.java
     common/     BaseEntity, PageResponse, MdcFilter  + config/, exception/
     security/   SecurityConfig, JWT, Session, cookie, brute-force
     auth/       AuthController, AuthService  + dto/
@@ -145,7 +145,7 @@ Paket qoidasi: **package-by-feature**, bitta fayl uchun papka ochilmaydi.
 SPRING_PROFILES_ACTIVE=prod \
 DB_URL=... DB_USERNAME=... DB_PASSWORD=... \
 JWT_PRIVATE_KEY=file:/etc/app/keys/private.pem \
-java -jar build/libs/auth-rbac-starter-0.0.1-SNAPSHOT.jar
+java -jar build/libs/agro-0.0.1-SNAPSHOT.jar
 ```
 
 Prod profilida: dev seed o'qilmaydi, Swagger yopiq, cookie `Secure`, log ECS JSON.

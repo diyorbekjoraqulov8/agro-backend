@@ -6,7 +6,7 @@ plugins {
 
 group = 'uz.app'
 version = '0.0.1-SNAPSHOT'
-description = 'auth-rbac-starter'
+description = 'agro'
 
 java {
     toolchain {

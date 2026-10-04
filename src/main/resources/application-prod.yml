@@ -12,7 +12,7 @@ spring:
 logging:
   level:
     root: INFO
-    uz.app.starter: INFO
+    uz.app.agro: INFO
     org.springframework.security: WARN
   structured:
     format:

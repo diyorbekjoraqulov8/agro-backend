@@ -1,4 +1,4 @@
-# CLAUDE.md — auth-rbac-starter
+# CLAUDE.md — agro
 
 > **project-v1** dan olingan boilerplate: auth + RBAC + production hardening.
 > Unda to'plangan qarorlar, tuzoqlar va ishlaydigan kod bor.
@@ -6,14 +6,14 @@
 
 ## Yangi loyihaga moslashtirish — birinchi qadam
 
-Kod `uz.app.starter` paketida. GitHub'dan klon qilingach:
+Kod `uz.app.agro` paketida. GitHub'dan klon qilingach:
 
-1. **Paket** — IntelliJ: `uz.app.starter` ustida *Refactor → Rename* (yoki `Shift+F6`).
-   `WebConfig` dagi `startsWith("uz.app.starter")` va yml'dagi `logging.level.uz.app.starter`
-   satr bo'lgani uchun refactor ularni topmasligi mumkin — `grep -rn "uz.app.starter" src`.
+1. **Paket** — IntelliJ: `uz.app.agro` ustida *Refactor → Rename* (yoki `Shift+F6`).
+   `WebConfig` dagi `startsWith("uz.app.agro")` va yml'dagi `logging.level.uz.app.agro`
+   satr bo'lgani uchun refactor ularni topmasligi mumkin — `grep -rn "uz.app.agro" src`.
 2. **Nomlar** — `settings.gradle` (`rootProject.name`), `build.gradle` (`description`),
    `application.yml` (`spring.application.name`, baza nomi, `jwt.issuer`),
-   `OpenApiConfig` (sarlavha), main klass `StarterApplication`.
+   `OpenApiConfig` (sarlavha), main klass `AgroApplication`.
 3. **Sirlar** — `cp .env.example .env` va DB ma'lumotlarini yozing.
 4. **RSA kalitlari** — hech narsa qilish shart emas: birinchi build'da Gradle
    `generateJwtKeys` task'i `src/main/resources/keys/` ga yangi juftlik yasaydi.
@@ -77,7 +77,7 @@ Loyiha egasi auth/RBAC ni **project-v1 da to'liq o'rgangan**. Ya'ni:
 paketining o'zida turadi. Alohida papka faqat bir nechta fayl bo'lganda: `dto/`.
 
 ```
-uz.app.starter
+uz.app.agro
 ├── common/          BaseEntity, PageResponse, MdcFilter
 │   ├── config/      WebConfig, JpaAuditingConfig, AuditorConfig, OpenApiConfig
 │   └── exception/   AppException, NotFoundException, ConflictException, GlobalExceptionHandler
@@ -375,7 +375,7 @@ curl -s -o /dev/null    -H 'X-Request-Id: B1' localhost:8081/api/v1/users
 ## 9. ISHGA TUSHIRISH
 
 ```bash
-createdb auth_rbac_starter
+createdb agro
 cp .env.example .env          # DB_USERNAME / DB_PASSWORD ni yozing
 ./gradlew bootRun             # birinchi marta: RSA kalitlari avtomatik yasaladi
 ```
@@ -403,6 +403,6 @@ Dev foydalanuvchilar: `admin@app.co`, `user@app.co`, `manager@app.co`,
 
 ## Kod qayerda
 
-To'liq kod — repo'ning o'zida (`src/main/java/uz/app/starter`). Bu faylda faqat
+To'liq kod — repo'ning o'zida (`src/main/java/uz/app/agro`). Bu faylda faqat
 qarorlar va tuzoqlar; kod nusxasi ataylab yo'q — ikki joyda tursa, biri eskiradi.
 Qarorlar tarixi va 50 ta ADR: `docs/reference/project-v1-roadmap.md`.
