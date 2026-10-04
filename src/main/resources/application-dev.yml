@@ -1,0 +1,20 @@
+spring:
+  # Dev seed foydalanuvchilar (db/seed/R__dev_users.sql) — prodda bu papka o'qilmaydi
+  flyway:
+    locations: classpath:db/migration,classpath:db/seed
+
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+logging:
+  level:
+    uz.app.starter: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+app:
+  cookie:
+    secure: false

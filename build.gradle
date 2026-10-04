@@ -1,0 +1,95 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '4.1.1'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'uz.app'
+version = '0.0.1-SNAPSHOT'
+description = 'auth-rbac-starter'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(26)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    mapstructVersion = '1.6.3'
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    compileOnly 'org.projectlombok:lombok'
+    runtimeOnly 'org.postgresql:postgresql'
+    implementation "org.mapstruct:mapstruct:${mapstructVersion}"
+
+    // Tartib MUHIM: lombok -> lombok-mapstruct-binding -> mapstruct-processor
+    annotationProcessor 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok-mapstruct-binding:0.2.0'
+    annotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
+
+//    Migration
+    implementation 'org.springframework.boot:spring-boot-starter-flyway'
+    implementation 'org.flywaydb:flyway-database-postgresql'
+
+//    OpenApi
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
+
+//    Actuator — /actuator/health (deploy smoke test + DB uzilishini ko'rish)
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+}
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+// ── JWT RSA kalitlari ───────────────────────────────────────────────────────
+// Kalitlar git'da YO'Q (.gitignore). Birinchi build'da shu yerda yasaladi —
+// har bir klon o'z kalitiga ega bo'ladi. Mavjud bo'lsa — tegilmaydi.
+// Qayta yasash: src/main/resources/keys/*.pem ni o'chirib, build qiling
+// (oldingi barcha token'lar yaroqsiz bo'ladi).
+def jwtKeysDir = layout.projectDirectory.dir('src/main/resources/keys')
+
+tasks.register('generateJwtKeys') {
+    group = 'build setup'
+    description = 'JWT uchun RSA-2048 kalit juftligini yasaydi (mavjud bo\'lsa — tegmaydi)'
+
+    def privateKey = jwtKeysDir.file('private.pem').asFile
+    def publicKey  = jwtKeysDir.file('public.pem').asFile
+    onlyIf { !privateKey.exists() || !publicKey.exists() }
+
+    doLast {
+        def generator = java.security.KeyPairGenerator.getInstance('RSA')
+        generator.initialize(2048)
+        def pair = generator.generateKeyPair()
+
+        // X.509 (PUBLIC KEY) va PKCS#8 (PRIVATE KEY) — Spring'ning RsaKeyConverters shu formatni o'qiydi
+        def pem = { String type, byte[] der ->
+            "-----BEGIN ${type}-----\n" +
+                    java.util.Base64.getMimeEncoder(64, '\n'.bytes).encodeToString(der) +
+                    "\n-----END ${type}-----\n"
+        }
+
+        privateKey.parentFile.mkdirs()
+        privateKey.text = pem('PRIVATE KEY', pair.private.encoded)
+        publicKey.text  = pem('PUBLIC KEY',  pair.public.encoded)
+        try {
+            java.nio.file.Files.setPosixFilePermissions(privateKey.toPath(),
+                    java.nio.file.attribute.PosixFilePermissions.fromString('rw-------'))
+        } catch (UnsupportedOperationException ignored) { /* Windows */ }
+
+        logger.lifecycle("JWT RSA kalitlari yasaldi: ${privateKey.parentFile}")
+    }
+}
+
+tasks.named('processResources') {
+    dependsOn 'generateJwtKeys'
+}

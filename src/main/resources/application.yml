@@ -1,0 +1,78 @@
+spring:
+  application:
+    name: auth-rbac-starter
+
+  # Lokal sirlar (DB_PASSWORD, ...) — .env.example dan nusxa oling. .env git'ga tushmaydi.
+  # Haqiqiy env o'zgaruvchisi .env dagidan ustun turadi.
+  config:
+    import: optional:file:.env[.properties]
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/auth_rbac_starter}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+
+  profiles:
+    default: dev
+
+  data:
+    web:
+      pageable:
+        default-page-size: 50
+        max-page-size: 200
+
+server:
+  port: 8081
+  error:
+    include-stacktrace: never
+    include-message: never
+
+jwt:
+  public-key: classpath:keys/public.pem
+  private-key: ${JWT_PRIVATE_KEY:classpath:keys/private.pem}
+  issuer: auth-rbac-starter
+  access-token-ttl: 15m
+  refresh-token-ttl: 3d
+
+app:
+  cookie:
+    secure: true
+    same-site: Strict
+
+  login:
+    max-attempts: 5
+    lock-duration: 15m
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    persist-authorization: true
+    csrf:
+      enabled: true
+      cookie-name: XSRF-TOKEN
+      header-name: X-XSRF-TOKEN
+
+logging:
+  pattern:
+    correlation: "[%X{requestId:-}, %X{userId:-}] "
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true

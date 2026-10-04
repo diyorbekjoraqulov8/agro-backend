@@ -1,0 +1,33 @@
+spring:
+  jpa:
+    show-sql: false
+  datasource:
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 3000
+      max-lifetime: 1200000
+      leak-detection-threshold: 20000
+
+logging:
+  level:
+    root: INFO
+    uz.app.starter: INFO
+    org.springframework.security: WARN
+  structured:
+    format:
+      console: ecs
+
+server:
+  forward-headers-strategy: framework
+  address: 127.0.0.1
+
+app:
+  cookie:
+    secure: true
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
