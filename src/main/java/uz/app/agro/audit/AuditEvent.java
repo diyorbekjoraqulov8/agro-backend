@@ -1,0 +1,18 @@
+package uz.app.agro.audit;
+
+public enum AuditEvent {
+    LOGIN_SUCCESS,
+    LOGIN_FAILURE,
+    ACCOUNT_LOCKED,
+    LOGOUT,
+    SESSION_REVOKED,
+    SESSION_REVOKED_ALL,
+    REFRESH_TOKEN_REUSE,
+    ROLE_CREATED,
+    ROLE_UPDATED,
+    ROLE_DELETED,
+    USER_REGISTERED,
+    USER_DELETED,
+    ROLE_ASSIGNED,
+    ROLE_REVOKED
+}
