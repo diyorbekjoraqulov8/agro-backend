@@ -7,8 +7,7 @@ CREATE TABLE farmers (
     full_name         VARCHAR(160),
     phone             VARCHAR(20),
     language          VARCHAR(5)   NOT NULL DEFAULT 'uz',
-    region            VARCHAR(64),
-    district          VARCHAR(64),
+    country_code      VARCHAR(2),     -- ISO 3166-1 alpha-2, poligondan (Python)
     main_crop         VARCHAR(32),
     irrigation_type   VARCHAR(32),   -- FURROW, DRIP, SPRINKLER, OTHER
     water_source      VARCHAR(32),   -- CANAL, OWN_PUMP, WELL, OTHER

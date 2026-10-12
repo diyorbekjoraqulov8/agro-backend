@@ -149,3 +149,9 @@ java -jar build/libs/agro-0.0.1-SNAPSHOT.jar
 ```
 
 Prod profilida: dev seed o'qilmaydi, Swagger yopiq, cookie `Secure`, log ECS JSON.
+
+[//]: # (Docker)
+docker compose up -d
+
+[//]: # (Vercel)
+npx vercel deploy --prod

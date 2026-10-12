@@ -21,6 +21,27 @@ public final class Permissions {
     public static final String ANALYSIS_READ = "analysis:read";
     public static final String ANALYSIS_RUN  = "analysis:run";
 
+    public static final String BILLING_READ   = "billing:read";
+    public static final String BILLING_MANAGE = "billing:manage";
+
+    public static final String FEEDBACK_READ  = "feedback:read";
+    public static final String FEEDBACK_REPLY = "feedback:reply";
+    public static final String FEEDBACK_MANAGE = "feedback:manage";
+
+    public static final String FILE_READ   = "file:read";
+    public static final String FILE_UPLOAD = "file:upload";
+    public static final String FILE_MANAGE = "file:manage";
+
+    public static final String SETTINGS_READ   = "settings:read";
+    public static final String SETTINGS_MANAGE = "settings:manage";
+    public static final String REFERRAL_READ   = "referral:read";
+
+    public static final String ONBOARDING_READ   = "onboarding:read";
+    public static final String ONBOARDING_MANAGE = "onboarding:manage";
+
+    public static final String NOTIFICATION_READ = "notification:read";
+    public static final String NOTIFICATION_SEND = "notification:send";
+
     public static final String CAN_READ_USER   = "hasAuthority('" + USER_READ + "')";
     public static final String CAN_CREATE_USER = "hasAuthority('" + USER_CREATE + "')";
     public static final String CAN_UPDATE_USER = "hasAuthority('" + USER_UPDATE + "')";
@@ -39,6 +60,27 @@ public final class Permissions {
     public static final String CAN_READ_FIELD    = "hasAuthority('" + FIELD_READ + "')";
     public static final String CAN_READ_ANALYSIS = "hasAuthority('" + ANALYSIS_READ + "')";
     public static final String CAN_RUN_ANALYSIS  = "hasAuthority('" + ANALYSIS_RUN + "')";
+
+    public static final String CAN_READ_BILLING   = "hasAuthority('" + BILLING_READ + "')";
+    public static final String CAN_MANAGE_BILLING = "hasAuthority('" + BILLING_MANAGE + "')";
+
+    public static final String CAN_READ_FEEDBACK  = "hasAuthority('" + FEEDBACK_READ + "')";
+    public static final String CAN_REPLY_FEEDBACK = "hasAuthority('" + FEEDBACK_REPLY + "')";
+    public static final String CAN_MANAGE_FEEDBACK = "hasAuthority('" + FEEDBACK_MANAGE + "')";
+
+    public static final String CAN_READ_FILE   = "hasAuthority('" + FILE_READ + "')";
+    public static final String CAN_UPLOAD_FILE = "hasAuthority('" + FILE_UPLOAD + "')";
+    public static final String CAN_MANAGE_FILE = "hasAuthority('" + FILE_MANAGE + "')";
+
+    public static final String CAN_READ_SETTINGS   = "hasAuthority('" + SETTINGS_READ + "')";
+    public static final String CAN_MANAGE_SETTINGS = "hasAuthority('" + SETTINGS_MANAGE + "')";
+    public static final String CAN_READ_REFERRAL   = "hasAuthority('" + REFERRAL_READ + "')";
+
+    public static final String CAN_READ_ONBOARDING   = "hasAuthority('" + ONBOARDING_READ + "')";
+    public static final String CAN_MANAGE_ONBOARDING = "hasAuthority('" + ONBOARDING_MANAGE + "')";
+
+    public static final String CAN_READ_NOTIFICATION = "hasAuthority('" + NOTIFICATION_READ + "')";
+    public static final String CAN_SEND_NOTIFICATION = "hasAuthority('" + NOTIFICATION_SEND + "')";
 
     private Permissions() {}
 }

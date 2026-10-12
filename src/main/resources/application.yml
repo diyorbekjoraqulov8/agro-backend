@@ -21,6 +21,23 @@ spring:
   profiles:
     default: dev
 
+  # Fayl yuklash (chatga rasm/PDF). app.files.max-size bilan bir xil bo'lsin; oshsa — 413
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+
+  # @Scheduled thread'lari. Default 1 — sug'orish aylanishi (ko'p dala) tugaguncha tahlil worker'i kutib qolardi
+  task:
+    scheduling:
+      pool:
+        size: 4
+
+  # Bot matnlari (en — asosiy, uz, ru)
+  messages:
+    basename: bot/messages
+    fallback-to-system-locale: false   # server tili (masalan ru) noma'lum tilga tushib qolmasin
+
   data:
     web:
       pageable:
@@ -41,6 +58,10 @@ jwt:
   refresh-token-ttl: 3d
 
 app:
+  # Fayllar serverdagi papkada; DB'da — metadata va papkaga NISBIY yo'l. Prod'da — backup qilinadigan disk/volume
+  files:
+    dir: ${FILES_DIR:storage/files}
+    max-size: 10MB
   cookie:
     secure: true
     same-site: Strict
@@ -48,6 +69,40 @@ app:
   login:
     max-attempts: 5
     lock-duration: 15m
+
+# Python sun'iy yo'ldosh xizmati (satellite-service/). Faqat ichki tarmoq
+satellite:
+  base-url: ${SATELLITE_URL:http://localhost:8090}
+  internal-key: ${SATELLITE_INTERNAL_KEY}   # default YO'Q — Python'dagi INTERNAL_KEY bilan bir xil
+  connect-timeout: 5s
+  read-timeout: 150s                        # birlik MAJBURIY: 150 = 150 ms (CLAUDE.md 5.5)
+
+# Tahlil navbati (analysis_jobs) — worker Python satellite-service'ni chaqiradi
+analysis:
+  worker:
+    enabled: ${ANALYSIS_WORKER_ENABLED:true}
+    poll-interval: 10s
+    batch-size: 2
+    max-attempts: 3
+    retry-base: 2m          # 2, 4, 8 daqiqa
+    stuck-after: 10m        # RUNNING'da shundan ortiq — ilova o'chgan, navbatga qaytariladi
+
+# Sug'orish eslatmasi — har soat; dala MAHALLIY vaqti bo'yicha soat {hour} dan keyin, kuniga bir marta (global)
+irrigation:
+  reminders:
+    enabled: ${IRRIGATION_REMINDERS_ENABLED:true}
+    hour: 7
+    cron: "0 5 * * * *"
+
+# Telegram bot (long polling). Xavfsiz default — o'chiq; dev'da application-dev.yml yoqadi.
+# Bitta token bilan FAQAT bitta jarayon poll qilsin (IntelliJ + terminal = 409 Conflict)
+telegram:
+  enabled: ${TELEGRAM_ENABLED:false}
+  polling: ${TELEGRAM_POLLING:true}    # false — faqat yuboradi (2-instans, sinov)
+  bot-token: ${TELEGRAM_BOT_TOKEN:}
+  miniapp-url: ${MINIAPP_URL:}
+  support-chat-id: ${TELEGRAM_SUPPORT_CHAT_ID:}   # ixtiyoriy: yangi murojaatlar xodimlar guruhiga
+  public-api-url: ${PUBLIC_API_URL:}              # ixtiyoriy: https://api.example.uz — onboarding oxiridagi inline "🗺" tugmasi
 
 springdoc:
   api-docs:

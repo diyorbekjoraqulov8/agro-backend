@@ -39,3 +39,6 @@ out/
 ### Sirlar — HECH QACHON commit qilinmaydi ###
 src/main/resources/keys/
 .env
+
+### Yuklangan fayllar (app.files.dir) — foydalanuvchi ma'lumoti, commit qilinmaydi ###
+/storage/

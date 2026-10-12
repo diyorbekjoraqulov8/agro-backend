@@ -1,5 +1,6 @@
 package uz.app.agro.security;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.health.actuate.endpoint.HealthEndpoint;
 import org.springframework.boot.security.autoconfigure.actuate.web.servlet.EndpointRequest;
 import org.springframework.context.annotation.Bean;
@@ -16,6 +17,12 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.net.URI;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -49,6 +56,50 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .headers(SecurityConfig::securityHeaders);
         return http.build();
+    }
+
+    /**
+     * Telegram Mini App → server. Auth — initData imzosi (controller'da tekshiriladi), cookie/JWT YO'Q →
+     * CSRF kerak emas va oauth2ResourceServer qo'yilmaydi. CORS — faqat Mini App domeni (ADR #25 istisnosi:
+     * Mini App Vercel'da, boshqa origin; cookie yuborilmaydi, allowCredentials=false).
+     */
+    @Bean
+    @Order(1)
+    public SecurityFilterChain miniAppChain(HttpSecurity http,
+                                            @Value("${telegram.miniapp-url:}") String miniappUrl) throws Exception {
+        http
+                .securityMatcher("/api/v1/miniapp/**")
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(c -> c.configurationSource(miniAppCors(miniappUrl)))
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                .headers(SecurityConfig::securityHeaders);
+        return http.build();
+    }
+
+    private static CorsConfigurationSource miniAppCors(String miniappUrl) {
+        CorsConfiguration c = new CorsConfiguration();
+        String origin = origin(miniappUrl);
+        if (origin != null) c.setAllowedOrigins(List.of(origin));
+        c.setAllowedMethods(List.of("POST"));
+        c.setAllowedHeaders(List.of("Content-Type"));
+        c.setAllowCredentials(false);
+        c.setMaxAge(3600L);
+        UrlBasedCorsConfigurationSource src = new UrlBasedCorsConfigurationSource();
+        src.registerCorsConfiguration("/**", c);
+        return src;
+    }
+
+    /** "https://agro.vercel.app/path?x" → "https://agro.vercel.app"; bo'sh/noto'g'ri — null (CORS yopiq) */
+    static String origin(String url) {
+        if (url == null || url.isBlank()) return null;
+        try {
+            URI u = URI.create(url.strip());
+            if (u.getScheme() == null || u.getHost() == null) return null;
+            return u.getScheme() + "://" + u.getHost() + (u.getPort() > 0 ? ":" + u.getPort() : "");
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     @Bean

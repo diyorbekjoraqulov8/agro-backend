@@ -8,4 +8,3 @@ public class ConflictException extends AppException{
     }
 }
 
-//BadRequestException, ForbiddenException ham yozish kerak

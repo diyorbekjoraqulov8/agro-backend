@@ -8,9 +8,7 @@ CREATE TABLE analysis_jobs (
     season_end   DATE         NOT NULL,
     attempts     INT          NOT NULL DEFAULT 0,
     next_try_at  TIMESTAMP(6) NOT NULL DEFAULT now(),
-    result       JSONB,          -- rasmlar SIZ
-    map_png      BYTEA,
-    chart_png    BYTEA,
+    result       JSONB,          -- rasmlar SIZ (analysis_images da)
     error        VARCHAR(500),
     started_at   TIMESTAMP(6),
     finished_at  TIMESTAMP(6),
@@ -29,3 +27,14 @@ CREATE INDEX idx_analysis_queue   ON analysis_jobs (next_try_at) WHERE status = 
 -- Ilova o'chib qolganda RUNNING'da qotgan job'larni qaytarish uchun
 CREATE INDEX idx_analysis_running ON analysis_jobs (started_at)  WHERE status = 'RUNNING';
 CREATE INDEX idx_analysis_field   ON analysis_jobs (field_id, created_date DESC);
+
+-- Rasmlar alohida jadvalda: @Basic(fetch = LAZY) bytecode enhancement'siz ishlamaydi,
+-- bitta jadvalda bo'lsa har job ro'yxati rasm baytlarini ham yuklardi
+CREATE TABLE analysis_images (
+    job_id    BIGINT NOT NULL,
+    map_png   BYTEA  NOT NULL,
+    chart_png BYTEA  NOT NULL,
+
+    CONSTRAINT pk_analysis_images PRIMARY KEY (job_id),
+    CONSTRAINT fk_analysis_images_job FOREIGN KEY (job_id) REFERENCES analysis_jobs (id)
+);

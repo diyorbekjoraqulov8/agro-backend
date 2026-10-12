@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#137d41">
+  <title>Agro — dala chegarasi</title>
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="style.css?v=9">
+  <!-- Telegram SDK: telegram.org o'zi yangilaydi — SRI qo'yib bo'lmaydi -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="vendor/leaflet/leaflet.js"></script>
+</head>
+<body>
+  <div id="map"></div>
+
+  <!-- Yuqori: qidiruv qatori (bosilsa — qidiruv oynasi) va tanlangan hudud -->
+  <div class="topbar">
+    <button id="searchBar" class="searchbar" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 3a7.5 7.5 0 0 1 5.96 12.06l4.24 4.24-1.4 1.4-4.24-4.24A7.5 7.5 0 1 1 10.5 3Zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Z"/></svg>
+      <span id="searchBarText"></span>
+    </button>
+    <div id="placeChip" class="chip" hidden>
+      <span class="chip-pin">📍</span>
+      <span class="chip-text"><b id="chipTitle"></b><small id="chipSub"></small></span>
+      <button id="chipClear" class="chip-x" type="button" aria-label="clear">✕</button>
+    </div>
+    <div id="steps" class="steps"></div>
+  </div>
+
+  <div class="tools">
+    <button id="locate" class="round" type="button" aria-label="my location">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Zm-1-7h2v3.06A8 8 0 0 1 19.94 11H23v2h-3.06A8 8 0 0 1 13 19.94V23h-2v-3.06A8 8 0 0 1 4.06 13H1v-2h3.06A8 8 0 0 1 11 4.06V1Zm1 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12Z"/></svg>
+    </button>
+    <button id="undo" class="round" type="button" disabled aria-label="undo">↶</button>
+    <button id="clear" class="round" type="button" disabled aria-label="clear">✕</button>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <!-- Pastki panel: dala nomi, ekin, maydon -->
+  <footer class="panel bottom">
+    <p id="hint" class="hint"></p>
+    <div class="row">
+      <input id="name" maxlength="60" autocomplete="off">
+      <select id="crop" aria-label="crop"></select>
+    </div>
+    <div id="area"></div>
+    <div id="error" class="error" hidden></div>
+    <!-- Telegram tashqarisida (brauzerda sinash) — MainButton o'rniga -->
+    <button id="fallback" class="primary" type="button" hidden></button>
+    <pre id="debug" hidden></pre>
+  </footer>
+
+  <!-- Qidiruv oynasi: xarita ustida, ochilganda birinchi ko'rinadi -->
+  <div id="sheet" class="sheet-wrap" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+      <div class="grab"></div>
+      <div class="sheet-head">
+        <div>
+          <h2 id="sheetTitle"></h2>
+          <p id="sheetSub"></p>
+        </div>
+        <button id="sheetClose" class="icon-btn" type="button" aria-label="close">✕</button>
+      </div>
+
+      <div class="search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 3a7.5 7.5 0 0 1 5.96 12.06l4.24 4.24-1.4 1.4-4.24-4.24A7.5 7.5 0 1 1 10.5 3Zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Z"/></svg>
+        <input id="q" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <span id="qSpin" class="spin" hidden></span>
+        <button id="qClear" class="q-x" type="button" hidden aria-label="clear">✕</button>
+      </div>
+
+      <button id="myLoc" class="btn-loc" type="button">
+        <span class="loc-ico">◎</span>
+        <span><b id="myLocTitle"></b><small id="myLocSub"></small></span>
+      </button>
+
+      <div id="results" class="results" role="listbox"></div>
+      <p id="empty" class="empty" hidden></p>
+
+      <button id="manual" class="link" type="button"></button>
+      <p class="attr">© OpenStreetMap · Photon</p>
+    </div>
+  </div>
+
+  <script src="app.js?v=13"></script>
+</body>
+</html>

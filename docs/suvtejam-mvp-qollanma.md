@@ -12,7 +12,8 @@
 ## 0. MVP nima qiladi — bir qarashda
 
 1. Fermer Telegram agro-kanaldagi reklamadan botga keladi (`/start kanal1`).
-2. 3-4 savol: viloyat, ekin, sug'orish usuli, suv manbai.
+2. 3 savol: ekin, sug'orish usuli, suv manbai. Joylashuv so'ralmaydi — u poligondan aniqlanadi
+   (xizmat **global**, mamlakat ro'yxati yo'q).
 3. Mini App'da (bot ichidagi xarita) dala chegarasini barmog'i bilan chizadi.
 4. Bot "tahlil qilinmoqda" deydi, 1-2 daqiqadan keyin hisobot yuboradi:
    maydon, zonalar xaritasi (yaxshi / o'rta / zaif), mavsum grafigi, suv stressi davrlari,
@@ -104,16 +105,25 @@ agro/                            ← Gradle loyiha ildizi (Java backend)
 │   ├── field/       FieldEntity, FieldService, FieldController
 │   ├── analysis/    AnalysisJob, AnalysisWorker, AnalysisService, AnalysisController
 │   ├── satellite/   SatelliteClient, SatelliteProperties, dto/
+│   ├── stats/       StatsController, StatsService, StatsRepository (admin dashboard)
 │   └── bot/         BotConfig, BotUpdateHandler, BotStateService, BotMessages, keyboards/
 ├── satellite-service/           ← Python (Gradle unga tegmaydi)
 │   ├── app/main.py  app/analysis.py  app/weather.py  app/render.py  app/schemas.py
 │   ├── requirements.txt
 │   └── Dockerfile
-├── miniapp/
-│   └── index.html               ← poligon chizish sahifasi (static)
-├── docker-compose.yml
+├── miniapp/                     ← Vercel: index.html, app.js, style.css, vendor/leaflet, vercel.json
+├── admin/                       ← admin panel: Vue 3 + TS + Vite + Tailwind 4 + shadcn-vue (admin/README.md)
+├── compose.yaml                 ← dev: satellite (prod — S10)
 └── docs/
 ```
+
+**Yangi xizmat qo'shilsa** (masalan `notification-service`): ildizda `<nom>-service/` papka,
+o'z `Dockerfile`i bilan, `compose.yaml` ga yangi `services:` bloki. `src/main/` — faqat Java
+(Gradle source set), boshqa tildagi kod u yerga qo'yilmaydi.
+
+**Dev'da ishga tushirish:** `docker compose up -d --build` — Python xizmati Docker'da,
+kalit root `.env` dagi `SATELLITE_INTERNAL_KEY` dan (Java bilan avtomatik bir xil).
+Java va PostgreSQL — kompyuterda (`./gradlew bootRun`).
 
 Skeletdagi qoida saqlanadi: **package-by-feature**, har feature ichida
 `XController`, `XService`, `XRepository`; papka faqat fayl ko'payganda (`dto/`).
@@ -132,11 +142,11 @@ faza oxirida.
 | **S2** | Flyway V6–V10: farmers, fields, analysis_jobs, bot_states, huquqlar | Migratsiyalar toza bazada o'tadi |
 | **S3** | Java entity/repo/service (farmer, field, analysis) | `ddl-auto: validate` xatosiz |
 | **S4** | `satellite/`: `SatelliteClient` + properties | Java'dan Python'ga so'rov o'tadi |
-| **S5** | `bot/`: long polling, `/start`, 4 savol | Bot savollarni beradi, javoblar `farmers` da |
-| **S6** | Mini App + poligon qabul qilish | `fields` da GeoJSON va maydon |
-| **S7** | `AnalysisWorker` + hisobot yuborish | Fermer botda rasm va matn oladi |
+| **S5** ✅ | `bot/`: long polling, `/start`, 3 savol, uz/ru/en | Bot savollarni beradi, javoblar `farmers` da |
+| **S6** ✅ | Mini App (Vercel) + poligon qabul qilish | `fields` da GeoJSON va maydon |
+| **S7** ✅ | `AnalysisWorker` + hisobot yuborish | Fermer botda rasm va matn oladi |
 | **S8** | 2-qism savollar + "Bog'laning" → lead | `farmers.lead_status = REQUESTED`, audit yozuvi |
-| **S9** | Xodimlar API'si (`@PreAuthorize`) | AGRONOM ko'radi, USER 403 oladi |
+| **S9** ✅ | Xodimlar (admin panel) API'si (`@PreAuthorize`) | AGRONOMIST ko'radi, USER 403 oladi |
 | **S10** | Docker Compose + deploy | Serverda hammasi ishlaydi |
 | **S11** | Pilot: 5-10 tanish fermer, keyin reklama | Real dalalarda xatolar ro'yxati |
 
@@ -200,30 +210,40 @@ Java va Python o'rtasidagi kelishuv — **o'zgartirsangiz ikkala tomonda o'zgart
 }
 ```
 
-Javob `200`:
+Javob `200` (haqiqiy javob, Argentina test dalasi, `timeseries` va rasmlar qisqartirilgan):
 
 ```json
 {
-  "area_ha": 12.41,
-  "scenes_used": 23,
-  "scenes_rejected_cloud": 7,
-  "zones": { "good_pct": 64.2, "mid_pct": 20.9, "weak_pct": 14.9 },
-  "peak_ndvi": 0.71,
-  "peak_date": "2026-08-02",
-  "prev_year_peak_ndvi": 0.77,
-  "stress_periods": [ { "from": "2026-07-18", "to": "2026-08-01", "zone": "south" } ],
-  "et0_sum_mm": 912.4,
-  "etc_sum_mm": 768.0,
-  "water_need_m3_ha": 7680,
-  "timeseries": [ { "date": "2026-05-03", "ndvi": 0.21, "ndmi": -0.05 } ],
-  "recommendations": [ "Janubiy qism 2 hafta suv stressida bo'lgan: sug'orish oralig'ini qisqartiring" ],
+  "field_id": 2,
+  "area_ha": 20.53,
+  "country_code": "AR",
+  "centroid_lat": -33.898, "centroid_lon": -60.5975,
+  "scenes_used": 34, "scenes_rejected_cloud": 10,
+  "zones": { "good_pct": 59.5, "mid_pct": 12.7, "weak_pct": 27.7, "weak_side": "E" },
+  "peak_ndvi": 0.654, "peak_date": "2026-04-10",
+  "prev_year_peak_ndvi": 0.74,
+  "growing_season": { "from": "2026-02-24", "to": "2026-05-10" },
+  "stress_periods": [],
+  "water": { "et0_sum_mm": 237.3, "etc_sum_mm": 168.8, "effective_rain_mm": 140.8,
+             "irrigation_need_m3_ha": 280, "irrigation_need_low_m3_ha": 200, "irrigation_need_high_m3_ha": 300 },
+  "timeseries": [ { "date": "2025-11-01", "ndvi": 0.621, "ndmi": 0.18 } ],
+  "recommendations": [ { "code": "WEAK_ZONE", "params": { "weak_pct": 27.7, "side": "E" } },
+                       { "code": "BELOW_LAST_YEAR", "params": { "pct": 12 } } ],
   "map_png_base64": "...",
   "chart_png_base64": "..."
 }
 ```
 
-Xatolar: `422` — poligon yaroqsiz (o'z-o'zini kesadi, juda kichik/katta, O'zbekistondan tashqarida);
-`404` — mavsumda yaroqli surat topilmadi; `502` — Earth Search / Open-Meteo javob bermadi.
+- **Tavsiyalar — kod + parametr, matn EMAS.** Xizmat global: matnni Java fermer tilida
+  (`farmers.language`) yasaydi. Kodlar: `WATER_STRESS`, `WEAK_ZONE`, `BELOW_LAST_YEAR`,
+  `FIELD_UNIFORM`, `LOW_CONFIDENCE`, `NO_CROP_DETECTED`.
+- **Rasmlarda matn yo'q** (faqat raqam, rang, masshtab) — har tilda ishlaydi.
+- `growing_season` va `water` — `null` bo'lishi mumkin (ekin topilmadi: shudgor, yalang'och yer).
+- `weak_side`: `N, NE, E, SE, S, SW, W, NW, CENTER` yoki `null`.
+
+Xatolar — `{"code": "...", "params": {...}}`:
+`422` — poligon yaroqsiz (`SELF_INTERSECTING`, `AREA_TOO_SMALL`, `AREA_TOO_LARGE`, `TOO_MANY_VERTICES`,
+`OUT_OF_RANGE`, `CROSSES_ANTIMERIDIAN`, ...); `404` — `NO_SCENES`; `502` — `UPSTREAM` (Earth Search / Open-Meteo).
 Java `422` va `404` ni fermerga tushunarli xabarga aylantiradi, `502` da qayta urinadi.
 
 ### S1.3 Poligon validatsiyasi (birinchi qilinadigan ish)
@@ -233,14 +253,21 @@ Java `422` va `404` ni fermerga tushunarli xabarga aylantiradi, `502` da qayta u
 | `shapely` `is_valid` | majburiy | O'z-o'zini kesgan poligonda maydon noto'g'ri |
 | Maydon | 0,5 – 500 ga | 0,5 ga dan kichigida piksel juda kam (10 m piksel → 1 ga = 100 piksel) |
 | Uchlar soni | ≤ 200 | `sendData` 4096 bayt chegarasi |
-| Joylashuv | O'zbekiston bbox: lon 55.9–73.2, lat 37.1–45.6 | Tasodifiy/xato nuqtalar |
+| Koordinatalar | lon −180…180, lat −60…75 | Xato nuqtalar. Sentinel-2 qishloq xo'jaligi hududlarini shu oraliqda qamraydi |
+| Antimeridian | poligon 180° ni kesib o'tmasin | `shapely` va `odc-stac` bbox noto'g'ri bo'ladi; MVP'da rad etish yetarli |
 
-Maydonni **UTM proyeksiyasida** hisoblang (graduslarda emas). O'zbekiston 41N va 42N zonalarida:
+Maydonni **UTM proyeksiyasida** hisoblang (graduslarda emas). Zona dala markazidan,
+yarim shar kenglikdan aniqlanadi:
 
 ```python
 def utm_epsg(lon: float, lat: float) -> int:
-    return 32600 + int((lon + 180) // 6) + 1   # shimoliy yarim shar
+    zone = int((lon + 180) // 6) % 60 + 1          # lon = 180 da 61 bo'lib ketmasin
+    return (32600 if lat >= 0 else 32700) + zone   # 326xx — shimol, 327xx — janub
 ```
+
+**Mamlakat:** Python poligon markazini Natural Earth chegaralari (`ne_10m_admin_0_countries`,
+xizmat ichida fayl sifatida) bilan solishtirib `country_code` (ISO 3166-1 alpha-2) qaytaradi.
+Tashqi geocoding API'si kerak emas, kvota va kalit yo'q.
 
 ### S1.4 Asosiy tahlil — `app/analysis.py`
 
@@ -333,7 +360,7 @@ Open-Meteo arxivdan kunlik `et0_fao_evapotranspiration` (mm) ni olasiz:
 ```
 https://archive-api.open-meteo.com/v1/archive?latitude=41.21&longitude=69.21
   &start_date=2026-04-15&end_date=2026-09-30
-  &daily=et0_fao_evapotranspiration,precipitation_sum&timezone=Asia/Tashkent
+  &daily=et0_fao_evapotranspiration,precipitation_sum&timezone=auto
 ```
 
 `ETc = ET0 × Kc`. MVP'da Kc — FAO-56 jadvalidan, ekin bosqichlari bo'yicha
@@ -378,23 +405,35 @@ def analyze(req: AnalyzeRequest, x_internal_key: str | None = Header(default=Non
 ```
 
 `def` (async emas) qoldiring — raster ishi CPU va bloklovchi I/O, FastAPI uni thread
-pool'da ishlatadi. `uvicorn app.main:app --host 0.0.0.0 --port 8090 --workers 2`.
+pool'da ishlatadi. Joriy va o'tgan yil **parallel** yuklanadi (`ThreadPoolExecutor`) — vaqt ~2 barobar qisqaradi.
+
+Ishga tushirish — `python -m app.serve` (uvicorn'ni to'g'ridan-to'g'ri EMAS):
+
+> ⚠️ **`uvicorn --workers N` fail-fast'ni yutib yuboradi.** Asosiy jarayon yiqilgan worker'ni
+> qayta-qayta ko'taradi: `INTERNAL_KEY` yo'q bo'lsa konteyner o'lmaydi, osilib turadi (sinovda
+> 8 daqiqa). `app/serve.py` ilovani worker'lardan oldin import qiladi → xato bo'lsa exit 1.
 
 ### S1 — Tekshirish
 
 ```bash
-export INTERNAL_KEY=dev-key
-uvicorn app.main:app --port 8090 &
+cd satellite-service
+python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python -m app.geometry                  # mamlakat chegaralari → data/ (bir marta)
+export INTERNAL_KEY=dev-key-0123456789abcdef       # kamida 16 belgi
+.venv/bin/python -m app.serve &
 curl -s localhost:8090/health
 curl -s -o /tmp/r.json -w "%{http_code} %{time_total}s\n" -X POST localhost:8090/analyze \
-  -H 'Content-Type: application/json' -H 'X-Internal-Key: dev-key' -d @test/field1.json
-jq '{area_ha, scenes_used, zones, peak_ndvi}' /tmp/r.json
+  -H 'Content-Type: application/json' -H "X-Internal-Key: $INTERNAL_KEY" -d @test/uz-mirzachul.json
+jq '{area_ha, country_code, scenes_used, zones, growing_season, recommendations}' /tmp/r.json
 jq -r .map_png_base64 /tmp/r.json | base64 -d > /tmp/map.png   # oching va Copernicus Browser bilan solishtiring
 curl -s -o /dev/null -w "%{http_code}\n" -X POST localhost:8090/analyze -H 'X-Internal-Key: xato' -d '{}'   # 401
 ```
 
 Kutilgan: `area_ha` geojson.io dagi maydonga ±2% mos; zaif zonalar Copernicus Browser'da
 ko'rgan joyingizga to'g'ri keladi; vaqt 90 s dan kam.
+
+2026-10-11 dagi o'lchov (Toshkent, laptop): Mirzacho'l 18,8 ga — 61 s (94 sahna/yil),
+Argentina 20,5 ga — 26 s; Docker'da 35 s. Test fayllari: `satellite-service/test/`.
 
 ---
 
@@ -414,8 +453,7 @@ CREATE TABLE farmers (
     full_name        VARCHAR(160),
     phone            VARCHAR(20),
     language         VARCHAR(5)   NOT NULL DEFAULT 'uz',
-    region           VARCHAR(64),
-    district         VARCHAR(64),
+    country_code     VARCHAR(2),     -- ISO 3166-1 alpha-2, poligondan (Python)
     main_crop        VARCHAR(32),
     irrigation_type  VARCHAR(32),   -- FURROW, DRIP, SPRINKLER, OTHER
     water_source     VARCHAR(32),   -- CANAL, OWN_PUMP, WELL, OTHER
@@ -469,9 +507,7 @@ CREATE TABLE analysis_jobs (
     season_end    DATE         NOT NULL,
     attempts      INT          NOT NULL DEFAULT 0,
     next_try_at   TIMESTAMP(6) NOT NULL DEFAULT now(),
-    result        JSONB,          -- rasmlar SIZ (rasm — alohida ustunda)
-    map_png       BYTEA,
-    chart_png     BYTEA,
+    result        JSONB,          -- rasmlar SIZ (analysis_images da)
     error         VARCHAR(500),
     started_at    TIMESTAMP(6),
     finished_at   TIMESTAMP(6),
@@ -575,8 +611,11 @@ u allaqachon Boot 4 da ishlashi tekshirilgan.
 ### S3.4 `AnalysisJob` — `BaseEntity` dan **meros olmaydi**
 
 `deleted` ustuni yo'q. `id`, `createdDate`, `updatedDate` ni o'zida e'lon qiling
-(`AuditLog` namunasiga qarang). `map_png`/`chart_png` → `byte[]` + `@Basic(fetch = LAZY)`
-(ro'yxatda rasm baytlari yuklanmasin).
+(`AuditLog` namunasiga qarang). Rasmlar — **alohida `analysis_images` jadvali** va
+`AnalysisImage` entity (bog'lanishsiz, `findById(jobId)`).
+
+> ⚠️ `@Basic(fetch = LAZY)` Hibernate **bytecode enhancement**'siz jimgina e'tiborsiz qoladi —
+> rasm baytlari har job bilan yuklanardi. Skeletda enhancement yo'q, shuning uchun jadval ajratildi.
 
 ### S3.5 Navbatdan olish — `AnalysisJobRepository`
 
@@ -636,279 +675,552 @@ public record SatelliteProperties(
 ) {}
 ```
 
-### S4.2 Klient
+### S4.2 Klient — `satellite/SatelliteClient`
 
-```java
-@Component
-public class SatelliteClient {
+Kod: `src/main/java/uz/app/agro/satellite/`. Asosiy qarorlar:
 
-    private final RestClient rest;
+- `RestClient` + `JdkClientHttpRequestFactory` (Spring Framework 7.0.9 da tekshirilgan).
+- **`HttpClient.Version.HTTP_1_1` MAJBURIY** (pastdagi tuzoq).
+- Xatolar ikki turga bo'linadi — worker (S7) shunga qarab qaror qiladi:
 
-    public SatelliteClient(SatelliteProperties props) {
-        var factory = new JdkClientHttpRequestFactory(
-                HttpClient.newBuilder().connectTimeout(props.connectTimeout()).build());
-        factory.setReadTimeout(props.readTimeout());
-        this.rest = RestClient.builder()
-                .baseUrl(props.baseUrl())
-                .defaultHeader("X-Internal-Key", props.internalKey())
-                .requestFactory(factory)
-                .build();
-    }
+| Python javobi | Java exception | Worker |
+|---|---|---|
+| `422`, `404` → `{"code","params"}` | `SatelliteRejectedException` (`status`, `code`, `params`) | `FAILED`, fermerga xabar, qayta urinmaydi |
+| `401` (kalit mos emas) | `SatelliteUnavailableException` + `log.error` | qayta urinadi; 3 dan keyin `FAILED` |
+| `5xx`, ulanib bo'lmadi, timeout | `SatelliteUnavailableException` | qayta urinadi |
 
-    public AnalyzeResponse analyze(AnalyzeRequest req) {
-        return rest.post().uri("/analyze")
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(req)
-                .retrieve()
-                .onStatus(s -> s.value() == 422, (rq, rs) -> { throw new SatelliteRejectedException("INVALID_POLYGON"); })
-                .onStatus(s -> s.value() == 404, (rq, rs) -> { throw new SatelliteRejectedException("NO_SCENES"); })
-                .body(AnalyzeResponse.class);
-    }
-}
-```
+> ⚠️ **Boot 4 = Jackson 3.** Databind — `tools.jackson.databind.*` (`@JsonNaming`,
+> `PropertyNamingStrategies`, `JsonMapper`), annotatsiyalar esa eski paketda qoldi —
+> `com.fasterxml.jackson.annotation.*` (`@JsonProperty`, `@JsonIgnoreProperties`).
+> Internetdagi `com.fasterxml.jackson.databind` misollari kompilyatsiya bo'lmaydi.
 
-`AnalyzeRequest`/`AnalyzeResponse` — `record`, maydon nomlari Python bilan **snake_case**
-(`@JsonProperty("area_ha")` yoki Jackson'da `SNAKE_CASE` strategiyasini faqat shu klient
-uchun sozlang — global qilmang, skeletdagi API'lar camelCase).
+DTO'lar (`satellite/dto/`) — `record`, `@JsonNaming(SnakeCaseStrategy)` **faqat shu
+DTO'larda** (global sozlansa skeletning camelCase API'lari buzilardi). Rasmlar — `byte[]`:
+Jackson base64 satrni o'zi ochadi. `@JsonIgnoreProperties(ignoreUnknown = true)` — Python
+yangi maydon qo'shsa Java yiqilmaydi.
 
-> ⚠️ `JdkClientHttpRequestFactory` va `RestClient` Spring Framework 7 da bor, lekin
-> import yo'llari va metod nomlarini IDE'da tekshiring — skelet 1-bo'limidagi
-> "Boot 4 API'ga ishonchsiz bo'lsang — ayt" qoidasi.
+> 🔴 **Tuzoq: JDK `HttpClient` default HTTP/2.** U `Upgrade: h2c` header'i va chunked tana
+> yuboradi; uvicorn h2c ni qo'llamaydi va tanani **bo'sh** ko'radi → har so'rov jimgina `422`.
+> Xato xabari yo'q — faqat so'rovni ushlab ko'rib topildi.
 
 ### S4 — Tekshirish
 
-Vaqtincha `CommandLineRunner` (dev profilda) bilan bitta test poligon yuboring, log'da
-`area_ha` chiqsin. Keyin runner'ni o'chiring.
+Vaqtincha `CommandLineRunner` (`@ConditionalOnProperty("satellite.smoke")`) bilan sinalgan, keyin o'chirilgan.
+2026-10-11 natijasi:
+
+| Holat | Natija |
+|---|---|
+| Argentina test dalasi | `OK 45 s`, `area_ha=20.53`, `country=AR`, map 9 KB, chart 34 KB |
+| 0,24 ga poligon | `REJECTED 422 AREA_TOO_SMALL {min_ha=0.5, area_ha=0.24}` |
+| O'zini kesgan poligon | `REJECTED 422 SELF_INTERSECTING` |
+| Boshqa kalit | `UNAVAILABLE satellite 401` + `log.error` |
+| Python o'chiq | `UNAVAILABLE ... Connection refused` |
+| `SATELLITE_INTERNAL_KEY=` / `${YO_Q}` / `qisqa` | ilova **ishga tushmaydi** (`@Pattern`) |
+| `read-timeout` yo'q | ilova ishga tushmaydi (`@NotNull`) |
+
+Python tomonida kalit endi **middleware**da tekshiriladi: endpoint parametrida bo'lsa FastAPI
+avval tanani validatsiya qiladi — kalitsiz so'rov `401` emas `422` oladi va API tuzilishini bilib oladi.
 
 ---
 
-## FAZA S5 — `bot/` (long polling)
+## FAZA S5 — `bot/` (long polling) ✅ 2026-10-11
 
-### S5.1 Dependency
+Bot: **@agroglobalbot** (hozircha dev uchun; prod'ga chiqishda ALOHIDA bot).
+Kutubxona: `com.github.pengrad:java-telegram-bot-api:10.3.0` (Kotlin; `kotlin-stdlib`, OkHttp 5, Gson olib keladi).
 
-```groovy
-implementation 'com.github.pengrad:java-telegram-bot-api:10.1.0'   // Maven Central'da oxirgi versiyani tekshiring
+| Fayl | Vazifa |
+|---|---|
+| `bot/TelegramProperties` | `telegram.enabled` / `bot-token` / `miniapp-url`, `@Pattern` |
+| `bot/BotConfig` | `TelegramBot` bean — faqat `telegram.enabled=true` |
+| `bot/BotRunner` | `SmartLifecycle`: long polling, buyruqlar menyusi (uz/ru/en), 409 ogohlantirishi |
+| `bot/BotUpdateHandler` | holat mashinasi, `callback_data` tekshiruvi, MDC |
+| `bot/BotSender` | yuborish; HECH QACHON exception tashlamaydi; 403 → `blocked_bot`, 429 → log |
+| `bot/BotState(+Repository, Service)`, `BotStep` | `bot_states` |
+| `bot/BotKeyboards`, `BotMessages` | tugmalar, `resources/bot/messages{,_uz,_ru}.properties` |
+| `farmer/FarmerRegistrationService` | bot uchun yozuvlar (**`@PreAuthorize` yo'q — controller'ga ulanmasin**) |
+
+Holat mashinasi (global — viloyat savoli yo'q, joylashuv poligondan):
+
+```
+/start [source] → ASK_CROP → ASK_IRRIGATION → ASK_WATER_SOURCE → WAIT_POLYGON (S6)
 ```
 
-pengrad Spring'ga bog'liq emas — Boot 4 bilan to'qnashuv xavfi kam. (Spring Boot
-starter'li `TelegramBots` kutubxonasi Boot 4 ni qo'llashini alohida tekshirish kerak bo'lardi.)
+- `/start` har doim boshidan; `source` faqat BIRINCHI marta (`[A-Za-z0-9_-]{1,64}`).
+- Til: Telegram `language_code` → `uz`/`ru`/`en` (boshqasi `en`); `/lang` bilan o'zgaradi.
+- Tugma bosilgach savol xabaridan tugmalar olinadi va tanlov yoziladi (ikki marta bosilmaydi).
+  Eski xabardagi tugma — qiymat yangilanadi, bosqich siljimaydi.
+- Matn yozsa — "tugmani tanlang" + joriy savol qayta (restart'dan keyin ham, holat DB'da).
+- Faqat **shaxsiy chat**; guruhdagi xabarlar e'tiborsiz.
+- Ism: boshqaruv belgilari (NUL) olib tashlanadi, 160 **code point** (emoji kesilmaydi).
 
-### S5.2 Sozlama
+### S5 — tuzoqlar (hammasi sinovda uchradi)
 
-```yaml
-telegram:
-  bot-token: ${TELEGRAM_BOT_TOKEN}
-  bot-username: ${TELEGRAM_BOT_USERNAME}
-  miniapp-url: ${MINIAPP_URL}        # https:// majburiy
-  enabled: true
-```
-
-`application-dev.yml` da dev bot token'i. `@Pattern(regexp = "\\d+:[A-Za-z0-9_-]{30,}")` token uchun.
-
-### S5.3 Ishga tushirish
-
-```java
-@Component
-@RequiredArgsConstructor
-@ConditionalOnProperty(name = "telegram.enabled", havingValue = "true")
-public class BotRunner implements SmartLifecycle {
-
-    private final TelegramBot bot;
-    private final BotUpdateHandler handler;
-    private volatile boolean running;
-
-    @Override public void start() {
-        bot.setUpdatesListener(updates -> {
-            for (Update u : updates) {
-                try { handler.handle(u); }
-                catch (Exception e) { log.error("update {} ishlanmadi", u.updateId(), e); }  // bitta xato butun paketni to'xtatmasin
-            }
-            return UpdatesListener.CONFIRMED_UPDATES_ALL;
-        });
-        running = true;
-    }
-    @Override public void stop() { bot.removeGetUpdatesListener(); running = false; }
-    @Override public boolean isRunning() { return running; }
-}
-```
-
-> ⚠️ **MDC:** update'lar pengrad'ning o'z thread'ida ishlaydi, `MdcFilter` u yerga
-> yetmaydi. `handle()` boshida `MDC.put("requestId", "tg-" + updateId)`,
-> `MDC.put("userId", "tg:" + telegramUserId)`, oxirida **`finally { MDC.clear(); }`**
-> (skelet 5.6).
+> ⚠️ **O'zbekcha `'` + MessageFormat.** Parametrli xabarda Spring `MessageFormat` ishlatadi,
+> oddiy `'` maxsus belgi — "o'zingiz" → "ozingiz". Matnlarda `ʻ` (U+02BB) va `’` (U+2019).
 >
-> ⚠️ **Tranzaksiya:** `handle()` ichidagi har bir yozuv service metodlari orqali
-> (`@Transactional` **public** metodlarda). Bot handler'ning o'zida tranzaksiya ochmang —
-> Telegram'ga HTTP chaqiruv tranzaksiya ichida bo'lmasin.
-
-### S5.4 Holat mashinasi
-
-```
-START ─▶ ASK_REGION ─▶ ASK_CROP ─▶ ASK_IRRIGATION ─▶ ASK_WATER_SOURCE ─▶ WAIT_POLYGON
-                                                                              │ (Mini App sendData)
-                                                                              ▼
-            DONE ◀── ASK_CONTACT ◀── ASK_POWER_BILL ◀── ASK_WATER_SHORTAGE ◀── ANALYZING ─▶ (hisobot yuborildi)
-```
-
-- Javoblar — **inline tugmalar** (`callback_data`: `crop:COTTON`). Erkin matn faqat ism uchun.
-  Tugma = toza ma'lumot, imlo xatolari yo'q.
-- `callback_data` ni ishonchsiz kirish deb hisoblang: enum'ga `valueOf` qilishdan oldin
-  tekshiring, noma'lum qiymatda jim e'tiborsiz qoldiring.
-- Har step `bot_states` ga yoziladi. `/start` har doim qaytadan boshlaydi.
-- `/start kanal1` → `source = kanal1` faqat **birinchi** marta yoziladi (keyingi reklamalar
-  atributsiyani buzmasin). Parametrni sanitizatsiya: `[A-Za-z0-9_-]{1,64}`.
-- Viloyatlar ro'yxati: 12 viloyat + Qoraqalpog'iston + Toshkent shahri — 2 ustunli tugmalar.
-
-### S5.5 Matnlar
-
-Barcha matnlar `BotMessages` klassida yoki `messages_uz.properties` da — kodga sochilmasin.
-Lotin yozuvida, qisqa, "siz"lab. Rus tili — keyinroq, `farmers.language` allaqachon bor.
+> ⚠️ **`Chat.Type.Private`** — katta `P` (`private` Java kalit so'zi).
+>
+> ⚠️ **`CallbackQuery.message()` emas, `maybeInaccessibleMessage()`** — 48 soatdan eski xabar
+> `Message` bo'lmaydi.
+>
+> ⚠️ **Bitta token — bitta poller.** IntelliJ'dagi ilova + terminaldagi ilova = `409 Conflict`,
+> update'lar ikkiga bo'linadi. `BotRunner` buni log'da aniq aytadi.
+>
+> ⚠️ **Spring Boot BOM Gson'ni 2.14.0 → 2.13.2 ga tushiradi** (pengrad 2.14 bilan yig'ilgan).
+> Polling, javoblar va `BotUtils.parseUpdate` sinovda ishladi; pengrad yangilanganda qayta tekshiring.
+>
+> ⚠️ **`.env` oxirida yangi qator yo'q bo'lsa** `>>` bilan qo'shilgan qator oldingisiga yopishadi
+> (`TOKEN=...TELEGRAM_ENABLED=true`) — token buziladi, xato esa faqat 401 bo'lib chiqadi.
 
 ### S5 — Tekshirish
 
+Simulyatsiya (vaqtinchalik runner, haqiqiy Telegram JSON → `BotUtils.parseUpdate` → handler), 2026-10-11:
+
+| Holat | Natija |
+|---|---|
+| `/start kanal_test` (ru) | fermer, `source=kanal_test`, `language=ru`, audit `FARMER_REGISTERED` |
+| `c:HACKED`, `l:xx` | e'tiborsiz |
+| qayta `/start boshqa_kanal` | `source` o'zgarmadi, `ASK_CROP` |
+| guruh chati | bazaga yozilmadi |
+| ismda NUL/BEL + 200 emoji, `language_code=de`, `/start ' OR 1=1 --` | tozalandi, 160 belgi, `en`, `source=null` |
+| birinchi xabar `/start` emas | baribir ro'yxatdan o'tdi |
+
+Jonli:
+
 ```bash
-psql -d agro -c "SELECT telegram_user_id, region, main_crop, irrigation_type, water_source, source FROM farmers;"
+# IntelliJ'da AgroApplication'ni qayta ishga tushiring (.env: TELEGRAM_ENABLED=true)
+# Telegram: @agroglobalbot → /start test1 → 3 savol
+psql -d agro -c "SELECT telegram_user_id, language, source, main_crop, irrigation_type, water_source FROM farmers;"
 psql -d agro -c "SELECT * FROM bot_states;"
+# Savol o'rtasida ilovani qayta ishga tushiring → biror matn yozing → bot o'sha savolni qayta beradi
 ```
-
-Qo'lda: dev botga `/start test1` → 4 savolga javob → `farmers` da qator, `source = test1`.
-Ilovani savol o'rtasida qayta ishga tushiring → bot o'sha savoldan davom etadi.
 
 ---
 
-## FAZA S6 — Mini App (poligon chizish)
+## FAZA S6 — Mini App (poligon chizish) ✅ 2026-10-11
 
-### S6.1 Qanday ochiladi
+### S6.1 Mini App — `miniapp/` (Vercel)
 
-`WAIT_POLYGON` bosqichida bot **reply keyboard** tugmasi yuboradi:
+| Fayl | |
+|---|---|
+| `index.html`, `app.js`, `style.css` | chizish: xaritaga bosib burchak qo'yish, nuqtani surish, ↶ orqaga, ✕ tozalash, ◎ joylashuv |
+| `vendor/leaflet/` | Leaflet 1.9.4 — **o'zimizda** (CDN emas), sha384 unpkg bilan tekshirilgan |
+| `vercel.json` | CSP (`script-src 'self' https://telegram.org`), `frame-ancestors` — Telegram Web, kesh |
 
-```java
-new ReplyKeyboardMarkup(new KeyboardButton("🗺 Dalani xaritada belgilash")
-        .webAppInfo(new WebAppInfo(props.miniappUrl())))
-    .resizeKeyboard(true).oneTimeKeyboard(true);
-```
+- **Geoman ishlatilmadi** (589 KB) — qishloqdagi mobil internet uchun og'ir. O'z chizish ~250 qator,
+  Leaflet bilan jami ~165 KB. Telefonda "bos-bos-bos" toolbar'li chizishdan sodda.
+- Fon: Esri World Imagery + chegaralar/joy nomlari qatlami (atribut bilan).
+- Til: bot URL'ga `?lang=uz|ru|en` qo'shadi (fermer tanlagan til, Telegram interfeysi tili emas).
+- Mijoz tekshiruvlari (qulaylik uchun): ≥ 3 nuqta, ≤ 200, chiziqlar kesishmasin, 0,5–500 ga,
+  payload ≤ 4000 **bayt** (`TextEncoder` — kirill nom 2 bayt/harf).
+- Maydon: sferik formula (turf.area bilan bir xil) — Python/pyproj geodezik qiymatidan **0,1%** farq.
+- `tg.disableVerticalSwipes()` (Bot API 7.7+) — chizayotganda pastga surish Mini App'ni yopmasin.
+- Telegram tashqarisida — sinov rejimi: MainButton o'rniga oddiy tugma, payload sahifada ko'rinadi.
 
-> 🔴 **`sendData` faqat reply keyboard tugmasidan ochilgan Mini App'da ishlaydi.**
-> Inline tugma yoki menyu tugmasidan ochilsa `sendData` jimgina hech narsa yubormaydi.
+> 🔴 **Tuzoq (real Telegram'da topildi): Telegram ichidamizmi — `initData` bilan aniqlab BO'LMAYDI.**
+> Reply keyboard tugmasidan ochilgan Mini App'da (`sendData` faqat shu yo'lda ishlaydi) `initData`
+> **bo'sh**. Natijada Mini App o'zini "brauzerda" deb o'yladi, MainButton chiqmadi, yuborib bo'lmadi.
+> To'g'ri belgi — `Telegram.WebApp.platform !== 'unknown'` (SDK'da default `'unknown'`, haqiqiysi
+> `tgWebAppPlatform` launch parametridan).
+>
+> ⚠️ Telegram webview `app.js` ni keshlab qolishi mumkin — `index.html` da `app.js?v=N`, har
+> o'zgarishda `N` ni oshiring.
 
-### S6.2 `miniapp/index.html` — tarkibi
+### S6.2 Bot tomoni
 
-- `https://telegram.org/js/telegram-web-app.js`, Leaflet, Leaflet-Geoman (CDN'dan).
-- Fon: sun'iy yo'ldosh qatlami (Esri World Imagery, atribut bilan) — fermer dalasini **ko'radi**.
-- Ochilganda: `Telegram.WebApp.expand()`; "Mening joylashuvim" tugmasi (`navigator.geolocation`).
-- Faqat **bitta poligon** chizishga ruxsat; chizib bo'lgach maydonni ko'rsating
-  (Turf.js `turf.area` bilan, ga da) — fermer "12 ga" ni ko'rib to'g'ri chizganini tushunadi.
-- Telegram'ning `MainButton` i: "Yuborish" — poligon bo'lmasa o'chiq.
-- Yuborish:
+- `WAIT_POLYGON` → **reply keyboard** tugmasi (`BotKeyboards.fieldMap`, `isPersistent`).
+  `MINIAPP_URL` bo'sh bo'lsa — "tez orada" matni.
+- `web_app_data` → `BotPolygonParser` (ISHONCHSIZ kirish: `v=1`, 3–200 nuqta, raqam, diapazon,
+  ≤ 4096 bayt, halqani yopadi, nom tozalanadi ≤ 80) → `FieldIntakeService.submit`:
+  dala + `FREE` job (oxirgi 12 oy) + audit `FIELD_CREATED`, `ANALYSIS_REQUESTED` — **bitta tranzaksiya**.
+- Natija: `QUEUED` → `ANALYZING`, reply tugma olinadi; `FREE_USED` → dala saqlanadi, job yo'q;
+  `FIELD_LIMIT` (20 ta dala).
+- Mini App maydoniga ishonilmaydi: `area_ha` va aniq markaz — tahlildan keyin Python javobidan (S7).
 
-```js
-const coords = layer.toGeoJSON().geometry.coordinates[0]
-  .map(([lon, lat]) => [+lon.toFixed(6), +lat.toFixed(6)]);   // 6 xona ≈ 10 sm, bayt tejaydi
-const payload = JSON.stringify({ v: 1, name: fieldName, coords });
-if (payload.length > 4000) { Telegram.WebApp.showAlert("Chegara juda murakkab, kamroq nuqta bilan chizing"); return; }
-Telegram.WebApp.sendData(payload);   // Mini App yopiladi, botga web_app_data keladi
-```
+### S6 — Tekshirish (2026-10-11)
 
-### S6.3 Bot tomonida qabul qilish
+Brauzer (Chrome, lokal server): chizish, maydon 25,9 ga (pyproj: 25,895), bow-tie → "chiziqlar
+kesishmasin" va tugma o'chadi, 0,01 ga → "juda kichik", ↶ → 2 nuqtada "kamida 3", `?lang=ru` +
+kirill nom → 156 bayt payload.
 
-`message.webAppData().data()` → JSON parse → **server tomonda qayta validatsiya**
-(fermer kodni o'zgartira oladi): uchlar soni ≤ 200, koordinatalar O'zbekiston bbox'ida,
-halqa yopilgan (birinchi = oxirgi, bo'lmasa yoping). Maydon va `is_valid` ni Python
-hisoblaydi — Java'da faqat arzon tekshiruvlar.
-
-So'ng: `fields` ga yozish + `analysis_jobs` ga `PENDING` job + audit
-`FIELD_CREATED`, `ANALYSIS_REQUESTED` — **bitta tranzaksiyada**. Fermerga:
-"✅ Dala qabul qilindi. Tahlil 1-2 daqiqa davom etadi."
-
-**Suiiste'mol cheklovi:** bepul tahlil — fermerga **1 ta**. `FREE` job allaqachon bor bo'lsa,
-yangisini yaratmang, "Bepul tahlil allaqachon bajarilgan, qo'shimcha dala uchun bog'laning" deng.
-
-### S6.4 Hosting
-
-Mini App — oddiy static fayl, HTTPS shart. Variantlar: o'z serveringizdagi nginx
-(`https://app.<domen>/miniapp/`) yoki GitHub Pages. Backend'ning `/api/**` CSP'si
-(`default-src 'none'`) Leaflet'ni bloklaydi — shuning uchun Mini App'ni Spring'dan
-**bermang**.
-
-### S6 — Tekshirish
-
-Dev bot'da tugmani bosing → chizing → yuboring.
+Bot simulyatsiyasi (brauzerdagi haqiqiy payload + 9 ta buzuq): JSON emas, `v=2`, 2 nuqta,
+`lon=200`, `lat=80`, satr koordinata, 250 nuqta, 5000 belgili nom (> 4096 bayt) — hammasi rad
+etildi; haqiqiy → `QUEUED` (field + FREE job + 2 audit, `ANALYZING`); yopilmagan uchburchak +
+NUL'li nom → yopildi, tozalandi, `FREE_USED` (job yaratilmadi).
 
 ```bash
-psql -d agro -c "SELECT id, farmer_id, crop, jsonb_array_length(boundary_geojson->'coordinates'->0) AS nuqtalar FROM fields;"
-psql -d agro -c "SELECT id, field_id, status FROM analysis_jobs;"
+# Deploy (Vercel loyihasi: agro-miniapp, akkaunt diyorbekjoraqulov8)
+cd miniapp && npx vercel deploy --prod      # → https://agro-miniapp.vercel.app
+# .env: MINIAPP_URL=https://agro-miniapp.vercel.app/  → ilovani qayta ishga tushiring
+# Tekshiruv: CSP/HSTS header'lari, leaflet.js sha384 = unpkg, vercel.json/.gitignore → 404
+# Telegram: /start → 3 savol → "🗺 Dalani xaritada belgilash" → chizish → Yuborish
+psql -d agro -c "SELECT id, farmer_id, name, crop, jsonb_array_length(boundary_geojson->'coordinates'->0) FROM fields;"
+psql -d agro -c "SELECT id, field_id, kind, status FROM analysis_jobs;"
+# Ikkinchi dalani yuboring → yangi FREE job YARATILMASLIGI kerak
 ```
-
-Ikkinchi marta yuboring → yangi `FREE` job **yaratilmasligi** kerak.
 
 ---
 
-## FAZA S7 — Tahlil worker'i va hisobot
-
-### S7.1 Worker
-
-```java
-@Component
-@RequiredArgsConstructor
-public class AnalysisWorker {
-
-    private final AnalysisJobClaimer claimer;     // ALOHIDA bean (self-invocation tuzog'i, skelet ADR #24)
-    private final AnalysisExecutor executor;
-
-    @Scheduled(fixedDelayString = "${analysis.poll-interval:10s}")
-    public void poll() {
-        for (Long jobId : claimer.claimBatch(2)) {   // REQUIRES_NEW: RUNNING qiladi, commit, qulf yechiladi
-            executor.run(jobId);                      // tranzaksiyasiz: Python'ga uzoq HTTP chaqiruv
-        }
-    }
-}
-```
-
-`@EnableScheduling` ni bitta `@Configuration` ga qo'shing.
-
-`executor.run`:
-1. Job + dala ma'lumotini o'qiydi (qisqa read-only tranzaksiya).
-2. `SatelliteClient.analyze(...)` — **tranzaksiyadan tashqarida** (90 s DB ulanishini band qilmasin, Hikari pool tugab qoladi).
-3. Natijani saqlaydi: `DONE`, `result`, rasmlar (qisqa yozuvchi tranzaksiya) + audit.
-4. Fermerga yuboradi (S7.2).
-5. Xato bo'lsa:
-   - `SatelliteRejectedException` (422/404) → `FAILED`, fermerga tushunarli xabar, qayta urinilmaydi.
-   - Tarmoq/5xx → `attempts++`, `PENDING`, `next_try_at = now() + 2^attempts daqiqa`;
-     3 urinishdan keyin `FAILED` va fermerga "texnik nosozlik, tez orada qayta yuboramiz".
-
-**Ilova o'chib qolsa:** `RUNNING` da 10 daqiqadan ortiq turgan job'larni worker boshida
-`PENDING` ga qaytaring (bitta `UPDATE`).
-
-**Mavsum sanalari:** oktabr–mart oralig'ida tahlil qilinsa — o'tgan mavsum
-(`aprel 15 – sentabr 30`), bug'doy uchun — `oktabr 1 (o'tgan yil) – iyun 30`.
-Bu mantiq `AnalysisService` da, bir joyda.
-
-### S7.2 Fermerga yuborish
-
-1. `sendPhoto` — zonalar xaritasi, caption'da qisqa xulosa (1024 belgi chegarasi):
+## FAZA S7 — Tahlil worker'i va hisobot ✅ 2026-10-11
 
 ```
-📍 Dala: 12,4 ga · Paxta · Sirdaryo
-🟢 Yaxshi 64%  🟡 O'rta 21%  🔴 Zaif 15%
-💧 18 iyul – 1 avgust: janubiy qism suv stressida
-📉 2025 yilga nisbatan o'simlik holati 8% past
+AnalysisWorker (@Scheduled fixedDelay 10s, SchedulingConfig → @EnableScheduling)
+  → AnalysisJobStore.requeueStuck()     RUNNING > 10 daq → PENDING (ilova o'chgan)
+  → AnalysisJobStore.claimBatch()       FOR UPDATE SKIP LOCKED, PENDING → RUNNING, attempts++
+  → AnalysisExecutor.run(id)            @Transactional YO'Q
+       store.loadInput                  qisqa tx; started_at shu yerda (paketda kutgan vaqt hisoblanmaydi)
+       SatelliteClient.analyze          30–90 s, tx TASHQARISIDA
+       store.saveSuccess                DONE, result (rasmsiz JSON), analysis_images, field.area_ha/centroid
+                                        (Python UTM'dan), farmer.country_code, audit ANALYSIS_COMPLETED
+       store.saveRejected               422/404 → FAILED "REJECTED:<kod>", qayta urinilmaydi
+       store.saveRetry                  tarmoq/5xx/kutilmagan → PENDING, retry-base × 2^(n-1); max-attempts → FAILED
+       AnalysisNotifier (bot)           COMMIT'dan KEYIN; STAFF va blocked_bot — yuborilmaydi
 ```
 
-2. `sendPhoto` — mavsum grafigi.
-3. `sendMessage` — taxminiy suv ehtiyoji (oraliq bilan) + 2-3 tavsiya + inline tugmalar:
-   `[📞 Har kungi sug'orish tavsiyasini xohlayman]` `[❓ Savolim bor]`.
+- Tranzaksiya chegaralari **alohida bean**da (`AnalysisJobStore`) — ADR #24 (self-invocation).
+- `AnalysisNotifier` — interfeys `analysis/` da, implementatsiya `bot/BotAnalysisNotifier`
+  (`ObjectProvider` — bot o'chiq bo'lsa worker baribir ishlaydi, natija admin panelda).
+- **Bepul kvota: `FAILED` hisoblanmaydi** (`existsFreeJobForFarmer` → `status <> 'FAILED'`) —
+  poligon yaroqsiz bo'lsa fermer qayta chizadi.
+- Sozlama: `analysis.worker.{enabled, poll-interval, batch-size, max-attempts, retry-base, stuck-after}`.
 
-`403 Forbidden` (fermer botni bloklagan) → `farmers.blocked_bot = true`, qayta yubormang.
-Telegram cheklovi: bitta chatga sekundiga ~1 xabar — 3 ta xabar orasida kichik pauza.
+**Fermerga hisobot** (`BotReportFormatter` — Telegram'ga bog'liq emas, `BotAnalysisNotifier` — yuboradi):
+1. 🗺 zonalar xaritasi + izoh: maydon, ekin, zonalar %, zaif tomon, mavsum, NDVI cho'qqisi, o'tgan yil.
+2. 📈 grafik + legenda.
+3. 💧 sug'orish ehtiyoji oralig'i + hisob asosi + ≤ 3 tavsiya (Python **kodlari** → fermer tili; noma'lum kod o'tkazib yuboriladi).
+Xabarlar orasida 1,1 s (Telegram: chatga ~1 xabar/s). Keyin `bot_states = REPORTED`.
+Rad etilsa — sabab + xarita tugmasi (`WAIT_POLYGON`); urinishlar tugasa — "texnik nosozlik" (`REPORTED`).
 
-### S7 — Tekshirish
+> ⚠️ Raqamlar Java'da formatlanadi (`18,8 ga` / `18.8 ha`, `1 300` / `1,300`) — MessageFormat `{0}` ga
+> raqam berilsa server locale'i bo'yicha formatlaydi.
+
+### S7 — Tekshirish (2026-10-11, vaqtinchalik baza, Docker'dagi haqiqiy Python)
+
+| Job | Natija |
+|---|---|
+| Mirzacho'l, PENDING | `DONE` 74 s: 18,84 ga, UZ, rasmlar `analysis_images` da (7 + 40 KB), `result` JSON'da rasm yo'q, field/farmer yangilandi |
+| bow-tie poligon | `FAILED REJECTED:SELF_INTERSECTING`, 1 urinish; fermer bepul kvotasi bo'shadi |
+| 20 daq RUNNING'da qotgan | navbatga qaytarildi → `DONE` 34 s, AR |
+| Python o'chiq (`retry-base=3s`) | urinish 1 → +3 s, 2 → +6 s, 3 → `FAILED` + audit |
+
+Matnlar uz/ru/en — haqiqiy Python javoblaridan, izohlar 260–282 belgi (< 1024).
 
 ```bash
-psql -d agro -c "SELECT id, status, attempts, error, finished_at - started_at AS davomiylik FROM analysis_jobs ORDER BY id DESC LIMIT 5;"
-# Python'ni o'chirib qo'ying → job PENDING'da qoladi, attempts oshadi, next_try_at uzayadi
-# Python'ni yoqing → keyingi poll'da DONE, fermer hisobotni oladi
-# Ilovani RUNNING paytida o'ldiring (kill -9) → qayta ishga tushganda job qayta olinadi
+docker compose up -d                      # Python
+# IntelliJ: AgroApplication qayta ishga tushiring → 15 s dan keyin worker PENDING job'ni oladi
+psql -d agro -c "SELECT id, status, attempts, error, finished_at - started_at AS davom FROM analysis_jobs ORDER BY id DESC LIMIT 5;"
+# Python'ni to'xtating (docker compose stop) → job PENDING, attempts oshadi, next_try_at uzayadi
+# Ilovani RUNNING paytida o'ldiring (kill -9) → 10 daq dan keyin qayta olinadi
 ```
+
+---
+
+## FAZA B1 — Tariflar va to'lovlar ✅ 2026-10-11
+
+**Qaror (loyiha egasi):** "bepul limitsiz" belgisi YO'Q. Har fermerda **to'lovlar tarixi**; xodim
+admin paneldan "to'lov qildi" deb yozadi. To'lov yo'q — bepul rejim (kichik maydon, 1 tahlil),
+pullik — 100 ga gacha.
+
+| Jadval | |
+|---|---|
+| `plans` (V12) | `FREE` (tizim, to'lovsiz: **20 ga**, 5 dala, 1 tahlil umrbod), `MONTHLY` (30 kun, **100 ga**, 50 dala, cheksiz). Limitlar DB'da — deploysiz o'zgaradi. Soft delete yo'q — `active=false` |
+| `farmer_subscriptions` | har to'lov — yozuv: tarif, summa, usul (`CASH/CARD/TRANSFER/OTHER`), `paid_at`, `valid_from..valid_until`, kim yozgani. **O'chirilmaydi** — `CANCELLED` + sabab |
+
+Bugungi tarif (`PlanService.effective`): bugun amal qilayotgan `ACTIVE` obuna → uning tarifi
+(tahlillar obuna davrida sanaladi, `PAID` job); yo'q → `FREE` (tahlillar umrbod, `FREE` job).
+`FAILED` tahlil kvotani yemaydi.
+
+| Endpoint | Huquq |
+|---|---|
+| `GET /plans` · `POST /plans` · `PUT /plans/{id}` | `billing:read` · `billing:manage` · `billing:manage` (kod o'zgarmaydi; FREE — faqat nom/limit) |
+| `GET /farmers/{id}/plan` | `billing:read` — bugungi tarif + ishlatilgan tahlillar |
+| `GET /farmers/{id}/subscriptions` | `billing:read` — tarix |
+| `POST /farmers/{id}/subscriptions` | `billing:manage` — **"to'lov qildi"**; bo'sh maydonlar tarifdan, muddat joriy obuna oxiridan davom etadi |
+| `POST /subscriptions/{id}/cancel` | `billing:manage` — `{reason}` |
+| `GET /subscriptions?status=&planId=&expiringBefore=` | `billing:read` — "muddati tugayotganlar" |
+
+`GET /farmers/{id}` javobida `plan` (bugungi tarif). ADMIN — `billing:read` + `billing:manage`,
+AGRONOMIST — `billing:read`. Audit: `PAYMENT_RECORDED`, `SUBSCRIPTION_CANCELLED`, `PLAN_CREATED`, `PLAN_UPDATED`.
+
+**Bot:** maydon limiti **Java'da** (sferik formula, pyproj'dan ~0,1%) — `AREA_LIMIT` da dala
+saqlanmaydi, bepul fermerga "pullik tarifda N ga gacha" deyiladi. Mini App limitni `?maxHa=` dan
+oladi (faqat UX). Python'ning 500 ga — texnik yuqori chegara (`PlanRequest.maxFieldHa ≤ 500`).
+
+Tekshiruv (vaqtinchalik baza): to'lov → `MONTHLY` 11.10–09.11; ikkinchi to'lov → 10.11–09.12
+(davom etdi); FREE'ga to'lov / manfiy summa / kelajak `paidAt` / `until<from` / BITCOIN → 400;
+dublikat kod → 409; bekor → `CANCELLED`, qayta → 409. Rol: AGRONOMIST o'qiydi, yoza olmaydi; USER 403.
+Bot: bepul 25 ga → `AREA_LIMIT`; 14 ga → `FREE`; ikkinchisi → `QUOTA_USED`; pullik 80 ga → `PAID`;
+120 ga → `AREA_LIMIT`; 3-, 4-tahlil → `PAID`.
+
+**Ochiq:** to'lov qilinganda fermerga botda xabar ("Tarif faollashdi, … gacha"); muddat tugashidan
+oldin eslatma; onlayn to'lov (Payme/Click) — keyingi bosqich.
+
+---
+
+## FAZA A1 — Admin panel (`admin/`) ✅ 2026-10-11
+
+Vue 3.5 + TypeScript 6 + Vite 8 + Tailwind 4 + shadcn-vue 2.8 (reka-ui, `nova`, zinc + yashil brend).
+Ishga tushirish va tuzilish — `admin/README.md`.
+
+Sahifalar (har biri `meta.perm` bilan): Dashboard (`/stats/overview`, `/stats/sources`) · Fermerlar
+(filtr, qidiruv) · Fermer (ma'lumot, tarif, lead, dalalar, to'lovlar tarixi, **"To'lov qildi"**, bekor
+qilish) · Dalalar · Dala (Leaflet xarita, tahlillar, "Tahlilga yuborish") · Tahlillar · Tahlil
+(KPI, zonalar xaritasi, grafik, suv balansi, tavsiyalar, `FAILED` → qayta urinish; `PENDING/RUNNING`
+— 5 s da yangilanadi) · Tariflar (tahrirlash/yaratish) · To'lovlar ("7/30 kunda tugaydigan") ·
+Xodimlar · Rollar (huquqlar bilan) · Audit · Profil (sessiyalar, yakunlash).
+
+> ⚠️ shadcn-vue `init` (Vite, nova) Inter'ni import qiladi, lekin `--font-sans` ni bermaydi — qo'lda
+> qo'shildi. `nova` uslubida `CardHeader` — grid: o'ngdagi ikonka/tugma `CardAction` bilan (`flex-row` ishlamaydi).
+> TS 6 shabloni `erasableSyntaxOnly` — konstruktor parametr-xossalari taqiqlangan; `baseUrl` eskirgan.
+> Ikonkalar — `@lucide/vue` (`lucide-vue-next` emas).
+
+**Backend'da yo'q (panel faqat ko'rsatadi):** xodim yaratish, xodimga rol biriktirish, alohida
+huquqlar ro'yxati (rollar formasi — barcha rollardagi huquqlar birlashmasi).
+
+---
+
+## FAZA B2 — Bot: ko'p dala, sodda til, fayllar ✅ 2026-10-11
+
+**Doimiy asosiy menyu** (reply keyboard, `isPersistent`): `🗺 Yangi dala` (Mini App) · `📋 Dalalarim` · `🌐 Til`.
+Xizmat bir martalik emas — tahlildan keyin ham menyu turadi. Menyu matni har tilda tanilanadi.
+
+**📋 Dalalarim** (inline): ro'yxat → kartochka (ekin, maydon, oxirgi tahlil) → `📊 Hisobot` (saqlangan
+natijadan qayta) · `🔄 Qayta tahlil` (tarif kvotasi, "bitta faol tahlil") · `✏️ Chegarani o'zgartirish`
+(Mini App eski chegara bilan: `?fieldId=&name=&poly=` — Google polyline 1e6, `bot/Polyline.java` ↔
+`app.js decodePolyline`) · `🗑 O'chirish` (tasdiq bilan, soft delete, tarix qoladi).
+Har id `callback_data`/`web_app_data`'dan — ISHONCHSIZ: `FieldBotService`, `FieldIntakeService`,
+`AnalysisReportService` egalikni tekshiradi (begona → "topilmadi"). Audit: `FIELD_UPDATED`, `FIELD_DELETED`.
+
+**Hisobot sodda tilda** (NDVI/ET₀/mm yo'q): "56% — yaxshi o'smoqda", "gektariga 900–1 300 m³ suv",
+"13.05 – 28.05 kunlari ekin suvsiz qiynalgan". Footer **tarifga qarab**: bepul — taklif, pullik —
+"Tarifingiz: Oylik · 09.11.2026 gacha". Ostida `📄 PDF hisobot` · `📊 Excel jadval`:
+- PDF — Python `POST /report/pdf` (matplotlib, DejaVu Sans; matnlar Java'dan tayyor, emoji'siz).
+- CSV — Java: UTF-8 BOM, `;`, CSV injection himoyasi (`=+-@`).
+
+`telegram.polling=false` — instans faqat yuboradi (2-instans / sinov; 409 bo'lmaydi).
+
+Tekshiruv (simulyatsiya, 16 qadam): begona dala kartochkasi/tahriri/o'chirish/hisoboti — rad;
+bepul kvota → `QUOTA_USED`; to'lovdan keyin → `PAID`; takror → `BUSY`; faol tahlil paytida tahrir →
+`BUSY` (nom o'zgarmaydi); tahrir → `FIELD_UPDATED` + yangi job; o'chirilgan dala → "topilmadi".
+
+> ⚠️ PDF: sarlavha sahifa oxirida yolg'iz qolmasin (`need(...)` sarlavha + 2 qator), sarlavhalardan
+> ham emoji olib tashlansin (DejaVu'da yo'q → bo'sh kvadrat).
+
+---
+
+## FAZA B3 — Sug'orish eslatmasi ✅ 2026-10-11
+
+**Qarorlar (loyiha egasi):** eslatma — sug'orish yaqinlashganda (+ haftalik holat); sug'orishni fermer
+"✅ Sug'ordim" bilan bildiradi; tuproqni fermer aytadi va SoilGrids bilan tekshiriladi; **hammaga** (bepulga ham).
+
+**Model** (Python `app/water.py`, FAO-56 soddalashtirilgan, **stateless**): oxirgi sug'orishdan bugungacha
+`Dr = Dr + ET0·Kc − P_eff` (Open-Meteo forecast: `past_days ≤ 92` + 7 kun prognoz, `timezone=auto`),
+`Dr ≥ RAW` — sug'orish. `RAW = p × TAW`, `TAW = tuproq (mm/m) × ildiz (m)` — `irrigation/SoilType`,
+`CropWater` (FAO-56 jadval o'rtachalari; pilotda sozlanadi). `Kc` — dalaning NDVI'sidan (saqlangan yoki
+tahlilniki ≤ 10 kun; eskisi — Sentinel `/ndvi/latest`, 30 kun, ~14 s). NDVI < 0,2 — ekin yo'q, eslatma yo'q.
+
+| Python | |
+|---|---|
+| `POST /water/balance` | `{lat, lon, last_irrigated_on, kc, taw_mm, raw_mm}` → bugungi tanqislik, `due`, `days_until`, `irrigate_on`, 3 kunlik yomg'ir, mahalliy sana/offset |
+| `POST /soil` | SoilGrids → `SAND/LOAM/CLAY` + qum/loy %. ⚠️ standart chuqurliklar (`0-5/5-15/15-30cm`), `0-30cm` — bo'sh javob |
+| `POST /ndvi/latest` | so'nggi 30 kundagi oxirgi ochiq sana NDVI |
+
+**Java** (`irrigation/`): `field_water` (1:1, V13) + `irrigation_events` (tarix). `FieldWaterStore` (tx) /
+`IrrigationService` (Python — tx'siz) / `IrrigationReminderJob` (har soat, dala **mahalliy** soati 07:00 —
+global). Qaror (`decide`): `DUE` — har kuni sug'orilguncha; `SOON` — 1–2 kun qolganda bir marta;
+`STATUS` — 7 kunda bir. Yomg'ir ≥ 10 mm kutilsa — "kechiktirsa bo'ladi".
+
+**Bot:** hisobotdan keyin (sozlanmagan bo'lsa) — tuproq (qumloq/o'rtacha/soz/bilmayman) → SoilGrids bilan
+solishtiriladi (farq bo'lsa fermerga muloyim aytiladi, fermer javobi ishlatiladi) → "Oxirgi marta qachon
+sug'organsiz?" → keyingi sana. Eslatma ostida `✅ Sug'ordim` · `🔕/🔔`. Dala kartochkasida "Keyingi sug'orish: 15.10".
+Admin: `GET /fields/{id}/water` (`field:read`) + dala sahifasida kartochka (nomuvofiqlik belgisi).
+
+> ⚠️ **Jackson `SnakeCaseStrategy` raqamdan oldin `_` qo'ymaydi:** `rainNext3dMm` → `rain_next3d_mm`,
+> Python `rain_next_3d_mm` — jimgina o'qilmaydi. Raqamli nomga `@JsonProperty`.
+
+Tekshiruv (Docker'dagi haqiqiy Python/SoilGrids/Open-Meteo/Sentinel): fermer "soz" ↔ SoilGrids "qumoq"
+(qum 23%, loy 31%) → nomuvofiqlik qayd etildi; begona fermer callback'lari — o'zgarishsiz; 10–24 kun → STATUS,
+22/23/24 kun → "keyingi 17/15/14.10", 25+ kun → DUE, tanqislik TAW'da to'xtaydi (153,8% = TAW/RAW);
+`decide` qoidasi 10 holatda; ekin yo'q (NDVI 0,08) → eslatma yo'q; `/ndvi/latest` → 0,43 (14 s).
+
+**Ochiq:** model koeffitsiyentlarini pilot dalalarda (fermer gapi, sug'orish jurnali) sozlash;
+ko'p dalada Open-Meteo limiti (bepul ~10 000 so'rov/kun) — keshlash yoki tijorat kalit.
+
+---
+
+## FAZA B4 — Har dalaning o'z ekini, hudud nomi, sodda matnlar ✅ 2026-10-11
+
+- **Ekin — DALANIKI, fermerniki emas.** Bitta xo'jalikda g'alla, paxta, poliz — har biri alohida dala
+  (bitta poligonda aralash ekin bo'lsa tahlil zonalari ma'nosiz). Mini App'da nom yonida ekin tanlovi
+  (boshlang'ichi — fermerning asosiy ekini, `?crop=`); `/start` dagi savol endi "asosan qaysi ekin".
+  Dala kartochkasida `🌱 Ekinni o'zgartirish` — almashlab ekish (g'alladan keyin mosh/poliz) chegarani
+  qayta chizmasdan. **V14:** `analysis_jobs.crop` — tahlil paytidagi ekin (eski hisobot buzilmaydi).
+- **Default nom → hudud nomi.** Poligon tayyor bo'lganda Mini App OpenStreetMap **Nominatim**'dan
+  (CORS ochiq, kalitsiz) "qishloq, tuman" oladi: "Uray, Jomboy tumani". Fermer o'zi yozsa — tegilmaydi.
+  Shartlar: ≤ 1 so'rov/s, Referer — so'rov faqat poligon tayyorda, ~1 km keshi; `vercel.json`:
+  `connect-src` + `Referrer-Policy: strict-origin-when-cross-origin`. Ko'p foydalanuvchida — o'z geocoder'i.
+- **Matnlar:** "suv stressi", "taxminiy suv ehtiyoji" o'rniga — "ekin qaysi kunlari suvsiz qolgan",
+  "dalangizga qancha suv kerak". "Taxminan" olib tashlandi, lekin "aniq" yozilmadi: raqamlar model
+  hisobi (±15%) — oraliq bilan beriladi; "aniq" deb aytilsa, fermer o'z hisobi bilan solishtirib ishonchni yo'qotadi.
+  Bot profili (nom/tavsif) — ilova qayta ishga tushganda o'zi yangilanadi.
+
+---
+
+## FAZA B5 — Fikr va yordam (murojaatlar) ✅ 2026-10-11
+
+**Maqsad:** fermer botning o'zida muammo, taklif yoki savol yozadi; xodim admin paneldan javob beradi,
+javob bot orqali fermerga boradi.
+
+- Bot: menyuda `💬 Fikr va yordam` (+ `/support`) → tur (🐞 muammo / 💡 taklif / 🌱 maslahat-savol)
+  → `FEEDBACK_TEXT` → matn yoki rasm + izoh. Oldingi bosqich `bot_states.data.prevStep` da eslab qolinadi
+  va yuborilgach/bekor qilingach qaytariladi (savol o'rtasida bo'lsa — o'sha savol qayta beriladi).
+- Menyu tugmasi murojaat matni bo'lib saqlanmaydi — murojaatdan chiqaradi. Stiker/ovoz — "matn yozing".
+- Limit: 24 soatda 10 ta (`FeedbackBotService.DAILY_LIMIT`). Boshqaruv belgilari (NUL) tozalanadi, ≤ 4000 belgi.
+- Rasm Telegram'da qoladi (`photo_file_id`), admin panel `GET /feedback/{id}/photo` orqali oladi.
+- `TELEGRAM_SUPPORT_CHAT_ID` (ixtiyoriy) — yangi murojaat xodimlar guruhiga ham tushadi.
+- V15 `feedback` + huquqlar `feedback:read`, `feedback:reply` (ADMIN, AGRONOMIST).
+- API: `GET /feedback`, `/feedback/counts`, `/feedback/{id}`, `/feedback/{id}/photo`,
+  `POST /feedback/{id}/reply` (faqat NEW; `replyDelivered=false` — botni bloklagan), `POST /feedback/{id}/close`.
+- Javob: saqlash (commit, `FeedbackStore`) → Telegram (tranzaksiyadan tashqarida) → `reply_delivered`.
+- Admin panel: "Murojaatlar" sahifasi, sidebar'da javobsizlar soni.
+
+Ochiq: ovozli xabar (fermerlar ko'p ishlatadi) — `voice.file_id` + admin panelda `<audio>`.
+
+---
+
+## FAZA B6 — Murojaat → suhbat (chat) ✅ 2026-10-12
+
+**Maqsad:** bitta javob bilan yopilmasin — fermer va operator ikki tomondan biri yakunlaguncha yozishadi;
+bir suhbatni faqat bitta operator oladi; yakunda fermer operatorni baholaydi.
+
+- Holatlar: `NEW` (navbat) → `OPEN` (operator oldi, `assignee_id`) → `CLOSED` (fermer / xodim / tizim).
+  Fermerda bitta ochiq suhbat — `uq_feedback_farmer_active` (qisman unique index).
+- V17: `feedback_messages` (FARMER / STAFF / SYSTEM), eski `reply*` ustunlari xabarlarga ko'chirildi va
+  o'chirildi (eski ANSWERED → CLOSED). Yangi huquq `feedback:manage` (ADMIN); OPERATOR roliga read/reply.
+- **Claim atomik:** `UPDATE ... WHERE status = 'NEW'` — ikki operator bir vaqtda bossa, ikkinchisi 409.
+  `feedback:manage` boshqa operatordagi suhbatni o'ziga ola oladi va istalgan suhbatga yoza oladi.
+  Ko'rinish: manage'siz xodim — navbat + o'z suhbatlari; begonasi 404 (ADR #16).
+- Bot: murojaat yuborilgach `FEEDBACK_CHAT` — keyingi matn/rasm suhbatga (qabul — 👌 reaksiya).
+  `✅ Suhbatni yakunlash` / `🏠 Asosiy menyu` (suhbat ochiq qoladi). Rejimdan tashqarida yozilgan matn ham
+  ochiq suhbatga qo'shiladi. Operator xabari ostida `✍️ Javob yozish` / `✅ Yakunlash`. Yopilganda — `1–5 ⭐`.
+- Limitlar: yangi murojaat 10/24 soat, fermer xabarlari 150/24 soat.
+- API: `GET /feedback?status&mine&assigneeId&rating&q`, `/counts` (NEW, MINE, MINE_UNREAD, OPEN),
+  `/operators`, `/{id}/messages?after=`, `/{id}/messages/{mid}/photo`,
+  `POST /{id}/claim`, `/{id}/messages`, `/{id}/read`, `/{id}/close`. Audit: `FEEDBACK_CLAIMED`, `FEEDBACK_CLOSED`.
+- Admin panel: Navbat (kartochkalar, kutish vaqti rangli) · Mening chatlarim (messenger) · Barcha chatlar
+  (manage) · Chatlar tarixi (operator statistikasi, baho filtri). Yangilanish — polling (chat 4 s, ro'yxat 8 s,
+  fon tabda siyrakroq); brauzer tab sarlavhasida `(n)` — navbat + o'qilmaganlar.
+
+Ochiq: uzoq jim turgan OPEN suhbatni avtomatik yopish (masalan 7 kun) va operatorga Telegram bildirishnomasi.
+
+---
+
+## FAZA B7 — Fayl servisi (serverdagi papka) ✅ 2026-10-12
+
+**Maqsad:** chatda rasm/PDF ikki tomonga; fayl bizning serverda, Telegram'ga bog'liq emas.
+
+- Papka: `app.files.dir` (`FILES_DIR`, default `storage/files` — loyiha ichida, `.gitignore`da). Prod'da —
+  backup qilinadigan disk/volume. Yo'l: `yyyy/MM/<hashId>.<ext>`.
+- V18 `files`: `hash_id` (128 bit tasodifiy, base64url 22 belgi — tashqariga faqat shu chiqadi), `path`
+  (papkaga NISBIY), nom, tur, hajm, sha256, eni/bo'yi, kim yukladi. Xabarda — `feedback_messages.file_hash_id` (FK).
+- Xavfsizlik: tur **magic bytes** bo'yicha (JPG/PNG/PDF oq ro'yxati), ≤ 10 MB (413), rasm **qayta kodlanadi** —
+  EXIF/GPS o'chadi, orientatsiya qo'llanadi, > 4096 px kichraytiriladi, > 50 Mpx rad. Nom tozalanadi
+  (path traversal), disk yo'li ildizdan chiqmasligi tekshiriladi, atomik yozish (tmp → move).
+- API: `POST /files` (multipart `file`, `file:upload`) → `FileResponse`; `GET /files/{hashId}` (kontent,
+  `file:read`; rasm inline, PDF attachment, `nosniff`, private kesh) ; `GET /files/{hashId}/info`.
+- Chat: `POST /feedback/{id}/messages {text?, fileHashId?}` — faqat o'zi yuklagan STAFF fayl. Bot rasmni izoh
+  bilan (`sendPhoto`), PDF'ni `sendDocument` bilan yuboradi. Fermer rasmi/PDF'i kelishi bilan serverga saqlanadi.
+- Eski `photo_file_id` xabarlar — ishga tushishda fonda ko'chiriladi (`FeedbackFileBackfill`).
+- Admin panel: 📎, Ctrl+V (skrinshot), sudrab tashlash; oldindan ko'rish; xabarda rasm/PDF kartochkasi.
+
+Ochiq: yetim fayllarni tozalash (yuklangan, lekin yuborilmagan), disk backup jadvali, keyin S3'ga o'tish —
+faqat `LocalFileStorage` almashadi.
+
+**B7.1 (2026-10-12):**
+- Admin → **Fayllar** (`file:manage`, V19, faqat ADMIN): statistika, filtr (nom/hashId, tur, manba, sana),
+  panjara/jadval, tafsilot paneli, "qayerda ishlatilgan" (`FileUsageProvider` — har feature o'zi aytadi:
+  murojaat, tahlil). Thumbnail: `GET /files/{hashId}/thumb` — 400 px JPEG, birinchi so'rovda yasalib
+  `thumbs/` ga keshlanadi. API: `GET /files`, `/files/stats`.
+- **Tahlil rasmlari** (xarita, grafik) — V20: `analysis_images` endi hashId saqlaydi, `files.source = SYSTEM`.
+  Saqlash tranzaksiyadan oldin; fayl saqlanmasa — zaxira BYTEA. Eski BYTEA fonda ko'chiriladi va bo'shatiladi
+  (`AnalysisImageBackfill`). Hammasi ko'chgach — keyingi migratsiyada `map_png/chart_png` o'chiriladi.
+- **Lightbox** (`ImageLightbox.vue`): chatda, tahlilda va Fayllar'da rasm sahifaning o'zida katta ochiladi —
+  ←/→, Esc, asl o'lcham, yuklab olish.
+
+---
+
+## FAZALAR D1–D3 — Joy topish, sozlanadigan onboarding, bildirishnomalar (2026-10-12)
+
+Loyiha egasi ustuvorligi: "ko'p foydalanuvchi joylashuvini topa olmayapti" → avval xarita.
+
+| Faza | Nima |
+|---|---|
+| **D1** ✅ | Mini App: avtomatik joylashuv (Telegram LocationManager → brauzer), xarita ustida qidiruv oynasi, global qidiruv (Photon + Nominatim), o'zbek/kirill transliteratsiya, tuman/mahalla chegarasi, "shu atrofdan" qidiruv, qadamlar, brend rangi |
+| **D2** ✅ | Onboarding admin'dan (qadamma-qadam xabar/savollar, 3 til), xush kelibsiz — barcha xizmatlar, oxirida inline "🗺 Dalani belgilash" (Mini App → HTTP, initData imzosi) |
+| **D3** ✅ | Bildirishnoma servisi (outbox, kanal abstraksiyasi: Telegram → keyin mobil/web), admin: hammaga / filtr / bitta foydalanuvchi |
+
+### D1 ✅
+- Oqim: **1 joy → 2 burchaklar → 3 yuborish** (yuqorida qadamlar, pastda maslahat). < 13 zoom'da bosish — "kattalashtiring"
+  (tasodifan butun tuman poligon bo'lmasin). Oxirgi joy va so'nggi 6 qidiruv — brauzer xotirasida.
+- Qidiruv: **Photon** (yozish jarayonida, xarita markaziga yaqinlari oldin, `lang=default` — o'zbekcha nomlar);
+  natija < 3 — o'zbek lotin → rus-lotin (q→k, o'→u…) yoki kirill → lotin varianti; yana kam yoki Enter — **Nominatim**
+  (≤ 1 so'rov/s, navbat). Tuman/mahalla (OSM relation/way) — Nominatim lookup bilan chegarasi chiziladi.
+- ⚠️ Ommaviy Photon/Nominatim — "fair use". Foydalanuvchi ko'paysa: o'z Photon/Nominatim serveri (Docker) yoki pullik geocoder.
+- Brend rangi `#137d41` (admin `--primary`): Telegram sarlavhasi, MainButton, qidiruv oynasi.
+- Tuzatildi: global `svg {}` qoidasi Leaflet'ning chizish qatlamini 20px qilardi; `[hidden]` + `display:flex`.
+- Juda yaqinlashtirganda xarita yo'qolmaydi: `maxNativeZoom: 17`, `maxZoom: 20` — 17 dan keyin plitka kattalashtiriladi.
+
+### D2 ✅ Onboarding (V22)
+- `onboarding_steps`: `code`, `position`, `kind` (MESSAGE | QUESTION), `target` (MAIN_CROP | IRRIGATION_TYPE | WATER_SOURCE —
+  savol javobi `farmers` ustuniga ham yoziladi; bo'sh — faqat `farmer_answers` da), `texts`/`options` (jsonb, uz/ru/en).
+  Seed: WELCOME (`{name}`), CROP, IRRIGATION, WATER_SOURCE, FINISH (position 1000 — doim oxirida).
+- Qoidalar: ichki savollar va FINISH o'chirilmaydi/nofaol qilinmaydi (`system`); javob qiymati variantlardan biri bo'lishi shart.
+- Bot: `/start` — to'ldirilgan fermerdan qayta so'ramaydi; chala qolgan — birinchi javobsiz savoldan davom etadi.
+  Callback `ob:CODE:VALUE` (eski `c:`/`i:`/`w:` ham ishlaydi). Oxirida FINISH matni + **inline 🗺 tugma** (faqat `PUBLIC_API_URL` bo'lsa).
+- Inline web_app tugmasi `sendData` qila olmaydi → Mini App `POST /api/v1/miniapp/fields {initData, data}`:
+  `BotInitData` — HMAC("WebAppData", token), `MessageDigest.isEqual`, 24 soat; `miniAppChain` — CSRF yo'q, CORS faqat Mini App origin.
+- Admin: **Onboarding** sahifasi — tartib (↑↓), yoqish/o'chirish, 3 til, variantlar, Telegram ko'rinishi. Ruxsat: `onboarding:read|manage`.
+
+### D3 ✅ Bildirishnomalar (outbox, V23)
+- 🔴 Qoida: **proaktiv** xabar (hisobot, eslatma, admin javobi, referral, kampaniya) — faqat `NotificationService.enqueue(...)`,
+  chaqiruvchi tranzaksiyasida (biznes o'zgarishi bilan atomik). Foydalanuvchi bosganiga darhol javob — to'g'ridan-to'g'ri.
+- `notifications`: PENDING → SENDING (`SKIP LOCKED`) → SENT | FAILED | SKIPPED | CANCELLED; backoff 1m/5m/30m/1h,
+  `notification.max-attempts`, tezlik `notification.rate-per-second` (Sozlamalar). Bloklagan fermer — FAILED (qayta urinmaydi).
+- Kanal — `NotificationChannel` (hozir `BotNotificationChannel`; mobil/web — yangi implementatsiya, chaqiruvchi o'zgarmaydi).
+  Shablonlar `Templates` da; kanal o'zi render qiladi (fermer tilida).
+- `ref_type/ref_id` — yetkazilgach `NotificationDeliveredEvent` (masalan murojaat xabari "yetkazildi" belgisi, REQUIRES_NEW).
+- Kampaniyalar: auditoriya ALL | FILTER (til, ekin, pullik, dalasi bor, faol, davlat, ro'yxat sanasi) | SINGLE;
+  `CampaignJob` vaqti kelganini kengaytiradi; bekor qilish — kutayotgan xabarlar CANCELLED.
+- Admin: **Bildirishnomalar** — Yangi xabar (oldindan ko'rish + soni) · Kampaniyalar (natija %) · Jurnal (qayta yuborish).
+  Fermer sahifasida "Xabarlar" va "Xabar yozish" (fermer tanlangan holda ochiladi). Ruxsat: `notification:read|send`.
+
+---
+
+## FAZALAR C1–C6 — Bot xizmatlari (bo'limlar) va admin nazorati
+
+Reja (2026-10-12, loyiha egasi qarori: 1–7 + ovozli xabar; taklif — 3 do'st = 1 oy bepul):
+
+| Faza | Bo'lim (bot) | Nima | Admin |
+|---|---|---|---|
+| **C1** ✅ | 🎁 Do'stlarni taklif · ⚙️ Sozlamalar | Taklif havolasi, mukofot, "Mening tarifim", til | Sozlamalar, Takliflar, rollar matritsasi |
+| C2 | 🌦 Ob-havo | 5 kunlik prognoz + sovuq/issiq/shamol/jala ogohlantirishi | Chegaralar, yuborilgan bildirishnomalar jurnali |
+| C3 | 📋 Dalalarim → 🛰 Monitoring | Har yangi surat — avtomatik tekshiruv, o'sish pasaysa xabar | Chegaralar, tarif bo'yicha yoqish |
+| C4 | 🤖 AI maslahatchi | O'simlik rasmi → AI dastlabki xulosa → agronom tasdig'i | Ko'rib chiqish navbati, aniqlik statistikasi |
+| C5 | 📒 Dala daftari · 📊 Hisobotlar | Ishlar jurnali + PDF, suv tejash, tuman bilan taqqoslash | Daftar (dala sahifasi), me'yorlar |
+| C6 | 💬 Yordam | Ovozli xabar (operator tinglaydi) | — |
+
+### C1 ✅ 2026-10-12
+- Bot menyusi bo'limli: [Yangi dala][Dalalarim] / [🎁 Do'stlarni taklif][💬 Fikr va yordam] / [⚙️ Sozlamalar].
+  Til — Sozlamalar ichida (eski "🌐 Til" tugmasi ham ishlaydi).
+- **Taklif:** havola `t.me/<bot>?start=ref_<KOD>` (8 belgi, chalkash harflarsiz). Faqat YANGI fermerga, INSERT'dan
+  oldin yoziladi (`referred_by_id` — updatable=false). "Faol" — birinchi tahlili tayyor (`activated_at`, soxta
+  akkauntlar sanalmaydi). Mukofot — tahlil commit'idan keyin alohida tranzaksiyada, taklif qiluvchi qatori qulflanadi
+  (poyga — ikki marta mukofot yo'q). Obuna `REFERRAL` usuli, summa 0, joriy obunadan keyin davom etadi.
+- **Sozlamalar** (`app_settings`, kalitlar — `Setting` enum): admin panelda o'zgaradi, deploysiz. Tur/chegara
+  tekshiriladi, audit `SETTING_CHANGED`; ishlamay qolgan qiymat (masalan nofaol tarif) — ogohlantirish.
+- **Rollar (V21, faqat qo'shiladi):** MANAGER — fermer/dala/tahlil/billing/takliflar; AGRONOMIST — +tahlil ishga
+  tushirish; OPERATOR — +fermer/dala/tahlil ko'rish; settings:manage — faqat ADMIN.
+- Admin UI: shadcn `data-checked:`/`data-open:` variantlari `style.css`da ta'riflandi (Switch, Checkbox ko'rinmas edi).
 
 ---
 
@@ -926,41 +1238,61 @@ ekanini tekshiring (boshqa odamning kontaktini yuborish mumkin). Teng bo'lsa —
 `lead_status = REQUESTED`, audit `LEAD_REQUESTED`.
 
 **Xabarnoma:** yangi lead → xodimlar Telegram guruhiga (alohida `chat_id` sozlamasi) qisqa
-xabar: ism, viloyat, ekin, maydon, sug'orish usuli, havola. Shunda lead'ni bir soat ichida
+xabar: ism, mamlakat, ekin, maydon, sug'orish usuli, havola. Shunda lead'ni bir soat ichida
 ko'rasiz — bu sotuvda juda muhim.
 
-Javoblar uchun alohida jadval kerak bo'lsa (savollar ko'p o'zgarsa) — `V11__create_survey_answers.sql`
+Javoblar uchun alohida jadval kerak bo'lsa (savollar ko'p o'zgarsa) — `V12__create_survey_answers.sql`
 (`farmer_id`, `question_key`, `answer`, `created_at`). Boshida `farmers` ustunlari yetarli.
 
 ---
 
-## FAZA S9 — Xodimlar API'si
+## FAZA S9 — Xodimlar (admin panel) API'si ✅ 2026-10-11
 
-Skeletdagi `apiChain` ichida, avtomatik `/api/v1` prefiks bilan.
+Skeletdagi `apiChain` ichida, `/api/v1` prefiks bilan. Admin panel Python'ga **to'g'ridan-to'g'ri
+murojaat qilmaydi** — Python'da foydalanuvchi/rol yo'q, `X-Internal-Key` brauzerga berilmaydi.
+Panel → Java (JWT cookie, CSRF, `@PreAuthorize`, audit, navbat) → Python.
 
 | Endpoint | Huquq | Eslatma |
 |---|---|---|
-| `GET /farmers?region=&leadStatus=&source=` | `farmer:read` | `PageResponse`, `Specification` (`AuditSpecs` namunasi) |
-| `GET /farmers/{id}` | `farmer:read` | dalalar ro'yxati bilan |
-| `PATCH /farmers/{id}/lead` | `farmer:update` | `leadStatus`, `leadNote` + audit `LEAD_STATUS_CHANGED` |
-| `GET /fields/{id}` | `field:read` | GeoJSON bilan |
-| `GET /analyses?fieldId=` | `analysis:read` | rasmlarsiz |
-| `GET /analyses/{id}/map.png` | `analysis:read` | `image/png`; CSP `default-src 'none'` rasmni yuklab olishga to'sqinlik qilmaydi |
-| `POST /analyses/{id}/retry` | `analysis:run` | `FAILED` → `PENDING` |
-| `GET /stats/sources` | `farmer:read` | har `source` bo'yicha: kelgan, tahlil olgan, lead → **qaysi kanal pulga arziydi** |
+| `GET /farmers?country=&leadStatus=&source=&crop=&q=` | `farmer:read` | `PageResponse`; `q` — ism/username/telefon (LIKE metabelgilari ekranlangan) |
+| `GET /farmers/{id}` | `farmer:read` | dalalar ro'yxati bilan (GeoJSON'siz) |
+| `PATCH /farmers/{id}/lead` | `farmer:update` | `{leadStatus, leadNote}`, audit `LEAD_STATUS_CHANGED` (from/to) |
+| `GET /fields?farmerId=&crop=&country=` | `field:read` | GeoJSON'siz |
+| `GET /fields/{id}` | `field:read` | `boundaryGeojson` — panel xaritada chizadi |
+| `GET /analyses?fieldId=&status=&kind=` | `analysis:read` | natija va rasmlarsiz |
+| `GET /analyses/{id}` | `analysis:read` | `result` — Python javobi (rasmlarsiz) |
+| `GET /analyses/{id}/map.png`, `/chart.png` | `analysis:read` | faqat `DONE`; `Cache-Control: private, 7 kun` |
+| `POST /fields/{id}/analyses` | `analysis:run` | `202`, `kind = STAFF` (fermer kvotasiga kirmaydi); tana bo'sh — oxirgi 12 oy; ≤ 400 kun; faol tahlil bo'lsa `409` |
+| `POST /analyses/{id}/retry` | `analysis:run` | faqat `FAILED` → `PENDING`, `attempts = 0`, audit `ANALYSIS_RETRIED` |
+| `GET /stats/overview` | `farmer:read` | jami fermer/dala/maydon/lead, tahlillar holati, mamlakatlar |
+| `GET /stats/sources?from=&to=` | `farmer:read` | voronka har `source` bo'yicha: kelgan → dala → tahlil → lead, `leadRatePct` |
 
-`Permissions` ga konstantalar (`CAN_READ_FARMER = "hasAuthority('farmer:read')"` va h.k.),
-`@PreAuthorize` — service metodlarida.
+`V11`: `kind` ga `STAFF` + **bitta dalada bitta faol tahlil** qisman unique index'i.
+Service'dagi `exists` tekshiruvi yetarli EMAS — 8 ta parallel `POST` sinovida 6 tasini faqat
+DB index ushladi (1 × 202, 7 × 409).
 
-### S9 — Tekshirish
+> ⚠️ Rasm endpoint'ida `produces = "image/png"` YO'Q: 404 da `ProblemDetail` (JSON) qaytadi,
+> `produces` bo'lsa Spring uni yozolmay 406/500 beradi.
+
+### S9 — Tekshirish (2026-10-11, vaqtinchalik baza, haqiqiy Python natijalari bilan)
+
+| endpoint | ADMIN | AGRONOMIST | USER |
+|---|---|---|---|
+| barcha `GET` | 200 | 200 | 403 |
+| `PATCH /farmers/{id}/lead` | 200 | 200 | 403 |
+| `POST /fields/{id}/analyses`, `/retry` | 202 | 403 | 403 |
+
+CSRF'siz `POST` → 403. So'rovlar soni 32 qatorda ham o'zgarmas (3–6, N+1 yo'q).
 
 ```bash
-# AGRONOMIST rolli xodim yarating (POST /users + rol biriktirish), login qiling (skelet retsepti)
-curl -s -b $J localhost:8081/api/v1/farmers | jq '.content | length'        # 200
-# USER rolli xodim bilan:
-curl -s -o /dev/null -w "%{http_code}\n" -b $J2 localhost:8081/api/v1/farmers   # 403
-curl -s -b $J localhost:8081/api/v1/stats/sources | jq
+# login retsepti — CLAUDE.md 8-bo'lim
+curl -s -b $J localhost:8081/api/v1/stats/overview | jq
+curl -s -b $J "localhost:8081/api/v1/farmers?leadStatus=REQUESTED" | jq '.content[] | {id, fullName, phone}'
+curl -s -o /dev/null -w "%{http_code}\n" -b $J -X POST localhost:8081/api/v1/fields/1/analyses -H "X-XSRF-TOKEN: $CSRF"   # 202
 ```
+
+**Keyinroq (panel talab qilsa):** fermerlarga ommaviy xabar (bot orqali), haqiqiy rangli
+sun'iy yo'ldosh surati / istalgan sana NDVI xaritasi (Python'ga yangi endpoint), CSV eksport.
 
 ---
 
@@ -1000,13 +1332,13 @@ volumes:
   pgdata:
 ```
 
-- Python image: `python:3.12-slim` — `rasterio` wheel'lari GDAL'ni o'zi bilan olib keladi,
-  odatda alohida GDAL o'rnatish shart emas.
+- Python image: `python:3.12-slim` — `rasterio` wheel'i GDAL'ni o'zi bilan olib keladi, lekin
+  **`libexpat1` ni apt bilan o'rnatish SHART** (usiz `ImportError: libexpat.so.1`). Image ~900 MB.
 - Java image: Java 26 uchun Eclipse Temurin tegi borligini tekshiring.
 - HTTPS: Let's Encrypt (certbot) — Mini App uchun majburiy.
 - Server: 2 vCPU / 4 GB RAM pilot uchun yetarli. Python xizmati AWS'ning `us-west-2`
-  mintaqasidan o'qiydi — Toshkentdan har tahlil biroz sekinroq, lekin dala kichik bo'lgani
-  uchun hajm oz.
+  mintaqasidan o'qiydi — server undan qanchalik uzoq bo'lsa, tahlil shuncha sekin, lekin
+  dala kichik bo'lgani uchun hajm oz.
 - **Prodga chiqishdan oldin** skelet seed foydalanuvchilarini o'chiring (skelet 9-bo'lim).
 - Kunlik `pg_dump` zaxira.
 
@@ -1035,7 +1367,7 @@ volumes:
 | Tuzoq | Oqibat | Yechim |
 |---|---|---|
 | C1 kolleksiyada `offset = -0.1` unutilgan | NDVI jimgina siljiydi | `DN × 0.0001 − 0.1`, metadata'dan tekshirish |
-| Maydon graduslarda hisoblangan | Maydon butunlay noto'g'ri | UTM (`EPSG:326xx`) da hisoblash |
+| Maydon graduslarda hisoblangan | Maydon butunlay noto'g'ri | UTM da hisoblash (`326xx` shimol / `327xx` janub) |
 | Dala cheti (ariq, yo'l) hisobga kirgan | Zaif zona "chetida" chiqadi | Poligonni ichkariga 10 m qisqartirish |
 | Sahna bulut foizi past, lekin dala ustida bulut | Bir sanada keskin pasayish | Dala bo'yicha SCL maskasi + 70% ochiq qoidasi |
 | `sendData` inline tugmadan | Hech narsa kelmaydi, xato ham yo'q | Faqat reply keyboard tugmasi |
@@ -1045,7 +1377,14 @@ volumes:
 | Bot thread'ida MDC tozalanmagan | Log'da boshqa fermerning ID'si | `finally { MDC.clear(); }` |
 | Begona kontakt qabul qilingan | Noto'g'ri raqam lead'da | `contact.userId() == from.id()` tekshiruvi |
 | Earth Search uzilib qolgan | Fermer javob olmaydi | Qayta urinish + 3 dan keyin xabar; zaxira manba sifatida Copernicus Sentinel Hub API |
-| Mavsumdan tashqari tahlil (oktabr) "joriy" sanalar bilan | Bo'sh dala, ma'nosiz natija | Mavsum sanasi `AnalysisService` da, ekin bo'yicha |
+| Bug'doy pishib qurishi "suv stressi" deb topilgan | Har bug'doy dalasida soxta ogohlantirish | Stress faqat NDVI ≥ mavsum cho'qqisining 80% bo'lganda |
+| Yiliga 2 hosil (bug'doy + soya) | Oyna chetidagi kesilgan mavsum tanlanadi | Bir nechta mavsum topiladi, chetga tegmagan to'liq mavsum afzal |
+| `rasterio` slim image'da | `ImportError: libexpat.so.1` | `apt-get install libexpat1` |
+| `uvicorn --workers` + env xatosi | Konteyner o'lmay osilib turadi | `python -m app.serve` — avval import, keyin worker'lar |
+| JDK `HttpClient` default HTTP/2 → uvicorn | Har so'rov jimgina 422 (tana bo'sh) | `.version(HttpClient.Version.HTTP_1_1)` |
+| FastAPI'da kalit endpoint parametrida | Kalitsiz so'rov 422 oladi, API tuzilishi oshkor | Kalit middleware'da, validatsiyadan oldin |
+| Shimoliy yarim shar kalendari hamma joyga qo'llangan | Janubiy yarim sharda bo'sh dala, ma'nosiz natija | Oxirgi 12 oy + mavsumni NDVI'dan aniqlash |
+| Janubiy yarim sharda `326xx` UTM | Maydon va piksellar noto'g'ri | `utm_epsg` da `lat < 0` → `327xx` |
 
 ---
 
@@ -1054,9 +1393,11 @@ volumes:
 - [ ] Ekinlar ro'yxati MVP uchun qaysilar (paxta + bug'doy yetarlimi?)
 - [ ] Bepul tahlil chegarasi: fermerga 1 ta yoki dala soniga qarab?
 - [ ] Xodimlar uchun UI: hozircha Swagger + `psql` yetarlimi, yoki oddiy admin sahifa kerakmi?
-- [ ] Rus tili qachon?
+- [ ] Bot tillari: qaysilaridan boshlaymiz (uz, ru, en)? Qolganlari uchun `en`.
+- [ ] Ekin ro'yxati global: paxta/bug'doydan tashqari soya, sholi, makkajo'xori ham kerakmi?
 - [ ] Shaxsiy ma'lumotlar (telefon, joylashuv) — maxfiylik siyosati matni botda (`/privacy`).
-      O'zbekiston "Shaxsga doir ma'lumotlar to'g'risida"gi qonunini, ayniqsa ma'lumotlarni
+      Global xizmat: GDPR (Yevropa fermerlari) va O'zbekiston "Shaxsga doir ma'lumotlar to'g'risida"gi
+      qonunini (server O'zbekistonda bo'lsa yoki o'zbek fermerlari ko'p bo'lsa), ayniqsa ma'lumotlarni
       mamlakat ichida saqlash talabini yurist bilan tekshiring — server joylashuvini shunga qarab tanlang.
 
 ---

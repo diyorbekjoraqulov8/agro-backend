@@ -1,0 +1,130 @@
+/* Dizayn rangi — admin panel bilan bir xil (oklch(0.52 0.13 152) ≈ #137d41). Telegram mavzusi faqat fon/matn uchun */
+:root {
+  --brand: #137d41;
+  --brand-dark: #015d2d;
+  --brand-soft: #e4f8e8;
+  --bg: var(--tg-theme-bg-color, #ffffff);
+  --text: var(--tg-theme-text-color, #18181b);
+  --hint: var(--tg-theme-hint-color, #71717a);
+  --line: color-mix(in srgb, var(--hint) 28%, transparent);
+  --card: var(--tg-theme-secondary-bg-color, #f4f4f5);
+  --danger: #dc2626;
+  --shadow: 0 6px 24px rgba(0, 0, 0, .18);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* display:flex/grid berilgan elementlarda ham hidden ishlasin */
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
+  font: 15px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+#map { position: absolute; inset: 0; background: #1d2a20; }
+/* Faqat ikonkalar — global svg qoidasi Leaflet'ning chizish qatlamini (svg) ham 20px qilib qo'yardi */
+.ico-svg, .searchbar svg, .search svg, .round svg { width: 20px; height: 20px; fill: currentColor; flex: 0 0 auto; }
+button { font: inherit; color: inherit; cursor: pointer; }
+
+/* ── Yuqori: qidiruv qatori + tanlangan hudud ─────────────────────────── */
+.topbar { position: absolute; top: 8px; left: 8px; right: 8px; z-index: 1000; display: flex; flex-direction: column; gap: 6px; }
+.searchbar { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; border: 0;
+  border-radius: 14px; background: var(--bg); box-shadow: var(--shadow); text-align: left; color: var(--hint); }
+.searchbar svg { color: var(--brand); }
+.searchbar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px;
+  background: var(--brand); color: #fff; box-shadow: var(--shadow); }
+.chip-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.chip-text b, .chip-text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip-text small { opacity: .85; font-size: 12px; }
+.chip-x { border: 0; background: rgba(255,255,255,.18); color: #fff; width: 28px; height: 28px; border-radius: 50%; }
+.steps { display: flex; gap: 6px; }
+.steps span { flex: 1; text-align: center; padding: 5px 4px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  background: rgba(0,0,0,.45); color: rgba(255,255,255,.75); backdrop-filter: blur(4px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.steps span.on { background: var(--brand); color: #fff; }
+.steps span.done { background: rgba(19,125,65,.55); color: #fff; }
+
+/* ── O'ng tomondagi tugmalar ───────────────────────────────────────────── */
+.tools { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); z-index: 1000;
+  display: flex; flex-direction: column; gap: 10px; }
+.round { width: 46px; height: 46px; border-radius: 50%; border: 0; font-size: 21px; display: grid; place-items: center;
+  background: var(--bg); color: var(--text); box-shadow: var(--shadow); }
+.round svg { width: 22px; height: 22px; color: var(--brand); }
+.round:disabled { opacity: .4; }
+.round.busy svg { animation: spin 1s linear infinite; }
+
+/* ── Pastki panel ──────────────────────────────────────────────────────── */
+.panel { position: absolute; left: 8px; right: 8px; z-index: 1000; background: var(--bg);
+  border-radius: 16px; padding: 10px 12px; box-shadow: var(--shadow); }
+.bottom { bottom: calc(8px + var(--safe-b)); }
+.hint { margin: 0 0 8px; color: var(--hint); font-size: 13px; }
+.hint b { color: var(--brand); }
+.bottom .row { display: flex; gap: 8px; }
+.bottom input, .bottom select { min-width: 0; border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px;
+  font-size: 16px; /* <16px da iOS sahifani kattalashtiradi */ background: var(--bg); color: var(--text); }
+.bottom input { flex: 1; }
+.bottom select { flex: 0 0 auto; max-width: 42%; }
+.bottom input:focus, .bottom select:focus { outline: 2px solid var(--brand); outline-offset: -1px; }
+#area { margin-top: 8px; font-weight: 600; font-size: 16px; color: var(--brand); }
+#area:empty { display: none; }
+.error { color: var(--danger); margin-top: 4px; font-size: 14px; }
+.primary { width: 100%; margin-top: 8px; padding: 12px; border: 0; border-radius: 12px;
+  background: var(--brand); color: #fff; font-size: 16px; font-weight: 600; }
+.primary:disabled { opacity: .45; }
+#debug { white-space: pre-wrap; word-break: break-all; font-size: 11px; max-height: 120px; overflow: auto; }
+
+.toast { position: absolute; left: 50%; bottom: calc(150px + var(--safe-b)); transform: translateX(-50%); z-index: 1100;
+  max-width: calc(100% - 32px); padding: 10px 14px; border-radius: 12px; background: rgba(24,24,27,.92); color: #fff;
+  font-size: 14px; text-align: center; box-shadow: var(--shadow); }
+
+/* ── Qidiruv oynasi (bottom sheet) ─────────────────────────────────────── */
+.sheet-wrap { position: absolute; inset: 0; z-index: 2000; display: flex; align-items: flex-end;
+  background: rgba(0,0,0,.35); animation: fade .15s ease-out; }
+.sheet { width: 100%; max-height: 86%; display: flex; flex-direction: column; background: var(--bg);
+  border-radius: 20px 20px 0 0; padding: 8px 16px calc(14px + var(--safe-b)); box-shadow: 0 -8px 30px rgba(0,0,0,.25);
+  animation: up .2s ease-out; }
+.grab { width: 40px; height: 4px; border-radius: 4px; background: var(--line); margin: 2px auto 10px; }
+.sheet-head { display: flex; align-items: flex-start; gap: 12px; }
+.sheet-head > div { flex: 1; }
+.sheet h2 { margin: 0; font-size: 20px; }
+.sheet-head p { margin: 4px 0 0; color: var(--hint); font-size: 14px; }
+.icon-btn { border: 0; background: var(--card); width: 32px; height: 32px; border-radius: 50%; font-size: 14px; flex: 0 0 auto; }
+
+.search { position: relative; display: flex; align-items: center; gap: 8px; margin-top: 14px; padding: 0 12px;
+  border: 2px solid var(--brand); border-radius: 14px; background: var(--bg); }
+.search svg { color: var(--brand); }
+.search input { flex: 1; min-width: 0; border: 0; outline: 0; padding: 12px 0; font-size: 16px; background: transparent; color: var(--text); }
+.search input::-webkit-search-cancel-button { display: none; }
+.q-x { border: 0; background: var(--card); width: 26px; height: 26px; border-radius: 50%; font-size: 12px; }
+.spin { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--brand-soft); border-top-color: var(--brand); animation: spin .8s linear infinite; }
+
+.btn-loc { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 10px; padding: 12px 14px; border: 0;
+  border-radius: 14px; background: var(--brand); color: #fff; text-align: left; }
+.btn-loc b, .btn-loc small { display: block; }
+.btn-loc small { opacity: .85; font-size: 12px; margin-top: 1px; }
+.loc-ico { width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,.2); display: grid; place-items: center; font-size: 18px; flex: 0 0 auto; }
+.btn-loc.busy .loc-ico { animation: pulse 1s ease-in-out infinite; }
+
+.results { margin-top: 10px; overflow-y: auto; -webkit-overflow-scrolling: touch; flex: 1 1 auto; min-height: 0; }
+.results .label { margin: 8px 2px 4px; color: var(--hint); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+.item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 6px; border: 0; border-bottom: 1px solid var(--line);
+  background: transparent; text-align: left; }
+.item:last-child { border-bottom: 0; }
+.item:active { background: var(--card); }
+.item .ico { width: 36px; height: 36px; border-radius: 10px; background: var(--brand-soft); display: grid; place-items: center; font-size: 18px; flex: 0 0 auto; }
+.item .txt { min-width: 0; flex: 1; }
+.item b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.item small { display: block; color: var(--hint); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item mark { background: transparent; color: var(--brand); font-weight: 700; }
+.empty { color: var(--hint); text-align: center; font-size: 14px; margin: 14px 0 4px; }
+.link { margin-top: 10px; border: 0; background: transparent; color: var(--brand); font-weight: 600; padding: 8px; }
+.attr { margin: 2px 0 0; text-align: center; color: var(--hint); font-size: 10px; }
+
+/* ── Xaritadagi belgilar ───────────────────────────────────────────────── */
+/* Burchak nuqtasi: 28px — barmoq bilan surishga yetarli */
+.vertex { width: 28px !important; height: 28px !important; margin: -14px 0 0 -14px !important;
+  border-radius: 50%; background: rgba(255,255,255,.35); border: 3px solid #fff; box-shadow: 0 0 0 2px var(--brand); }
+.vertex.first { background: var(--brand); }
+.me { width: 18px !important; height: 18px !important; margin: -9px 0 0 -9px !important; border-radius: 50%;
+  background: #2563eb; border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(37,99,235,.25); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 50% { transform: scale(1.15); } }
+@keyframes fade { from { opacity: 0; } }
+@keyframes up { from { transform: translateY(40px); opacity: .6; } }

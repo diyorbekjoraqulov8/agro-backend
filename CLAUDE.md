@@ -67,6 +67,8 @@ Loyiha egasi auth/RBAC ni **project-v1 da to'liq o'rgangan**. Ya'ni:
 | `o.s.b.actuate.health.HealthEndpoint` | `o.s.b.health.actuate.endpoint.HealthEndpoint` |
 | springdoc 2.x | springdoc **3.0.3** |
 | Testcontainers `org.testcontainers:postgresql` | `org.testcontainers:testcontainers-postgresql` (2.x) |
+| `o.s.data.mapping.PropertyReferenceException` | `o.s.data.core.PropertyReferenceException` (Spring Data 4) |
+| Jackson 2 `com.fasterxml.jackson.databind` | Jackson 3 `tools.jackson.databind`; annotatsiyalar `com.fasterxml.jackson.annotation` da qoldi |
 
 ---
 
@@ -164,6 +166,12 @@ Tasdiq: `spring-tx` da `AnnotationTransactionAttributeSource()` → `publicMetho
 - **Read-modify-write = lost update.** Sanoqni `SET x = x + 1` bilan atomik oshir.
 - **`V10` glob tartibida `V2` dan oldin keladi** — qo'lda sinashda `sort -V`:
   `for f in $(ls db/migration/V*.sql | sort -V); do psql -v ON_ERROR_STOP=1 -f "$f"; done`
+- **`Pageable` mijozdan keladi — 500 manbai.** Noma'lum `sort` maydoni va
+  `page × size > Integer.MAX_VALUE` Spring Data'da exception (500). Har sahifali endpoint'da
+  `Pages.guard(pageable, SORTABLE)` — ruxsat etilgan sort maydonlari + offset chegarasi.
+- **`DataIntegrityViolationException` ≠ "allaqachon mavjud".** Spring SQLSTATE `22xxx`
+  (matnda NUL `\u0000`, diapazondan tashqari sana) ni ham shu exception'ga o'giradi.
+  Handler SQLSTATE bo'yicha ajratadi: `23505` → 409, `22xxx`/`23502`/`23514` → 400.
 - **MapStruct `unmappedTargetPolicy = ERROR`** — entity'ga maydon qo'shilsa build
   yiqiladi. Bu **foydali** tuzoq: `@Mapping(target="...", ignore=true)` qo'shasiz
   va mass-assignment xavfi yo'qoladi.
@@ -219,6 +227,8 @@ Qoida:
   `'unsafe-inline'` beriladi, `/api/**` da qattiq qoladi.
 - **Cookie auth'da Swagger "Authorize" tugmasi ishlamaydi** — `Cookie` brauzerda
   *forbidden header name*, JS uni o'rnata olmaydi. `addSecurityItem` qo'shilmaydi.
+- **`Pageable` parametriga `@ParameterObject`** (`org.springdoc.core.annotations`) — usiz
+  Swagger UI uni bitta JSON obyekt qilib ko'rsatadi va `sort=["id"]` literal yuboradi → 500.
 - **`exposure.include: "*"` HECH QACHON** — `/env`, `/configprops`, `/heapdump`.
 - **Actuator zanjirida `oauth2ResourceServer` yo'q** — health check qiluvchi
   (nginx, Docker, k8s) autentifikatsiya qila olmaydi.

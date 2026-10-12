@@ -2,6 +2,7 @@ package uz.app.agro.common.exception;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.core.PropertyReferenceException;
 import org.springframework.http.*;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -90,10 +92,32 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return response;
     }
 
+    // Zaxira: Pages.guard chetlab o'tilgan endpoint'da noma'lum sort maydoni 500 bo'lmasin.
+    // Spring Data 4: paket o'zgargan — org.springframework.data.core (3.x da ...data.mapping)
+    @ExceptionHandler(PropertyReferenceException.class)
+    public ProblemDetail handlePropertyReference(PropertyReferenceException ex) {
+        return build(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Noma'lum maydon: '" + ex.getPropertyName() + "'");
+    }
+
+    /**
+     * Spring SQLSTATE "22" (yaroqsiz ma'lumot) va "23" (cheklov) ni BIRDEK shu exception'ga
+     * o'giradi. Hammasini 409 "allaqachon mavjud" qilish yolg'on: matndagi NUL belgi (22021)
+     * yoki diapazondan tashqari sana (22008) — mijoz xatosi, 400.
+     */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ProblemDetail handleDataIntegrity(DataIntegrityViolationException ex) {
         log.warn("Ma'lumot yaxlitligi buzildi: {}", ex.getMostSpecificCause().getMessage());
-        return build(HttpStatus.CONFLICT, "CONFLICT", "Bunday yozuv allaqachon mavjud");
+        String state = ex.getMostSpecificCause() instanceof SQLException sql ? sql.getSQLState() : null;
+        if (state == null) {
+            return build(HttpStatus.CONFLICT, "CONFLICT", "Ma'lumot yaxlitligi buzildi");
+        }
+        return switch (state) {
+            case "23505" -> build(HttpStatus.CONFLICT, "CONFLICT", "Bunday yozuv allaqachon mavjud");
+            case "23503" -> build(HttpStatus.CONFLICT, "CONFLICT", "Bog'liq yozuv sababli amal bajarilmadi");
+            default -> state.startsWith("22") || state.equals("23502") || state.equals("23514")
+                    ? build(HttpStatus.BAD_REQUEST, "INVALID_VALUE", "Qiymat yaroqsiz yoki ruxsat etilgan diapazondan tashqarida")
+                    : build(HttpStatus.CONFLICT, "CONFLICT", "Ma'lumot yaxlitligi buzildi");
+        };
     }
 
     /**
