@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Map;
 
 /** texts.uz majburiy (boshqa til bo'sh bo'lsa — uz); tugma ixtiyoriy (matn + https url); scheduledAt null — darhol */
@@ -16,5 +16,5 @@ public record CampaignRequest(
         Map<String, String> buttonTexts,
         @Pattern(regexp = "https://\\S{3,490}", message = "Tugma havolasi https:// bilan boshlansin") String buttonUrl,
         @NotNull @Valid Audience audience,
-        LocalDateTime scheduledAt
+        OffsetDateTime scheduledAt                  // offset bilan — admin brauzeri va server zonasi farq qilsa ham to'g'ri
 ) {}

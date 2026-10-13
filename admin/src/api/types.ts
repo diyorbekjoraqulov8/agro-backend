@@ -45,7 +45,7 @@ export interface FieldSummary {
 }
 export interface EffectivePlan {
   planCode: string; planName: string; paid: boolean; subscriptionId: number | null; validUntil: string | null
-  maxFieldHa: number; maxFields: number; maxAnalyses: number | null; usedAnalyses: number
+  maxFieldHa: number; maxFields: number | null; maxAnalyses: number | null; usedAnalyses: number
 }
 export interface FarmerDetail extends FarmerListItem {
   telegramUserId: number; totalAreaHa: number | null; leadNote: string | null; updatedDate: string
@@ -86,12 +86,12 @@ export interface SourcesReport { from: string; to: string; sources: SourceFunnel
 export type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER' | 'OTHER' | 'REFERRAL'
 export interface Plan {
   id: number; code: string; name: string; description: string | null; price: number; currency: string
-  durationDays: number | null; maxFieldHa: number; maxFields: number; maxAnalyses: number | null
+  durationDays: number | null; maxFieldHa: number; maxFields: number | null; maxAnalyses: number | null
   systemPlan: boolean; active: boolean; updatedDate: string | null
 }
 export interface PlanRequest {
   code?: string; name: string; description?: string | null; price: number; currency: string
-  durationDays?: number | null; maxFieldHa: number; maxFields: number; maxAnalyses?: number | null; active: boolean
+  durationDays?: number | null; maxFieldHa: number; maxFields?: number | null; maxAnalyses?: number | null; active: boolean
 }
 export interface Subscription {
   id: number; farmerId: number; planId: number; planCode: string; planName: string
@@ -176,7 +176,7 @@ export interface StepRequest { code?: string; kind?: StepKind; texts: Texts; opt
 
 // ── Bildirishnomalar ─────────────────────────────────────────────────────
 export type NotificationStatus = 'PENDING' | 'SENDING' | 'SENT' | 'FAILED' | 'SKIPPED' | 'CANCELLED'
-export type NotificationCategory = 'ANALYSIS' | 'IRRIGATION' | 'FEEDBACK' | 'REFERRAL' | 'BROADCAST' | 'SYSTEM'
+export type NotificationCategory = 'ANALYSIS' | 'IRRIGATION' | 'FEEDBACK' | 'REFERRAL' | 'BROADCAST' | 'SYSTEM' | 'WEATHER'
 export type CampaignStatus = 'SCHEDULED' | 'SENDING' | 'DONE' | 'CANCELLED'
 export interface NotificationItem {
   id: number; farmerId: number; farmerName: string | null; channel: string; category: NotificationCategory; template: string

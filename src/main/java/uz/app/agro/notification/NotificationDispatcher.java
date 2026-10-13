@@ -67,6 +67,7 @@ class NotificationDispatcher {
             store.complete(job.id(), d);
         } finally {
             MDC.remove("requestId");
+            MDC.remove("userId");                // kanal qo'yadi; scheduler thread'i keyingi job'ga yopishtirmasin
         }
     }
 }

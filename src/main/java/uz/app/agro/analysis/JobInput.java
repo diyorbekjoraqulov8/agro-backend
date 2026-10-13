@@ -15,9 +15,5 @@ public record JobInput(
         Crop crop,
         LocalDate seasonStart,
         LocalDate seasonEnd,
-        long farmerId,
-        long farmerTelegramUserId,
-        long chatId,
-        String language,
-        boolean blockedBot
+        long farmerId
 ) {}

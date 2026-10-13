@@ -19,7 +19,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * Onboarding oqimi — bot chaqiradi, @PreAuthorize YO'Q (xodim uchun — OnboardingAdminService).
+ * Onboarding oqimi — bot chaqiradi, @PreAuthorize YO'Q — controller'ga ULANMASIN (xodim uchun — OnboardingAdminService).
  * Qadamlar bazada (admin o'zgartiradi): faol, tartib bo'yicha, FINISH — har doim oxirida.
  */
 @Service

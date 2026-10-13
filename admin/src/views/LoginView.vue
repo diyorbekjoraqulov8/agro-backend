@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Loader2, Sprout } from '@lucide/vue'
+import { Loader2 } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -37,10 +37,8 @@ async function submit() {
   <div class="bg-muted/40 flex min-h-svh items-center justify-center p-4">
     <div class="w-full max-w-sm">
       <div class="mb-6 flex flex-col items-center gap-2 text-center">
-        <div class="bg-primary text-primary-foreground flex size-10 items-center justify-center rounded-xl">
-          <Sprout class="size-5" />
-        </div>
-        <h1 class="text-xl font-semibold">Agro boshqaruv paneli</h1>
+        <img src="/logo.png" alt="" class="size-14 rounded-2xl shadow-sm" />
+        <h1 class="text-xl font-semibold">Dropy boshqaruv paneli</h1>
         <p class="text-muted-foreground text-sm">Xodimlar uchun kirish</p>
       </div>
       <form class="bg-card space-y-4 rounded-xl border p-6 shadow-sm" @submit.prevent="submit">

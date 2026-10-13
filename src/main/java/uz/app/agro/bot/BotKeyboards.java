@@ -7,8 +7,6 @@ import com.pengrad.telegrambot.model.request.KeyboardButton;
 import com.pengrad.telegrambot.model.request.ReplyKeyboardMarkup;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import uz.app.agro.farmer.IrrigationType;
-import uz.app.agro.farmer.WaterSource;
 import uz.app.agro.feedback.FeedbackKind;
 import uz.app.agro.field.Crop;
 
@@ -54,14 +52,19 @@ public class BotKeyboards {
         // crop — Mini App'dagi ekin tanlovining boshlang'ich qiymati (fermerning asosiy ekini)
         if (miniAppConfigured()) newField.webAppInfo(new WebAppInfo(miniAppUrl(lang, maxHa,
                 defaultCrop != null ? "&crop=" + defaultCrop.name() : null)));
-        // Bo'limlar: dalalar · do'stlar va yordam · sozlamalar (til, tarif). Keyingi fazalarda ob-havo, AI, daftar qo'shiladi
+        // Bo'limlar: dalalar · sug'orish va ob-havo · do'stlar va yordam · tariflar, sozlamalar, qo'llanma.
+        // Keyingi fazalarda (C3–C5) monitoring, AI, daftar qo'shiladi
         return new ReplyKeyboardMarkup(
-                new KeyboardButton[]{newField, new KeyboardButton(messages.text(lang, "menu.myFields"))},
-                new KeyboardButton[]{new KeyboardButton(messages.text(lang, "menu.friends")),
-                        new KeyboardButton(messages.text(lang, "menu.feedback"))},
-                new KeyboardButton[]{new KeyboardButton(messages.text(lang, "menu.settings"))})
+                new KeyboardButton[]{newField, button(lang, "menu.myFields")},
+                new KeyboardButton[]{button(lang, "menu.irrigation"), button(lang, "menu.weather")},
+                new KeyboardButton[]{button(lang, "menu.friends"), button(lang, "menu.feedback")},
+                new KeyboardButton[]{button(lang, "menu.plans"), button(lang, "menu.settings"), button(lang, "menu.help")})
                 .resizeKeyboard(true)
                 .isPersistent(true);
+    }
+
+    private KeyboardButton button(String lang, String key) {
+        return new KeyboardButton(messages.text(lang, key));
     }
 
     /** Onboarding: inline "🗺 Dalani xaritada belgilash" (Mini App → HTTP, initData imzosi). Sozlanmagan — null */
@@ -77,9 +80,9 @@ public class BotKeyboards {
      * Onboarding savoli variantlari: "ob:<KOD>:<QIYMAT>" (≤ 64 bayt: kod ≤ 32, qiymat ≤ 24).
      * labels — tugma matnlari (o'rnatilgan savolda enum yorlig'i, maxsusda admin matni), tartib — values bilan bir xil.
      */
-    public InlineKeyboardMarkup onboardingOptions(String code, java.util.List<String> values, java.util.List<String> labels) {
+    public InlineKeyboardMarkup onboardingOptions(String code, List<String> values, List<String> labels) {
         InlineKeyboardMarkup kb = new InlineKeyboardMarkup();
-        java.util.List<InlineKeyboardButton> row = new ArrayList<>();
+        List<InlineKeyboardButton> row = new ArrayList<>();
         for (int i = 0; i < values.size(); i++) {
             row.add(new InlineKeyboardButton(labels.get(i)).callbackData(ONBOARDING + code + ":" + values.get(i)));
             if (row.size() == 2) {
@@ -191,18 +194,6 @@ public class BotKeyboards {
                 new InlineKeyboardButton(messages.text(lang, "btn.csv")).callbackData(REPORT_CSV + jobId));
     }
 
-
-    public InlineKeyboardMarkup crops(String lang) {
-        return grid(lang, CROP, Crop.values());
-    }
-
-    public InlineKeyboardMarkup irrigation(String lang) {
-        return grid(lang, IRRIGATION, IrrigationType.values());
-    }
-
-    public InlineKeyboardMarkup waterSources(String lang) {
-        return grid(lang, WATER, WaterSource.values());
-    }
 
     public InlineKeyboardMarkup languages() {
         return new InlineKeyboardMarkup(

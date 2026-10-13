@@ -59,7 +59,7 @@ public class FieldIntakeService {
                     .filter(f -> f.getFarmer().getId().equals(farmer.getId())).orElse(null);
             if (field == null) return new Result(Outcome.NOT_FOUND, null, null, plan, areaHa);
         } else {
-            if (fieldRepository.countByFarmerId(farmer.getId()) >= plan.maxFields()) {
+            if (!plan.fieldsLeft(fieldRepository.countByFarmerId(farmer.getId()))) {
                 return new Result(Outcome.FIELD_LIMIT, null, null, plan, areaHa);
             }
             field = new FieldEntity();

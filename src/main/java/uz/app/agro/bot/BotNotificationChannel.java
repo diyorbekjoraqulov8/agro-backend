@@ -42,6 +42,7 @@ public class BotNotificationChannel implements NotificationChannel {
     private final AnalysisReportService analysisReports;
     private final FileRegistry files;
     private final FarmerRegistrationService farmers;
+    private final BotWeather weather;
 
     @Override
     public ChannelType type() {
@@ -50,17 +51,18 @@ public class BotNotificationChannel implements NotificationChannel {
 
     @Override
     public Delivery deliver(Recipient to, String template, Map<String, Object> p) {
-        MDC.put("userId", "tg:" + to.telegramUserId());
+        MDC.put("userId", "tg:" + to.telegramUserId());      // tozalash — NotificationDispatcher finally
+        if (Templates.TEXT.equals(template)) return text(to, p);
         boolean ok = switch (template) {
-            case Templates.TEXT -> text(to, p);
             case Templates.ANALYSIS_COMPLETED -> analysisCompleted(to, p);
             case Templates.ANALYSIS_REJECTED -> analysisRejected(to, p);
             case Templates.ANALYSIS_FAILED -> sender.send(to.chatId(), format.technical(to.language()), null) != null
                     && moveTo(to, BotStep.REPORTED);
-            case Templates.IRRIGATION_REMINDER -> irrigation.remind(JsonMapper.shared().convertValue(p.get("status"), WaterStatus.class),
+            case Templates.IRRIGATION_REMINDER -> irrigation.remind(to, JsonMapper.shared().convertValue(p.get("status"), WaterStatus.class),
                     FieldWaterEntity.ReminderKind.valueOf(String.valueOf(p.get("kind"))));
             case Templates.FEEDBACK_REPLY -> feedbackReply(to, p);
             case Templates.FEEDBACK_CLOSED -> feedbackClosed(to, p);
+            case Templates.WEATHER_ALERT -> weather.alert(to, p);
             default -> {
                 log.error("noma'lum bildirishnoma shabloni: {}", template);
                 yield false;
@@ -68,10 +70,11 @@ public class BotNotificationChannel implements NotificationChannel {
         };
         if (ok) return Delivery.sent();
         if (!isKnown(template)) return Delivery.failed("noma'lum shablon: " + template);
-        return farmers.isBlocked(to.chatId()) ? Delivery.failed("fermer botni bloklagan (403)") : Delivery.retry("telegram yubormadi");
+        return farmers.isBlocked(to.chatId()) ? Delivery.failed("fermer botni bloklagan yoki chat yoʻq") : Delivery.retry("telegram yubormadi");
     }
 
-    private boolean text(Recipient to, Map<String, Object> p) {
+    /** Kampaniya/matn — Telegram rad etsa sababi jurnalga (masalan "BUTTON_URL_INVALID") */
+    private Delivery text(Recipient to, Map<String, Object> p) {
         InlineKeyboardMarkup kb = null;
         if (p.get("buttons") instanceof List<?> buttons && !buttons.isEmpty()) {
             kb = new InlineKeyboardMarkup();
@@ -79,7 +82,10 @@ public class BotNotificationChannel implements NotificationChannel {
                 if (b instanceof Map<?, ?> m) kb.addRow(new InlineKeyboardButton(String.valueOf(m.get("text"))).url(String.valueOf(m.get("url"))));
             }
         }
-        return sender.send(to.chatId(), String.valueOf(p.get("text")), kb) != null;
+        BotSender.Sent s = sender.sendDetailed(to.chatId(), String.valueOf(p.get("text")), kb);
+        if (s.messageId() != null) return Delivery.sent();
+        String reason = "telegram" + (s.errorCode() == null ? "" : " " + s.errorCode()) + ": " + s.error();
+        return s.permanent() || farmers.isBlocked(to.chatId()) ? Delivery.failed(reason) : Delivery.retry(reason);
     }
 
     private boolean analysisCompleted(Recipient to, Map<String, Object> p) {
@@ -141,7 +147,7 @@ public class BotNotificationChannel implements NotificationChannel {
     private static boolean isKnown(String template) {
         return switch (template) {
             case Templates.TEXT, Templates.ANALYSIS_COMPLETED, Templates.ANALYSIS_REJECTED, Templates.ANALYSIS_FAILED, Templates.IRRIGATION_REMINDER,
-                 Templates.FEEDBACK_REPLY, Templates.FEEDBACK_CLOSED -> true;
+                 Templates.FEEDBACK_REPLY, Templates.FEEDBACK_CLOSED, Templates.WEATHER_ALERT -> true;
             default -> false;
         };
     }

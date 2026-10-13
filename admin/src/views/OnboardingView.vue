@@ -42,7 +42,7 @@ onMounted(load)
 const questions = computed(() => (steps.value ?? []).filter((s) => s.active && s.kind === 'QUESTION'))
 const isFinish = (s: OnboardingStep) => s.code === 'FINISH'
 function text(s: OnboardingStep, lang: Lang) {
-  return (s.texts[lang] || s.texts.uz || '').replace(', {name}', ', Aziz').replace('{name}', 'Aziz')
+  return (s.texts[lang] || s.texts.uz || '').replace(', {name}', ', Aziz').replaceAll('{name}', 'Aziz')
 }
 function optionLabels(s: OnboardingStep, lang: Lang): string[] {
   if (s.target) return Object.values(TARGET_OPTIONS[s.target])          // o'rnatilgan — enum (o'zbekcha nomlari)

@@ -64,7 +64,7 @@ public class SecurityConfig {
      * Mini App Vercel'da, boshqa origin; cookie yuborilmaydi, allowCredentials=false).
      */
     @Bean
-    @Order(1)
+    @Order(2)
     public SecurityFilterChain miniAppChain(HttpSecurity http,
                                             @Value("${telegram.miniapp-url:}") String miniappUrl) throws Exception {
         http
@@ -103,7 +103,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    @Order(2)
+    @Order(3)
     public SecurityFilterChain apiChain(
             HttpSecurity http,
             DbAuthenticationConverter authConverter

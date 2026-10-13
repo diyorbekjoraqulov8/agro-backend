@@ -161,7 +161,7 @@ onMounted(load)
           </div>
           <div class="text-muted-foreground grid grid-cols-2 gap-1">
             <span>Maks. maydon</span><span class="text-foreground text-right">{{ fmtNum(farmer.plan.maxFieldHa) }} ga</span>
-            <span>Dalalar</span><span class="text-foreground text-right">{{ farmer.fields.length }} / {{ farmer.plan.maxFields }}</span>
+            <span>Dalalar</span><span class="text-foreground text-right">{{ farmer.fields.length }} / {{ farmer.plan.maxFields ?? '∞' }}</span>
             <span>Tahlillar</span><span class="text-foreground text-right">{{ farmer.plan.usedAnalyses }} / {{ farmer.plan.maxAnalyses ?? '∞' }}</span>
           </div>
           <Button v-if="auth.can(P.BILLING_MANAGE)" class="w-full" @click="openPay"><Plus /> Toʻlov qildi</Button>

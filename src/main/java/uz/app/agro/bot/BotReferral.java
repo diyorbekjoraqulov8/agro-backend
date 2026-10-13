@@ -19,7 +19,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
 /**
- * Bo'limlar: "🎁 Do'stlarni taklif" va "⚙️ Sozlamalar" (💳 Mening tarifim, 🌐 Til). Taklif xabarlari — ReferralRewarder (outbox).
+ * Bo'limlar: "🎁 Do'stlarni taklif" va "⚙️ Sozlamalar" (💳 Mening tarifim, 🌐 Til, 📋 Barcha tariflar — BotPlans). Taklif xabarlari — ReferralRewarder (outbox).
  * callback_data: st:plan, st:lang
  */
 @Component
@@ -38,6 +38,7 @@ public class BotReferral {
     private final PlanService plans;
     private final FarmerRegistrationService farmers;
     private final FieldBotService fields;
+    private final BotPlans planSection;
 
     public void showFriends(long tg, long chatId, String lang) {
         var s = referrals.summary(tg).orElse(null);
@@ -65,6 +66,7 @@ public class BotReferral {
                 new InlineKeyboardButton(messages.text(lang, "settings.plan")).callbackData(SETTINGS + "plan"),
                 new InlineKeyboardButton(messages.text(lang, "settings.language")).callbackData(SETTINGS + "lang"));
         // st:profile — BotUpdateHandler'da (savollar oqimi o'sha yerda)
+        kb.addRow(new InlineKeyboardButton(messages.text(lang, "settings.plans")).callbackData(BotPlans.LIST));
         kb.addRow(new InlineKeyboardButton(messages.text(lang, "settings.profile")).callbackData(SETTINGS + "profile"));
         sender.send(chatId, messages.text(lang, "settings.title"), kb);
     }
@@ -85,11 +87,13 @@ public class BotReferral {
         FarmerSnapshot f = farmers.find(tg).orElse(null);
         if (f == null) return;
         EffectivePlan p = plans.effective(f.id(), LocalDate.now());
-        String status = p.paid() ? messages.text(lang, "plan.paidUntil", p.validUntil().format(DAY)) : messages.text(lang, "plan.free");
+        String status = p.paid() ? messages.text(lang, "plan.paidUntil", p.validUntil().format(DAY)) : messages.text(lang, "plan.freeHint");
         String analyses = p.maxAnalyses() == null ? messages.text(lang, "plan.unlimited")
                 : p.usedAnalyses() + " / " + p.maxAnalyses() + (p.paid() ? "" : " " + messages.text(lang, "plan.lifetime"));
         sender.send(chatId, messages.text(lang, "plan.info", p.planName(), status,
-                String.valueOf(fields.list(tg).size()), String.valueOf(p.maxFields()), ha(lang, p.maxFieldHa()), analyses), null);
+                String.valueOf(fields.list(tg).size()),
+                p.maxFields() == null ? messages.text(lang, "plan.unlimited") : String.valueOf(p.maxFields()),
+                ha(lang, p.maxFieldHa()), analyses), planSection.planButtons(lang, p));
     }
 
     private static String ha(String lang, BigDecimal v) {

@@ -43,8 +43,13 @@ public class BotInitData {
         for (String pair : initData.split("&")) {
             int eq = pair.indexOf('=');
             if (eq <= 0) return Optional.empty();
-            String k = URLDecoder.decode(pair.substring(0, eq), StandardCharsets.UTF_8);
-            String v = URLDecoder.decode(pair.substring(eq + 1), StandardCharsets.UTF_8);
+            String k, v;
+            try {
+                k = URLDecoder.decode(pair.substring(0, eq), StandardCharsets.UTF_8);
+                v = URLDecoder.decode(pair.substring(eq + 1), StandardCharsets.UTF_8);
+            } catch (IllegalArgumentException e) {      // "%zz", oxirida yolg'iz "%" — mijoz kirishi, 500 emas
+                return Optional.empty();
+            }
             if ("hash".equals(k)) hash = v;
             else fields.put(k, v);
         }

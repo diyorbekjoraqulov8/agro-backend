@@ -15,10 +15,14 @@ public record EffectivePlan(
         Long subscriptionId,
         LocalDate validUntil,
         BigDecimal maxFieldHa,
-        int maxFields,
+        Integer maxFields,              // null — cheksiz
         Integer maxAnalyses,            // null — cheksiz
         long usedAnalyses
 ) {
+    public boolean fieldsLeft(long fields) {
+        return maxFields == null || fields < maxFields;
+    }
+
     public boolean analysesLeft() {
         return maxAnalyses == null || usedAnalyses < maxAnalyses;
     }

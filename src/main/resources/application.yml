@@ -131,3 +131,16 @@ management:
       show-details: never
       probes:
         enabled: true
+
+# C2: Ob-havo xavfi ogohlantirishi (Open-Meteo). Chegaralar — admin Sozlamalarida (weather.*).
+# Har soat tekshiriladi, katak prognozi 3 soatda bir yangilanadi (har soniya EMAS — modellar 1–6 soatda yangilanadi).
+weather:
+  enabled: ${WEATHER_ENABLED:true}             # false — faqat ogohlantirish job'i o'chadi; botdagi "🌦 Ob-havo" ishlayveradi
+  forecast-url: ${OPEN_METEO_URL:https://api.open-meteo.com/v1/forecast}
+  api-key: ${OPEN_METEO_API_KEY:}             # bo'sh — bepul API (notijorat); prod: customer-api + kalit
+  connect-timeout: 5s
+  read-timeout: 20s
+  refresh-after: 3h
+  cron: "0 20 * * * *"                         # har soat :20 da (sug'orish eslatmasi :05 da)
+  quiet-from: 21                               # dala vaqti bo'yicha 21:00–07:00 — yuborilmaydi
+  quiet-to: 7

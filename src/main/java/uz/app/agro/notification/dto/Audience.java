@@ -15,15 +15,15 @@ import java.util.List;
 public record Audience(
         @NotNull Type type,
         Long farmerId,
-        @Size(max = 3) List<String> languages,
-        @Size(max = 50) List<String> countries,
+        @Size(max = 3) List<@NotNull String> languages,
+        @Size(max = 50) List<@NotNull String> countries,
         Boolean paid,
-        @Size(max = 20) List<Crop> crops,
+        @Size(max = 20) List<@NotNull Crop> crops,
         Boolean hasFields,
         Boolean activated,
         LocalDate registeredFrom,
         LocalDate registeredTo,
-        @Size(max = 10) List<LeadStatus> leadStatuses
+        @Size(max = 10) List<@NotNull LeadStatus> leadStatuses
 ) {
     public enum Type { ALL, FILTER, SINGLE }
 }

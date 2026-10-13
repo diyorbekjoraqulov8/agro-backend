@@ -38,7 +38,7 @@ function edit(p: Plan | null) {
   Object.assign(form, p ? {
     code: p.code, name: p.name, description: p.description ?? '', price: String(p.price), currency: p.currency,
     durationDays: p.durationDays != null ? String(p.durationDays) : '', maxFieldHa: String(p.maxFieldHa),
-    maxFields: String(p.maxFields), maxAnalyses: p.maxAnalyses != null ? String(p.maxAnalyses) : '', active: p.active,
+    maxFields: p.maxFields != null ? String(p.maxFields) : '', maxAnalyses: p.maxAnalyses != null ? String(p.maxAnalyses) : '', active: p.active,
   } : { code: '', name: '', description: '', price: '0', currency: 'UZS', durationDays: '30', maxFieldHa: '100', maxFields: '50', maxAnalyses: '', active: true })
   open.value = true
 }
@@ -49,7 +49,7 @@ async function save() {
     code: editing.value ? undefined : form.code.trim().toUpperCase(),
     name: form.name, description: form.description || null, price: Number(form.price), currency: form.currency.toUpperCase(),
     durationDays: form.durationDays === '' ? null : Number(form.durationDays),
-    maxFieldHa: Number(form.maxFieldHa), maxFields: Number(form.maxFields),
+    maxFieldHa: Number(form.maxFieldHa), maxFields: form.maxFields === '' ? null : Number(form.maxFields),
     maxAnalyses: form.maxAnalyses === '' ? null : Number(form.maxAnalyses), active: form.active,
   }
   try {
@@ -90,7 +90,7 @@ onMounted(load)
             <TableCell class="text-right tabular-nums">{{ p.systemPlan ? '—' : fmtMoney(p.price, p.currency) }}</TableCell>
             <TableCell class="text-right tabular-nums">{{ p.durationDays ? `${p.durationDays} kun` : '—' }}</TableCell>
             <TableCell class="text-right tabular-nums">{{ fmtNum(p.maxFieldHa) }} ga</TableCell>
-            <TableCell class="text-right tabular-nums">{{ p.maxFields }}</TableCell>
+            <TableCell class="text-right tabular-nums">{{ p.maxFields ?? '∞' }}</TableCell>
             <TableCell class="text-right tabular-nums">{{ p.maxAnalyses ?? '∞' }}{{ p.systemPlan ? ' (umrbod)' : '' }}</TableCell>
             <TableCell>
               <StatusBadge v-if="p.systemPlan" tone="blue" label="Toʻlovsiz rejim" />
@@ -122,7 +122,7 @@ onMounted(load)
           <div class="flex items-end gap-2 pb-1.5"><Switch v-model="form.active" /><Label>Faol</Label></div>
         </template>
         <div class="space-y-1.5"><Label>Maks. maydon (ga)</Label><Input v-model="form.maxFieldHa" type="number" min="0.5" max="500" step="0.5" required /></div>
-        <div class="space-y-1.5"><Label>Maks. dalalar</Label><Input v-model="form.maxFields" type="number" min="1" required /></div>
+        <div class="space-y-1.5"><Label>Maks. dalalar (boʻsh — cheksiz)</Label><Input v-model="form.maxFields" type="number" min="1" /></div>
         <div class="col-span-2 space-y-1.5"><Label>Tahlillar soni (boʻsh — cheksiz)</Label><Input v-model="form.maxAnalyses" type="number" min="0" /></div>
         <DialogFooter class="col-span-2">
           <Button type="button" variant="outline" @click="open = false">Bekor</Button>

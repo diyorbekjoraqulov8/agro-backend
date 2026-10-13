@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="4 4 56 56">
+<defs><clipPath id="d"><path d="M32 6C32 6 14 27 14 40a18 18 0 0 0 36 0C50 27 32 6 32 6Z"/></clipPath></defs>
+<path d="M32 6C32 6 14 27 14 40a18 18 0 0 0 36 0C50 27 32 6 32 6Z" fill="#137d41"/>
+<g clip-path="url(#d)"><path d="M0 40L64 36V64H0Z" fill="#5cc27e"/><path d="M8 47L56 43M8 53.5L56 49.5" stroke="#137d41" stroke-width="2.2" stroke-linecap="round"/></g>
+<path d="M32 38V25" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round"/>
+<path d="M32 31C26.5 31 23.5 27.5 23.5 23C28.5 23 32 26 32 31Z" fill="#ffffff"/>
+<path d="M32 27.5C32 22.5 35.5 19 40.5 19C40.5 24 37 27.5 32 27.5Z" fill="#c9ecd3"/>
+</svg>

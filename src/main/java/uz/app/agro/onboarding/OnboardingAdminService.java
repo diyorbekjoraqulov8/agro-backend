@@ -44,6 +44,11 @@ public class OnboardingAdminService {
 
     @PreAuthorize(Permissions.CAN_READ_ONBOARDING)
     public List<StepResponse> list() {
+        return steps();
+    }
+
+    // annotatsiyasiz — move() ham chaqiradi (list() ni this orqali chaqirish proxy'ni chetlab o'tardi)
+    private List<StepResponse> steps() {
         Map<String, Long> counts = answerCounts();
         List<OnboardingStepEntity> all = repository.findAllByOrderByPositionAscIdAsc();
         // FINISH ro'yxatda ham oxirida (bot bilan bir xil tartib)
@@ -99,7 +104,7 @@ public class OnboardingAdminService {
         List<OnboardingStepEntity> list = repository.findAllByOrderByPositionAscIdAsc().stream().filter(x -> !isFinish(x)).toList();
         int i = list.indexOf(e);
         int j = up ? i - 1 : i + 1;
-        if (j < 0 || j >= list.size()) return list();
+        if (j < 0 || j >= list.size()) return steps();
         // Pozitsiyalar takrorlanmasin — avval barchasini 10, 20, 30… qilib qayta raqamlaymiz, keyin almashtiramiz
         for (int k = 0; k < list.size(); k++) list.get(k).setPosition((k + 1) * 10);
         OnboardingStepEntity other = list.get(j);
@@ -108,7 +113,7 @@ public class OnboardingAdminService {
         other.setPosition(p);
         touch(e);
         audit(e, up ? "move-up" : "move-down");
-        return list();
+        return steps();
     }
 
     @PreAuthorize(Permissions.CAN_MANAGE_ONBOARDING)
@@ -116,8 +121,12 @@ public class OnboardingAdminService {
     public void delete(Long id) {
         OnboardingStepEntity e = require(id);
         if (e.isSystem()) throw new BadRequestException("O'rnatilgan qadamni o'chirib bo'lmaydi — faqat matnini o'zgartirish mumkin");
+        // Javoblar ham — aks holda shu kod bilan yangi savol yaratilsa, eski javoblar unga "meros" bo'lib,
+        // bot savolni javob berilgan deb o'tkazib yuborardi
+        int answers = repository.deleteAnswers(e.getCode());
         repository.delete(e);
-        audit(e, "delete");
+        auditService.event(AuditEvent.ONBOARDING_CHANGED).target("ONBOARDING_STEP", e.getId())
+                .detail("code", e.getCode()).detail("action", "delete").detail("answersDeleted", answers).record();
     }
 
     // ── Tekshiruv ──

@@ -134,6 +134,8 @@ public class BillingService {
         }
         LocalDate until = req.validUntil() != null ? req.validUntil() : from.plusDays(plan.getDurationDays() - 1L);
         if (until.isBefore(from)) throw new BadRequestException("validUntil validFrom dan oldin bo'lmasin");
+        // Allaqachon tugagan obuna — deyarli har doim xato (Swagger validUntil'ga bugungi sanani qo'yadi va h.k.)
+        if (until.isBefore(today)) throw new BadRequestException("Tugash sanasi o'tib ketgan: " + until);
         if (until.isAfter(from.plusYears(10))) throw new BadRequestException("Muddat ko'pi bilan 10 yil");
 
         SubscriptionEntity s = new SubscriptionEntity();

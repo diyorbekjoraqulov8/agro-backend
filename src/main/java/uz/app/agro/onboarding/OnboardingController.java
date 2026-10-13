@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import uz.app.agro.common.exception.BadRequestException;
 import uz.app.agro.onboarding.dto.StepRequest;
 import uz.app.agro.onboarding.dto.StepResponse;
 
@@ -41,7 +42,10 @@ public class OnboardingController {
     @Operation(summary = "Tartibni o'zgartirish", description = "Huquq: `onboarding:manage`. direction: up | down")
     @PostMapping("/steps/{id}/move")
     public List<StepResponse> move(@PathVariable Long id, @RequestParam String direction) {
-        return service.move(id, "up".equalsIgnoreCase(direction));
+        if (!direction.equalsIgnoreCase("up") && !direction.equalsIgnoreCase("down")) {
+            throw new BadRequestException("direction: up | down");
+        }
+        return service.move(id, direction.equalsIgnoreCase("up"));
     }
 
     @Operation(summary = "O'chirish", description = "Huquq: `onboarding:manage`. Faqat qo'shilgan (o'rnatilmagan) qadam")

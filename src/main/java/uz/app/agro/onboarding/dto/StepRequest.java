@@ -16,6 +16,6 @@ public record StepRequest(
         @Pattern(regexp = "[A-Z][A-Z0-9_]{1,31}", message = "kod: katta lotin harf bilan boshlansin, A-Z 0-9 _ (2–32)") String code,
         StepKind kind,
         @NotNull Map<String, String> texts,
-        List<@Valid StepOption> options,
+        List<@NotNull @Valid StepOption> options,
         Boolean active
 ) {}

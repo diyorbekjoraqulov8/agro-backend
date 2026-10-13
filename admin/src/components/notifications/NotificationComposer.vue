@@ -62,12 +62,17 @@ const audience = computed<Audience>(() => ({
 const preview = ref<AudiencePreview | null>(null)
 const counting = ref(false)
 let timer: ReturnType<typeof setTimeout> | undefined
+let seq = 0                       // eski (sekin) javob yangisining ustiga yozilmasin
 watch(audience, () => {
   clearTimeout(timer)
+  const my = ++seq
   if (form.type === 'SINGLE' && !farmer.value) { preview.value = null; return }
   timer = setTimeout(async () => {
     counting.value = true
-    try { preview.value = await notificationsApi.preview(audience.value) } catch (e) { toast.error(errorMessage(e)) } finally { counting.value = false }
+    try {
+      const r = await notificationsApi.preview(audience.value)
+      if (my === seq) preview.value = r
+    } catch (e) { if (my === seq) toast.error(errorMessage(e)) } finally { if (my === seq) counting.value = false }
   }, 400)
 }, { deep: true, immediate: true })
 
@@ -106,7 +111,8 @@ async function send() {
     await notificationsApi.create({
       title: form.title.trim(), texts: clean(form.texts), audience: audience.value,
       buttonTexts: form.withButton ? clean(form.buttonTexts) : null, buttonUrl: form.withButton ? form.buttonUrl.trim() : null,
-      scheduledAt: form.schedule ? form.scheduledAt : null,
+      // datetime-local — brauzer vaqti, zonasiz; ISO (UTC) qilib yuboramiz — server zonasi boshqa bo'lsa ham to'g'ri
+      scheduledAt: form.schedule ? new Date(form.scheduledAt).toISOString() : null,
     })
     toast.success(form.schedule ? 'Rejalashtirildi' : 'Yuborish boshlandi — natija «Kampaniyalar»da')
     confirm.value = false

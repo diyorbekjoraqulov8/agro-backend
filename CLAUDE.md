@@ -300,10 +300,11 @@ Har faza tugagach **to'xta** va tekshirish buyruqlarini ber.
 @Order(-1) managementChain   /actuator/**              oauth2ResourceServer YO'Q
 @Order(0)  docsChain         /swagger-ui, /v3/api-docs oauth2ResourceServer YO'Q, CSP bo'sh
 @Order(1)  publicChain       /auth/login|register|refresh  oauth2ResourceServer YO'Q
-@Order(2)  apiChain          qolgan hammasi            JWT + CSRF + @PreAuthorize
+@Order(2)  miniAppChain      /miniapp/**               oauth2ResourceServer YO'Q, initData imzosi, CORS faqat Mini App
+@Order(3)  apiChain          qolgan hammasi            JWT + CSRF + @PreAuthorize
 ```
 
-Uchtasida `oauth2ResourceServer` **ataylab yo'q** — muddati o'tgan `AUTH-TOKEN`
+To'rttasida `oauth2ResourceServer` **ataylab yo'q** — muddati o'tgan `AUTH-TOKEN`
 cookie `permitAll` endpoint'ni ham 401 qilib qo'yadi.
 
 ---

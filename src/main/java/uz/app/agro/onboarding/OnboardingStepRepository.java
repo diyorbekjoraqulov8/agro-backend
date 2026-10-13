@@ -24,6 +24,10 @@ public interface OnboardingStepRepository extends JpaRepository<OnboardingStepEn
             """, nativeQuery = true)
     void saveAnswer(@Param("farmerId") Long farmerId, @Param("code") String code, @Param("value") String value);
 
+    @Modifying          // farmer_answers — entity emas, persistence context'ni tozalash shart emas
+    @Query(value = "DELETE FROM farmer_answers WHERE step_code = :code", nativeQuery = true)
+    int deleteAnswers(@Param("code") String code);
+
     interface AnswerRow {
         String getCode();
         String getValue();

@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uz.app.agro.analysis.AnalysisJobRepository;
 import uz.app.agro.billing.dto.EffectivePlan;
+import uz.app.agro.billing.dto.PlanResponse;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -22,6 +23,7 @@ public class PlanService {
     private final PlanRepository planRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final AnalysisJobRepository jobRepository;
+    private final BillingMapper mapper;
 
     public EffectivePlan effective(long farmerId, LocalDate today) {
         List<SubscriptionEntity> active = subscriptionRepository.findActiveOn(farmerId, today);
@@ -36,6 +38,12 @@ public class PlanService {
         PlanEntity free = freePlan();
         return new EffectivePlan(free.getCode(), free.getName(), false, null, null,
                 free.getMaxFieldHa(), free.getMaxFields(), free.getMaxAnalyses(), jobRepository.countFreeJobs(farmerId));
+    }
+
+    /** Bot "💎 Tariflar": faqat faollar — avval tizim (Bepul), keyin narx bo'yicha */
+    public List<PlanResponse> catalog() {
+        return planRepository.findAllByOrderBySystemPlanDescPriceAsc().stream()
+                .filter(PlanEntity::isActive).map(mapper::toResponse).toList();
     }
 
     /** "Pullik tarifda N ga gacha" — faol pullik rejalar orasida eng kattasi */

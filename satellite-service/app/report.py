@@ -88,7 +88,7 @@ class _Page:
 
 def render_pdf(req: PdfRequest) -> bytes:
     buf = io.BytesIO()
-    with PdfPages(buf, metadata={"Title": req.title, "Creator": "Agro"}) as pdf:
+    with PdfPages(buf, metadata={"Title": req.title, "Creator": "Dropy"}) as pdf:
         p = _Page(pdf, req.footer)
         p.text(req.title, size=17, weight="bold", gap=0.004)
         if req.subtitle:

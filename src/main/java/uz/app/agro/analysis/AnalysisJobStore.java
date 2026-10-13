@@ -1,7 +1,6 @@
 package uz.app.agro.analysis;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.json.JsonMapper;
@@ -30,7 +29,6 @@ import java.util.Optional;
  * chaqirsa proxy chetlanadi va @Transactional ishlamaydi. Har metod QISQA tranzaksiya:
  * Python'ga 30–90 s'lik chaqiruv bu yerda EMAS (Hikari pool band bo'lib qolardi).
  */
-@Slf4j
 @Component
 @RequiredArgsConstructor
 class AnalysisJobStore {
@@ -75,11 +73,10 @@ class AnalysisJobStore {
         }
         // Ish haqiqatan shu yerda boshlanadi (paketdagi ikkinchi job birinchisini kutib turgan bo'lishi mumkin)
         job.setStartedAt(LocalDateTime.now());
-        FarmerEntity farmer = field.getFarmer();
         return Optional.of(new JobInput(job.getId(), job.getKind(), field.getId(), field.getName(),
                 new HashMap<>(field.getBoundaryGeojson()), job.getCrop() != null ? job.getCrop() : field.getCrop(),
                 job.getSeasonStart(), job.getSeasonEnd(),
-                farmer.getId(), farmer.getTelegramUserId(), farmer.getChatId(), farmer.getLanguage(), farmer.isBlockedBot()));
+                field.getFarmer().getId()));
     }
 
     @Transactional

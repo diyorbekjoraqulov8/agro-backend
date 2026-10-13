@@ -407,9 +407,10 @@ let lastNominatim = 0;
 
 /** Nominatim shartlari: ≤ 1 so'rov/s — navbat bilan */
 async function nominatimFetch(path) {
-  const wait = lastNominatim + 1100 - Date.now();
-  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-  lastNominatim = Date.now();
+  // Slot sinxron band qilinadi — bir vaqtda kelgan ikki chaqiruv bir paytda ketib qolmasin
+  const at = Math.max(Date.now(), lastNominatim + 1100);
+  lastNominatim = at;
+  if (at > Date.now()) await new Promise((r) => setTimeout(r, at - Date.now()));
   const r = await fetch(NOMINATIM + path, { referrerPolicy: 'strict-origin-when-cross-origin' });
   if (!r.ok) throw new Error('nominatim ' + r.status);
   return r.json();

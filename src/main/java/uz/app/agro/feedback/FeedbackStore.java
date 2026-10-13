@@ -20,8 +20,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Tranzaksiya chegarasi ALOHIDA bean'da (ADR #24): FeedbackService xabarni saqlaydi (commit),
- * keyin Telegram'ga TRANZAKSIYADAN TASHQARIDA yuboradi, so'ng natijani yozadi.
+ * Tranzaksiya chegarasi ALOHIDA bean'da (ADR #24): xabar va uning bildirishnomasi (outbox) birga commit bo'ladi;
+ * yetkazilgani — FeedbackDeliveryListener orqali (markDelivered).
  */
 @Component
 @RequiredArgsConstructor

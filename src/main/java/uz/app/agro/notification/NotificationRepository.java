@@ -42,12 +42,18 @@ public interface NotificationRepository extends JpaRepository<NotificationEntity
         long getCount();
     }
 
-    @Query(value = "SELECT status, count(*) AS count FROM notifications WHERE campaign_id = :id GROUP BY status", nativeQuery = true)
-    List<StatusCount> campaignCounts(@Param("id") Long campaignId);
+    interface CampaignStatusCount extends StatusCount {
+        Long getCampaignId();
+    }
+
+    /** Sahifadagi barcha kampaniyalar uchun bitta so'rov (N+1 emas) */
+    @Query(value = """
+            SELECT campaign_id AS campaignId, status, count(*) AS count FROM notifications
+             WHERE campaign_id IN (:ids) GROUP BY campaign_id, status
+            """, nativeQuery = true)
+    List<CampaignStatusCount> campaignCounts(@Param("ids") Collection<Long> campaignIds);
 
     @Query(value = "SELECT status, count(*) AS count FROM notifications WHERE created_date >= :since GROUP BY status", nativeQuery = true)
     List<StatusCount> countsSince(@Param("since") LocalDateTime since);
 
-    @Query(value = "SELECT count(*) FROM notifications WHERE campaign_id = :id AND status IN ('PENDING', 'SENDING')", nativeQuery = true)
-    long campaignOpen(@Param("id") Long campaignId);
 }

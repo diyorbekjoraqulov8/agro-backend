@@ -30,8 +30,9 @@ public record PlanRequest(
         @DecimalMin(value = "0.5", message = "maxFieldHa kamida 0.5") @DecimalMax(value = "500", message = "maxFieldHa ko'pi bilan 500 (tahlil xizmati chegarasi)")
         BigDecimal maxFieldHa,
 
+        // null — cheksiz
         @Min(value = 1, message = "maxFields kamida 1") @Max(value = 1000, message = "maxFields ko'pi bilan 1000")
-        int maxFields,
+        Integer maxFields,
 
         @Min(value = 0, message = "maxAnalyses manfiy bo'lmasin")
         Integer maxAnalyses,

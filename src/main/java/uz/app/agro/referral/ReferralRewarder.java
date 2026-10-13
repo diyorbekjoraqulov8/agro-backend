@@ -93,13 +93,22 @@ class ReferralRewarder {
     }
 
     private void notifyProgress(long referrerId, long friendId, int progress, int required) {
-        notifications.enqueueMessage(referrerId, NotificationCategory.REFERRAL, "ref.friendActivated",
-                friendName(friendId), String.valueOf(progress), String.valueOf(required));
+        String name = friendName(friendId);
+        // Ismsiz do'st — alohida matn (har tilda o'z grammatikasi; "do'stingiz" so'zini o'zbekcha qo'shib bo'lmaydi)
+        if (name == null) {
+            notifications.enqueueMessage(referrerId, NotificationCategory.REFERRAL, "ref.friendActivated.anon",
+                    String.valueOf(progress), String.valueOf(required));
+        } else {
+            notifications.enqueueMessage(referrerId, NotificationCategory.REFERRAL, "ref.friendActivated",
+                    name, String.valueOf(progress), String.valueOf(required));
+        }
     }
 
+    /** @return ism yoki @username; ikkalasi ham yo'q — null */
     private String friendName(long friendId) {
-        return farmerRepository.findById(friendId)
-                .map(f -> f.getFullName() != null ? f.getFullName() : f.getTelegramUsername() != null ? "@" + f.getTelegramUsername() : "do'stingiz")
-                .orElse("do'stingiz");
+        FarmerEntity f = farmerRepository.findById(friendId).orElse(null);
+        if (f == null) return null;
+        if (f.getFullName() != null) return f.getFullName();
+        return f.getTelegramUsername() != null ? "@" + f.getTelegramUsername() : null;
     }
 }

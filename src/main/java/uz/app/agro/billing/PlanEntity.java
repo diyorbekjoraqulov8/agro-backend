@@ -46,8 +46,8 @@ public class PlanEntity {
     @Column(name = "max_field_ha", nullable = false, precision = 8, scale = 2)
     private BigDecimal maxFieldHa;
 
-    @Column(name = "max_fields", nullable = false)
-    private int maxFields;
+    @Column(name = "max_fields")
+    private Integer maxFields;                       // null — cheksiz
 
     @Column(name = "max_analyses")
     private Integer maxAnalyses;                     // null — cheksiz

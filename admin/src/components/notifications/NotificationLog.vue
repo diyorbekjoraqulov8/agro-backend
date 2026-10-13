@@ -28,7 +28,7 @@ const STATUS: Record<NotificationStatus, { l: string; t: 'gray' | 'blue' | 'ambe
   FAILED: { l: 'Xato', t: 'red' }, SKIPPED: { l: 'Bloklagan', t: 'gray' }, CANCELLED: { l: 'Bekor', t: 'gray' },
 }
 const CATEGORY: Record<NotificationCategory, string> = {
-  ANALYSIS: 'Tahlil', IRRIGATION: 'Sugʻorish', FEEDBACK: 'Murojaat', REFERRAL: 'Taklif', BROADCAST: 'Kampaniya', SYSTEM: 'Tizim',
+  ANALYSIS: 'Tahlil', IRRIGATION: 'Sugʻorish', FEEDBACK: 'Murojaat', REFERRAL: 'Taklif', BROADCAST: 'Kampaniya', SYSTEM: 'Tizim', WEATHER: 'Ob-havo',
 }
 
 const f = reactive({ status: ALL, category: ALL, from: '', to: '' })
@@ -45,7 +45,11 @@ async function load() {
     })
   } catch (e) { toast.error(errorMessage(e)) }
 }
-watch(() => [f.status, f.category, f.from, f.to, props.farmerId, props.campaignId], () => { page.value = 0; load() })
+// Filtr o'zgarsa — 1-sahifa; page allaqachon 0 bo'lsa watch(page) ishlamaydi, shuning uchun o'zimiz yuklaymiz (ikki marta emas)
+watch(() => [f.status, f.category, f.from, f.to, props.farmerId, props.campaignId], () => {
+  if (page.value === 0) load()
+  else page.value = 0
+})
 watch(page, load)
 onMounted(async () => {
   load()

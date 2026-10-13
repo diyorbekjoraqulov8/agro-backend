@@ -3,7 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Compon
 import { useRoute, useRouter } from 'vue-router'
 import { useIntervalFn } from '@vueuse/core'
 import {
-  BarChart3, CreditCard, FileClock, FolderOpen, Gift, Layers, Megaphone, Route, SlidersHorizontal, LogOut, Map, MessageSquare, ReceiptText, Satellite, Shield, Sprout, UserRound, Users,
+  BarChart3, CreditCard, FileClock, FolderOpen, Gift, Layers, Megaphone, Route, SlidersHorizontal, LogOut, Map, MessageSquare, ReceiptText, Satellite, Shield, UserRound, Users,
 } from '@lucide/vue'
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader,
@@ -103,11 +103,10 @@ async function logout() {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" as-child>
               <RouterLink to="/">
-                <div class="bg-primary text-primary-foreground flex size-8 items-center justify-center rounded-lg">
-                  <Sprout class="size-4" />
-                </div>
+                <!-- logo.png burchaklari to'q — rounded-lg ularni kesadi -->
+                <img src="/logo.png" alt="" class="size-8 shrink-0 rounded-lg" />
                 <div class="grid flex-1 text-left leading-tight">
-                  <span class="truncate font-semibold">Agro</span>
+                  <span class="truncate font-semibold">Dropy</span>
                   <span class="text-muted-foreground truncate text-xs">Boshqaruv paneli</span>
                 </div>
               </RouterLink>

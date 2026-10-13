@@ -20,6 +20,8 @@ public final class Templates {
     public static final String FEEDBACK_REPLY = "feedback.reply";
     /** {feedbackId, askRating} */
     public static final String FEEDBACK_CLOSED = "feedback.closed";
+    /** {kind: FROST|HEAT|WIND|RAIN, level: WARNING|DANGER, date: yyyy-MM-dd, value, fields: [nom], escalated} */
+    public static final String WEATHER_ALERT = "weather.alert";
 
     private Templates() {}
 }

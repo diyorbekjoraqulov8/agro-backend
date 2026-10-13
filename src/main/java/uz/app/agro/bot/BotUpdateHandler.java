@@ -6,7 +6,6 @@ import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.model.message.MaybeInaccessibleMessage;
-import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
@@ -14,11 +13,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import uz.app.agro.analysis.AnalysisReportService;
 import uz.app.agro.billing.PlanService;
+import uz.app.agro.billing.dto.PlanResponse;
 import uz.app.agro.farmer.FarmerRegistrationService;
 import uz.app.agro.farmer.FarmerSnapshot;
-import uz.app.agro.farmer.IrrigationType;
 import uz.app.agro.farmer.TelegramProfile;
-import uz.app.agro.farmer.WaterSource;
 import uz.app.agro.feedback.FeedbackBotService;
 import uz.app.agro.feedback.FeedbackKind;
 import uz.app.agro.common.exception.BadRequestException;
@@ -31,7 +29,6 @@ import uz.app.agro.field.FieldBotService.FieldCard;
 import uz.app.agro.field.FieldIntakeService;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
@@ -71,6 +68,8 @@ public class BotUpdateHandler {
     private final TelegramProperties props;
     private final BotFiles telegramFiles;
     private final BotReferral referralSection;
+    private final BotPlans planSection;
+    private final BotWeather weatherSection;
     private final BotOnboarding onboarding;
     private final BotMenu botMenu;
     private final FileRegistry fileRegistry;
@@ -233,6 +232,14 @@ public class BotUpdateHandler {
             referralSection.showFriends(tg, chatId, lang);
         } else if (labels("menu.settings").contains(text)) {
             referralSection.showSettings(chatId, lang);
+        } else if (labels("menu.irrigation").contains(text)) {
+            irrigation.overview(tg, chatId, lang);
+        } else if (labels("menu.weather").contains(text)) {
+            weatherSection.showForecast(tg, chatId, lang);
+        } else if (labels("menu.plans").contains(text)) {
+            planSection.showCatalog(tg, chatId, lang);
+        } else if (labels("menu.help").contains(text)) {
+            sender.send(chatId, messages.text(lang, "help.text"), null);
         } else if (labels("menu.language").contains(text)) {      // eski klaviatura (C1 gacha) — hali telefonlarda bor
             sender.send(chatId, messages.text(lang, "lang.choose"), keyboards.languages());
         } else if (labels("menu.cancel").contains(text)) {
@@ -248,7 +255,8 @@ public class BotUpdateHandler {
 
     /** Asosiy menyu bo'limlari — murojaat/suhbat rejimida bosilsa rejimdan chiqaradi (matn murojaat bo'lib saqlanmaydi) */
     private boolean isSectionButton(String text) {
-        for (String key : new String[]{"menu.myFields", "menu.newField", "menu.feedback", "menu.friends", "menu.settings", "menu.language"}) {
+        for (String key : new String[]{"menu.myFields", "menu.newField", "menu.feedback", "menu.friends", "menu.settings", "menu.language",
+                "menu.irrigation", "menu.weather", "menu.plans", "menu.help"}) {
             if (labels(key).contains(text)) return true;
         }
         return false;
@@ -396,6 +404,30 @@ public class BotUpdateHandler {
             }
             case EMPTY -> sender.send(chatId, messages.text(lang, "feedback.textOnly"), null);
             case CLOSED, NOT_FOUND -> start(m.from(), chatId, null);
+        }
+    }
+
+    /**
+     * "💎 Pro'ni olish": to'lov hozircha qo'lda (Payme/Click — keyingi faza) — murojaat ochiladi, operator to'lov
+     * usulini shu chatda yozadi. Ochiq suhbat bo'lsa — unga qo'shiladi.
+     */
+    private void requestPlan(long tg, long chatId, String lang, String code) {
+        PlanResponse plan = planSection.purchasable(code).orElse(null);
+        if (plan == null) {
+            sender.send(chatId, messages.text(lang, "plans.unavailable"), null);
+            return;
+        }
+        // Xodimlar o'qiydi — o'zbekcha
+        String text = messages.text("uz", "plans.request.staff", plan.name(), planSection.price("uz", plan));
+        FeedbackBotService.Result r = feedback.submit(tg, FeedbackKind.QUESTION, text, null);
+        switch (r.outcome()) {
+            case SAVED, APPENDED -> {
+                states.enterChat(tg, r.id());
+                sender.send(chatId, messages.text(lang, "plans.request.saved", String.valueOf(r.id())), keyboards.chatMenu(lang));
+                if (r.outcome() == FeedbackBotService.Outcome.SAVED) notifyStaff(r, FeedbackKind.QUESTION, text, null);
+            }
+            case LIMIT -> sender.send(chatId, messages.text(lang, "feedback.limit"), menu(chatId, lang));
+            default -> sender.send(chatId, messages.text(lang, "plans.unavailable"), null);   // ro'yxatdan o'tmagan va h.k.
         }
     }
 
@@ -612,6 +644,12 @@ public class BotUpdateHandler {
         } else if (data.equals(BotReferral.SETTINGS + "profile")) {
             sender.answer(cb.id(), null);
             onboarding.beginProfile(from.id(), chatId, lang);
+        } else if (data.equals(BotPlans.LIST)) {
+            sender.answer(cb.id(), null);
+            planSection.showCatalog(from.id(), chatId, lang);
+        } else if (data.startsWith(BotPlans.BUY)) {
+            sender.answer(cb.id(), null);
+            requestPlan(from.id(), chatId, lang, data.substring(BotPlans.BUY.length()));
         } else if (referralSection.onCallback(cb.id(), from.id(), chatId, lang, data)) {
             // sozlamalar: st:plan, st:lang
         } else if (onChatCallback(cb, from.id(), chatId, msg.messageId(), lang, data)) {

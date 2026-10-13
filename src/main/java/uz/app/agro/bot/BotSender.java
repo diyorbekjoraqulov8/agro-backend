@@ -35,10 +35,26 @@ public class BotSender {
 
     /** @return yuborilgan xabar id'si yoki null */
     public Integer send(long chatId, String text, Keyboard keyboard) {
+        return sendDetailed(chatId, text, keyboard).messageId();
+    }
+
+    /**
+     * Natija sababi bilan — bildirishnoma jurnali uchun: "telegram yubormadi" emas, Telegram aytgan sabab.
+     * errorCode null — tarmoq xatosi (vaqtinchalik).
+     */
+    public record Sent(Integer messageId, Integer errorCode, String error) {
+        /** 400 — so'rovning o'zi noto'g'ri (tugma havolasi, matn): qayta yuborish befoyda */
+        public boolean permanent() {
+            return errorCode != null && errorCode == 400;
+        }
+    }
+
+    public Sent sendDetailed(long chatId, String text, Keyboard keyboard) {
         SendMessage req = new SendMessage(chatId, text);
         if (keyboard != null) req.replyMarkup(keyboard);
         SendResponse r = execute(chatId, req);
-        return r != null && r.isOk() ? r.message().messageId() : null;
+        if (r == null) return new Sent(null, null, "tarmoq xatosi");
+        return r.isOk() ? new Sent(r.message().messageId(), null, null) : new Sent(null, r.errorCode(), r.description());
     }
 
     /** caption ≤ 1024 belgi (Telegram) — oshsa kesiladi */
@@ -115,21 +131,18 @@ public class BotSender {
             log.warn("telegram {} yuborilmadi: {}", req.getMethod(), e.getMessage());
             return null;
         }
-        if (!r.isOk()) {
-            switch (r.errorCode()) {
-                case 403 -> {                          // fermer botni bloklagan
-                    log.info("telegram 403 chat={}: {}", chatId, r.description());
-                    if (chatId != null) farmers.markBlocked(chatId);
-                }
-                case 429 -> log.warn("telegram 429 (limit) {}: retry_after={}s", req.getMethod(),
-                        r.parameters() != null ? r.parameters().retryAfter() : null);
-                default -> {
-                    // Fermer bir tugmani ikki marta bossa — matn o'zgarmagan, xato emas
-                    if (r.description() == null || !r.description().contains("message is not modified")) {
-                        log.warn("telegram {} {}: {}", req.getMethod(), r.errorCode(), r.description());
-                    }
-                }
-            }
+        if (r.isOk()) return r;
+        String desc = r.description() == null ? "" : r.description();
+        // 403 — botni bloklagan; 400 "chat not found" — akkaunt o'chgan: ikkalasi doimiy, qayta urinish foydasiz.
+        // /start yozsa blok o'zi olinadi (FarmerRegistrationService)
+        if (r.errorCode() == 403 || (r.errorCode() == 400 && desc.contains("chat not found"))) {
+            log.info("telegram {} chat={}: {}", r.errorCode(), chatId, desc);
+            if (chatId != null) farmers.markBlocked(chatId);
+        } else if (r.errorCode() == 429) {
+            log.warn("telegram 429 (limit) {}: retry_after={}s", req.getMethod(),
+                    r.parameters() != null ? r.parameters().retryAfter() : null);
+        } else if (!desc.contains("message is not modified")) {   // tugma ikki marta bosildi — xato emas
+            log.warn("telegram {} {}: {}", req.getMethod(), r.errorCode(), desc);
         }
         return r;
     }

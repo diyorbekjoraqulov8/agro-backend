@@ -12,13 +12,15 @@ import java.util.Locale;
 /**
  * Bildirishnomani navbatga qo'yish — yagona kirish nuqtasi. Chaqiruvchining tranzaksiyasida yoziladi (outbox):
  * biznes o'zgarishi va xabar birga commit bo'ladi (biri yo'qolmaydi), yuborish — NotificationDispatcher.
- * @PreAuthorize YO'Q: servislar va job'lar chaqiradi (admin uchun — CampaignService, NotificationAdminService).
+ * @PreAuthorize YO'Q: servislar va job'lar chaqiradi — controller'ga ULANMASIN
+ * (admin uchun — CampaignService, NotificationAdminService).
  *
  * Qoida: fermerning AMALIGA javob (tugma bosdi → menyu) — to'g'ridan-to'g'ri bot; TASHABBUSLI xabar
  * (hisobot tayyor, eslatma, operator javobi, kampaniya) — shu servis orqali.
  */
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class NotificationService {
 
     private static final int PREVIEW = 500;

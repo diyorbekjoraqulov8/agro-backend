@@ -39,11 +39,9 @@ public class AnalysisReportService {
                         m.put("map_png_base64", Base64.getEncoder().encodeToString(images.map(img)));
                         m.put("chart_png_base64", Base64.getEncoder().encodeToString(images.chart(img)));
                         AnalyzeResponse r = JsonMapper.shared().convertValue(m, AnalyzeResponse.class);
-                        var farmer = f.getFarmer();
                         JobInput in = new JobInput(j.getId(), j.getKind(), f.getId(), f.getName(), Map.of(),
                                 j.getCrop() != null ? j.getCrop() : f.getCrop(),
-                                j.getSeasonStart(), j.getSeasonEnd(), farmer.getId(), farmer.getTelegramUserId(),
-                                farmer.getChatId(), farmer.getLanguage(), farmer.isBlockedBot());
+                                j.getSeasonStart(), j.getSeasonEnd(), f.getFarmer().getId());
                         return new StoredReport(in, r);
                     });
                 });

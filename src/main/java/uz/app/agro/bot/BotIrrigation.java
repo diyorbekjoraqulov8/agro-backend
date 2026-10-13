@@ -4,14 +4,16 @@ import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.MDC;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+import uz.app.agro.field.FieldBotService;
+import uz.app.agro.field.FieldBotService.FieldCard;
 import uz.app.agro.irrigation.FieldWaterEntity;
 import uz.app.agro.irrigation.IrrigationEventEntity;
 import uz.app.agro.irrigation.IrrigationService;
 import uz.app.agro.irrigation.SoilType;
 import uz.app.agro.irrigation.WaterStatus;
+import uz.app.agro.notification.NotificationChannel;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -32,11 +34,36 @@ public class BotIrrigation {
 
     static final String SETUP = "wp:", SOIL = "ws:", LAST = "wl:", IRRIGATED = "wi:", TOGGLE = "wo:";
     private static final int[] LAST_DAYS = {0, 2, 7, 14};
+    private static final int OVERVIEW_MAX = 10;
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("dd.MM");
 
     private final IrrigationService irrigation;
     private final BotMessages m;
     private final BotSender sender;
+    private final FieldBotService fields;
+    private final BotKeyboards keyboards;
+
+    // ── Menyu "💧 Sug'orish": barcha dalalar holati bir xabarda ────────────
+
+    public void overview(long tg, long chatId, String lang) {
+        List<FieldCard> list = fields.list(tg);
+        if (list.isEmpty()) {
+            sender.send(chatId, m.text(lang, "fields.empty"), null);
+            return;
+        }
+        // Har dala holati — bir necha so'rov (status hisobi); cheksiz tarifda ham xabar 4096 belgidan oshmasin
+        List<FieldCard> shown = list.subList(0, Math.min(list.size(), OVERVIEW_MAX));
+        List<String> lines = new ArrayList<>();
+        lines.add(m.text(lang, "water.overview.title"));
+        for (FieldCard f : shown) {
+            String status = cardLine(lang, tg, f.id());
+            lines.add(status.isEmpty() ? "📍 " + f.name() : m.text(lang, "water.overview.line", f.name(), status));
+        }
+        if (list.size() > shown.size()) lines.add(m.text(lang, "water.overview.more", String.valueOf(list.size() - shown.size())));
+        lines.add(m.text(lang, "water.overview.hint"));
+        // Dala tugmasi — kartochka (u yerda "Sug'ordim", eslatmani yoqish/o'chirish, sozlash)
+        sender.send(chatId, String.join("\n\n", lines), keyboards.fieldList(shown));
+    }
 
     // ── Sozlash ────────────────────────────────────────────────────────────
 
@@ -112,10 +139,12 @@ public class BotIrrigation {
 
     // ── Eslatma (IrrigationReminderJob → bu yer) ───────────────────────────
 
-    /** Bildirishnoma kanali chaqiradi (Templates.IRRIGATION_REMINDER) — @return true: yuborildi */
-    public boolean remind(WaterStatus s, FieldWaterEntity.ReminderKind kind) {
-        MDC.put("userId", "tg:" + s.farmerTelegramUserId());
-        String lang = s.language();
+    /**
+     * Bildirishnoma kanali chaqiradi (Templates.IRRIGATION_REMINDER) — @return true: yuborildi.
+     * Chat va til — yuborish paytidagi fermerdan (to), navbatga qo'yilgandagi snapshot'dan emas: orada tilni o'zgartirgan bo'lishi mumkin.
+     */
+    public boolean remind(NotificationChannel.Recipient to, WaterStatus s, FieldWaterEntity.ReminderKind kind) {
+        String lang = to.language();
         List<String> lines = new ArrayList<>();
         switch (kind) {
             case DUE -> lines.add(m.text(lang, "water.remind.DUE", s.fieldName(), pct(s.depletionPct())));
@@ -129,7 +158,7 @@ public class BotIrrigation {
             lines.add(m.text(lang, "water.rain", String.valueOf(Math.round(s.rainNext3dMm()))));
         }
         if (s.lastIrrigatedOn() != null) lines.add(m.text(lang, "water.lastIrrigated", day(s.lastIrrigatedOn())));
-        return sender.send(s.chatId(), String.join("\n", lines), actions(lang, s)) != null;
+        return sender.send(to.chatId(), String.join("\n", lines), actions(lang, s)) != null;
     }
 
     // ── Dala kartochkasi uchun ─────────────────────────────────────────────

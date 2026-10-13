@@ -84,13 +84,13 @@ public class FarmerRegistrationService {
         return update(telegramUserId, f -> f.setLanguage(language));
     }
 
-    /** Telegram 403 (bot bloklangan) — keyingi xabarlar yuborilmasin. */
-    @Transactional
     /** Telegram 403 dan keyin — bildirishnoma kanali qayta urinmasin */
     public boolean isBlocked(long chatId) {
         return farmerRepository.findByChatId(chatId).map(FarmerEntity::isBlockedBot).orElse(false);
     }
 
+    /** Telegram 403 (bot bloklangan) / 400 chat not found — keyingi xabarlar yuborilmasin. */
+    @Transactional
     public void markBlocked(long chatId) {
         farmerRepository.findByChatId(chatId).ifPresent(f -> f.setBlockedBot(true));
     }
