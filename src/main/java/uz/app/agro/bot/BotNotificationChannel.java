@@ -43,6 +43,7 @@ public class BotNotificationChannel implements NotificationChannel {
     private final FileRegistry files;
     private final FarmerRegistrationService farmers;
     private final BotWeather weather;
+    private final BotMonitoring monitoring;
 
     @Override
     public ChannelType type() {
@@ -63,6 +64,7 @@ public class BotNotificationChannel implements NotificationChannel {
             case Templates.FEEDBACK_REPLY -> feedbackReply(to, p);
             case Templates.FEEDBACK_CLOSED -> feedbackClosed(to, p);
             case Templates.WEATHER_ALERT -> weather.alert(to, p);
+            case Templates.MONITORING_ALERT -> monitoring.alert(to, p);
             default -> {
                 log.error("noma'lum bildirishnoma shabloni: {}", template);
                 yield false;
@@ -147,7 +149,8 @@ public class BotNotificationChannel implements NotificationChannel {
     private static boolean isKnown(String template) {
         return switch (template) {
             case Templates.TEXT, Templates.ANALYSIS_COMPLETED, Templates.ANALYSIS_REJECTED, Templates.ANALYSIS_FAILED, Templates.IRRIGATION_REMINDER,
-                 Templates.FEEDBACK_REPLY, Templates.FEEDBACK_CLOSED, Templates.WEATHER_ALERT -> true;
+                 Templates.FEEDBACK_REPLY, Templates.FEEDBACK_CLOSED, Templates.WEATHER_ALERT,
+                 Templates.MONITORING_ALERT -> true;
             default -> false;
         };
     }

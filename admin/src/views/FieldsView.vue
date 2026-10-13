@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import PageHeader from '@/components/app/PageHeader.vue'
 import Paginator from '@/components/app/Paginator.vue'
@@ -15,8 +15,10 @@ import { fmtDate, fmtNum } from '@/lib/format'
 import { CROP } from '@/lib/labels'
 
 const router = useRouter()
+const route = useRoute()
 const ALL = 'ALL'
-const f = reactive({ crop: ALL, country: '', farmerId: '' })
+// ?farmerId=12 — fermerlar ro'yxatidagi "Dalalari" tugmasidan
+const f = reactive({ crop: ALL, country: '', farmerId: typeof route.query.farmerId === 'string' ? route.query.farmerId : '' })
 const page = ref(0)
 const data = ref<Page<FieldSummary> | null>(null)
 

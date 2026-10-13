@@ -144,3 +144,15 @@ weather:
   cron: "0 20 * * * *"                         # har soat :20 da (sug'orish eslatmasi :05 da)
   quiet-from: 21                               # dala vaqti bo'yicha 21:00–07:00 — yuborilmaydi
   quiet-to: 7
+
+# C3: Avtomatik monitoring — har yangi Sentinel-2 surati bilan dala tekshiriladi (Python /monitor).
+# Yoqish, "faqat pullik", chegaralar — admin Sozlamalarida (monitoring.*). Bu yerda — yuk va oraliqlar.
+monitoring:
+  job-enabled: ${MONITORING_JOB_ENABLED:true}
+  cron: "0 40 * * * *"                 # har soat :40 da (sug'orish :05, ob-havo :20)
+  batch: 40                            # bir tick'da nechta dala (Python ~2 s / ~10 s har biri)
+  after-new-scene: 3d
+  after-no-scene: 1d
+  after-unavailable: 2h
+  hours-from: 8                        # server vaqti: kunduzi tekshiriladi va xabar ketadi
+  hours-to: 20

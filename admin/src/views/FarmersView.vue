@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { refDebounced } from '@vueuse/core'
-import { Search } from '@lucide/vue'
+import { CreditCard, ExternalLink, History, Map as MapIcon, Search, Send } from '@lucide/vue'
+import IconAction from '@/components/app/IconAction.vue'
 import PageHeader from '@/components/app/PageHeader.vue'
+import PaymentDialog from '@/components/billing/PaymentDialog.vue'
 import Paginator from '@/components/app/Paginator.vue'
 import StatusBadge from '@/components/app/StatusBadge.vue'
 import { leadTone } from '@/components/app/badges'
@@ -15,10 +17,15 @@ import { farmersApi } from '@/api'
 import { errorMessage } from '@/api/http'
 import type { FarmerListItem, Page } from '@/api/types'
 import { fmtDate } from '@/lib/format'
-import { CROP, LEAD } from '@/lib/labels'
+import { CROP, LEAD, P } from '@/lib/labels'
+import { useAuth } from '@/stores/auth'
 import { toast } from 'vue-sonner'
 
 const router = useRouter()
+const auth = useAuth()
+const payFor = ref<FarmerListItem | null>(null)          // "To'lov qildi" oynasi — qaysi fermer uchun
+const payOpen = computed({ get: () => !!payFor.value, set: (v) => { if (!v) payFor.value = null } })
+const name = (r: FarmerListItem) => r.fullName ?? (r.telegramUsername ? '@' + r.telegramUsername : `#${r.id}`)
 const ALL = 'ALL'                       // reka Select bo'sh qiymatni qabul qilmaydi
 const q = ref('')
 const qDebounced = refDebounced(q, 350)
@@ -82,6 +89,7 @@ onMounted(load)
           <TableRow>
             <TableHead>Fermer</TableHead><TableHead>Telefon</TableHead><TableHead>Mamlakat</TableHead>
             <TableHead>Ekin</TableHead><TableHead>Manba</TableHead><TableHead>Lead</TableHead><TableHead>Qoʻshilgan</TableHead>
+            <TableHead class="bg-card sticky right-0 w-px" />
           </TableRow>
         </TableHeader>
         <TableBody :class="{ 'opacity-60': loading }">
@@ -97,11 +105,25 @@ onMounted(load)
             <TableCell>{{ r.source ?? '—' }}</TableCell>
             <TableCell><StatusBadge :tone="leadTone[r.leadStatus]" :label="LEAD[r.leadStatus]" /></TableCell>
             <TableCell class="text-muted-foreground">{{ fmtDate(r.createdDate) }}</TableCell>
+            <TableCell class="bg-card sticky right-0">
+              <div class="flex justify-end gap-0.5">
+                <IconAction v-if="auth.can(P.NOTIFICATION_SEND)" :icon="Send" :disabled="r.blockedBot"
+                            :label="r.blockedBot ? 'Botni bloklagan — xabar yetmaydi' : 'Xabar yozish'"
+                            :to="`/notifications?tab=compose&farmerId=${r.id}`" />
+                <IconAction v-if="auth.can(P.BILLING_MANAGE)" :icon="CreditCard" label="Toʻlov qildi" @click="payFor = r" />
+                <IconAction v-if="auth.can(P.NOTIFICATION_READ)" :icon="History" label="Xabarlar jurnali"
+                            :to="`/notifications?tab=log&farmerId=${r.id}`" />
+                <IconAction v-if="auth.can(P.FIELD_READ)" :icon="MapIcon" label="Dalalari" :to="`/fields?farmerId=${r.id}`" />
+                <IconAction v-if="r.telegramUsername" :icon="ExternalLink" label="Telegramda ochish"
+                            :href="`https://t.me/${r.telegramUsername}`" />
+              </div>
+            </TableCell>
           </TableRow>
-          <TableEmpty v-if="data && !data.content.length" :colspan="7">Fermer topilmadi</TableEmpty>
+          <TableEmpty v-if="data && !data.content.length" :colspan="8">Fermer topilmadi</TableEmpty>
         </TableBody>
       </Table>
       <Paginator v-if="data" :page="data.page" :total-pages="data.totalPages" :total-elements="data.totalElements" @change="page = $event" />
     </CardContent>
   </Card>
+  <PaymentDialog v-model:open="payOpen" :farmer-id="payFor?.id ?? null" :farmer-name="payFor ? name(payFor) : null" />
 </template>

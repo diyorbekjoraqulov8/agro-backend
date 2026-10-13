@@ -21,6 +21,15 @@ public enum Setting {
     NOTIFICATION_MAX_ATTEMPTS("notification.max-attempts", Type.INT, "4", 1, 10,
             "Bildirishnomalar", "Yetkazib bo'lmasa necha marta urinadi (oraliq: 1, 5, 30 daqiqa, keyin har soat)"),
 
+    MONITORING_ENABLED("monitoring.enabled", Type.BOOL, "true", null, null,
+            "Monitoring", "Avtomatik monitoring: har yangi sun'iy yo'ldosh suratida dala o'zi tekshiriladi"),
+    MONITORING_PAID_ONLY("monitoring.paid-only", Type.BOOL, "true", null, null,
+            "Monitoring", "Faqat pullik tarifdagi fermerlar dalalari (o'chirilsa — hamma; Python yuki oshadi)"),
+    MONITORING_DROP("monitoring.drop", Type.INT, "10", 5, 30,
+            "Monitoring", "Piksel \"sustlashdi\": NDVI shuncha yuzdan bir birlikka kamaydi (10 → ΔNDVI ≤ −0.10)"),
+    MONITORING_DECLINE_PCT("monitoring.decline-pct", Type.INT, "15", 5, 80,
+            "Monitoring", "Dalaning necha foizi sustlashsa fermerga xabar boradi"),
+
     // Xavf darajasi: chegaraga yetsa — WARNING, quyidagi qadam bilan — DANGER (WeatherRisk)
     WEATHER_ALERTS_ENABLED("weather.alerts-enabled", Type.BOOL, "true", null, null,
             "Ob-havo", "Ob-havo xavfi ogohlantirishlari yoqilgan (prognoz botda baribir ko'rinadi)"),

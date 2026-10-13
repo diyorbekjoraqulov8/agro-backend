@@ -79,6 +79,7 @@ function zoom(x: FileAdmin) {
 
 function usageLink(u: FileUsage): string | null {
   if (u.kind === 'ANALYSIS') return auth.can(P.ANALYSIS_READ) ? `/analyses/${u.refId}` : null
+  if (u.kind === 'FIELD') return auth.can(P.FIELD_READ) ? `/fields/${u.refId}` : null
   if (u.kind === 'FEEDBACK') return auth.can(P.FEEDBACK_MANAGE) ? `/feedback?tab=all&chat=${u.refId}` : null
   return null
 }

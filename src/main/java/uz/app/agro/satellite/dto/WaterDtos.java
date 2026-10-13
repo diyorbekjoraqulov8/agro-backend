@@ -38,6 +38,15 @@ public final class WaterDtos {
 
     public record NdviRequest(Map<String, Object> geometry) {}
 
+    /** C3 /monitor: since — oxirgi ko'rilgan surat (null — birinchi tekshiruv); drop — piksel "pasaydi" chegarasi (ΔNDVI) */
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record MonitorRequest(Map<String, Object> geometry, LocalDate since, double drop, double mapMinPct) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record MonitorResponse(boolean newScene, LocalDate sceneDate, LocalDate refDate, Double ndvi, Double ndviRef,
+                                  Double declinePct, String declineSide, Double improvePct, String mapPngBase64) {}
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record NdviResponse(double ndvi, LocalDate date, int scenes) {}
 }

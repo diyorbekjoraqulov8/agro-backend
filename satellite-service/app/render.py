@@ -41,6 +41,24 @@ def zone_map(rel: np.ndarray, x: np.ndarray, y: np.ndarray, poly_utm: Polygon) -
     return _png(fig)
 
 
+def change_map(d: np.ndarray, x: np.ndarray, y: np.ndarray, poly_utm: Polygon, drop: float) -> str:
+    """Monitoring: ikki surat orasidagi o'zgarish — pasaygan (binafsha), o'zgarmagan (och kulrang), o'sgan (yashil)."""
+    cls = np.full(d.shape, np.nan)
+    cls[d <= -drop] = 0
+    cls[(d > -drop) & (d < drop)] = 1
+    cls[d >= drop] = 2
+    fig = Figure(figsize=(8, 8))
+    ax = fig.add_subplot()
+    ax.imshow(cls, cmap=ListedColormap([WEAK, "#e6e6e6", GOOD]), vmin=0, vmax=2, interpolation="nearest",
+              extent=(x.min() - 5, x.max() + 5, y.min() - 5, y.max() + 5))
+    bx, by = poly_utm.exterior.xy
+    ax.plot(bx, by, color="#222222", linewidth=2)
+    _scale_bar(ax, poly_utm)
+    ax.set_aspect("equal")
+    ax.axis("off")
+    return _png(fig)
+
+
 def _scale_bar(ax, poly: Polygon) -> None:
     minx, miny, maxx, _ = poly.bounds
     width = maxx - minx

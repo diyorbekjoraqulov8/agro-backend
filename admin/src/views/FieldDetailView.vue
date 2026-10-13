@@ -5,6 +5,7 @@ import { ArrowLeft, Loader2, Satellite } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import PageHeader from '@/components/app/PageHeader.vue'
 import FieldMap from '@/components/app/FieldMap.vue'
+import MonitoringCard from '@/components/app/MonitoringCard.vue'
 import StatusBadge from '@/components/app/StatusBadge.vue'
 import { jobTone } from '@/components/app/badges'
 import { Button } from '@/components/ui/button'
@@ -117,6 +118,8 @@ onMounted(load)
           </dl>
         </CardContent>
       </Card>
+
+      <MonitoringCard :field-id="id" />
 
       <Card v-if="auth.can(P.ANALYSIS_READ)" class="lg:col-span-3">
         <CardHeader><CardTitle class="text-base">Tahlillar</CardTitle><CardDescription>Shu dala boʻyicha barcha tahlillar</CardDescription></CardHeader>

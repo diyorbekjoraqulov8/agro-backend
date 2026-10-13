@@ -80,6 +80,11 @@ public class SatelliteClient {
         return post("/ndvi/latest", new WaterDtos.NdviRequest(geometry), WaterDtos.NdviResponse.class);
     }
 
+    /** C3: yangi surat bo'lsa — oldingisi bilan solishtirish (yangi yo'q — ~2 s, bor — ~10 s) */
+    public WaterDtos.MonitorResponse monitor(WaterDtos.MonitorRequest req) {
+        return post("/monitor", req, WaterDtos.MonitorResponse.class);
+    }
+
     private <T> T post(String path, Object body, Class<T> type) {
         try {
             return rest.post().uri(path)

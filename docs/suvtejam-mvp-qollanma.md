@@ -1203,11 +1203,31 @@ Reja (2026-10-12, loyiha egasi qarori: 1–7 + ovozli xabar; taklif — 3 do'st 
 | Faza | Bo'lim (bot) | Nima | Admin |
 |---|---|---|---|
 | **C1** ✅ | 🎁 Do'stlarni taklif · ⚙️ Sozlamalar | Taklif havolasi, mukofot, "Mening tarifim", til | Sozlamalar, Takliflar, rollar matritsasi |
-| C2 | 🌦 Ob-havo | 5 kunlik prognoz + sovuq/issiq/shamol/jala ogohlantirishi | Chegaralar, yuborilgan bildirishnomalar jurnali |
-| C3 | 📋 Dalalarim → 🛰 Monitoring | Har yangi surat — avtomatik tekshiruv, o'sish pasaysa xabar | Chegaralar, tarif bo'yicha yoqish |
+| **C2** ✅ | 🌦 Ob-havo | 5 kunlik prognoz + sovuq/issiq/shamol/jala ogohlantirishi | Chegaralar, yuborilgan bildirishnomalar jurnali |
+| **C3** ✅ | 📋 Dalalarim → 🛰 Monitoring | Har yangi surat — avtomatik tekshiruv, o'sish pasaysa xabar | Chegaralar, tarif bo'yicha yoqish |
 | C4 | 🤖 AI maslahatchi | O'simlik rasmi → AI dastlabki xulosa → agronom tasdig'i | Ko'rib chiqish navbati, aniqlik statistikasi |
 | C5 | 📒 Dala daftari · 📊 Hisobotlar | Ishlar jurnali + PDF, suv tejash, tuman bilan taqqoslash | Daftar (dala sahifasi), me'yorlar |
 | C6 | 💬 Yordam | Ovozli xabar (operator tinglaydi) | — |
+
+### C2 ✅ 2026-10-13 — Ob-havo xavfi
+- Prognoz — dala emas, KATAK (0.1° ≈ 10 km) bo'yicha, `weather_forecasts` keshi; job har soat (:20), katak ≥ 3 soat eskirsa —
+  Open-Meteo (50 katak bitta so'rovda). Har soniya EMAS: modellar 1–6 soatda yangilanadi, bepul limit ~10 000/kun.
+- Xavflar (admin Sozlamalari → Ob-havo): sovuq ≤ 0° (mart–may, sentyabr–noyabr; janubda teskari), issiq ≥ 40°,
+  shamol ≥ 15 m/s, jala ≥ 20 mm yoki do'l. DANGER: −3° / +3° / +5 m/s / ×2. Ufq — bugun + 2 kun.
+- Takror yo'q (`weather_alerts` UNIQUE), WARNING → DANGER — bitta "⬆️ yomonlashdi"; issiq — 5 kunda bir marta;
+  tunda (21–07, dala vaqti) yuborilmaydi; 12 soatdan eski prognoz bilan ogohlantirilmaydi.
+- ⚠️ Bepul Open-Meteo — notijorat. Prod: `OPEN_METEO_URL=https://customer-api.open-meteo.com/v1/forecast` + `OPEN_METEO_API_KEY`.
+
+### C3 ✅ 2026-10-13 — Avtomatik monitoring
+- Python `/monitor`: avval faqat STAC metadata (~2 s) — `since` dan keyin surat yo'q bo'lsa COG o'qilmaydi; bor bo'lsa oxirgi
+  ochiq surat ≥ 4 kun oldingisi bilan piksel bo'yicha ΔNDVI (~10 s), sustlashgan ulush, tomoni, o'zgarish xaritasi.
+- Java: `field_monitoring` (navbat), `monitoring_events` (tarix). Job har soat (:40, server 08–20), 40 tadan;
+  yangi surat → 3 kundan keyin, yo'q → ertaga, Python ishlamasa → 2 soatdan keyin.
+- Qaror (`Verdict`): ekin yo'q edi (NDVI < 0.25) — NO_CROP; butun dala yalang'och (< 0.2, ≥ 70%) — HARVEST (xabar YO'Q);
+  sustlashgan ≥ 15% (admin) — DECLINE → fermerga xarita rasmi + "🔄 Qayta tahlil".
+- Admin Sozlamalari → Monitoring: yoqish, faqat pullik (default — ha, Pro'ning asosiy sababi), chegaralar.
+  Dala sahifasida "Avtomatik monitoring" kartasi (tarix, xaritalar).
+- ⚠️ Python o'zgardi — `docker compose up -d --build satellite-service`.
 
 ### C1 ✅ 2026-10-12
 - Bot menyusi bo'limli: [Yangi dala][Dalalarim] / [🎁 Do'stlarni taklif][💬 Fikr va yordam] / [⚙️ Sozlamalar].

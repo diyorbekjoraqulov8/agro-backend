@@ -38,6 +38,7 @@ export const fieldsApi = {
   search: (q: Q) => http.get<T.Page<T.FieldSummary>>('/fields', q),
   get: (id: number) => http.get<T.FieldResponse>(`/fields/${id}`),
   water: (id: number) => http.get<T.WaterView>(`/fields/${id}/water`),
+  monitoring: (id: number) => http.get<T.FieldMonitoring>(`/fields/${id}/monitoring`),
 }
 
 export const analysesApi = {

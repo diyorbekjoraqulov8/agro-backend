@@ -176,7 +176,7 @@ export interface StepRequest { code?: string; kind?: StepKind; texts: Texts; opt
 
 // ── Bildirishnomalar ─────────────────────────────────────────────────────
 export type NotificationStatus = 'PENDING' | 'SENDING' | 'SENT' | 'FAILED' | 'SKIPPED' | 'CANCELLED'
-export type NotificationCategory = 'ANALYSIS' | 'IRRIGATION' | 'FEEDBACK' | 'REFERRAL' | 'BROADCAST' | 'SYSTEM' | 'WEATHER'
+export type NotificationCategory = 'ANALYSIS' | 'IRRIGATION' | 'FEEDBACK' | 'REFERRAL' | 'BROADCAST' | 'SYSTEM' | 'WEATHER' | 'MONITORING'
 export type CampaignStatus = 'SCHEDULED' | 'SENDING' | 'DONE' | 'CANCELLED'
 export interface NotificationItem {
   id: number; farmerId: number; farmerName: string | null; channel: string; category: NotificationCategory; template: string
@@ -196,4 +196,16 @@ export interface Campaign {
 }
 export interface CampaignRequest {
   title: string; texts: Texts; buttonTexts?: Texts | null; buttonUrl?: string | null; audience: Audience; scheduledAt?: string | null
+}
+
+// ── C3: Monitoring ──
+export type MonitoringVerdict = 'DECLINE' | 'STABLE' | 'HARVEST' | 'NO_CROP' | 'BASELINE'
+export interface MonitoringEvent {
+  id: number; sceneDate: string; refDate: string | null; ndvi: number; ndviRef: number | null
+  declinePct: number | null; declineSide: string | null; improvePct: number | null; verdict: MonitoringVerdict
+  mapFileHashId: string | null; createdDate: string
+}
+export interface FieldMonitoring {
+  status: { lastSceneDate: string | null; lastNdvi: number | null; nextCheckAt: string; lastCheckedAt: string | null; failures: number } | null
+  events: MonitoringEvent[]
 }

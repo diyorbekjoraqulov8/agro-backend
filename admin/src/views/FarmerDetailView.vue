@@ -1,23 +1,22 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Ban, Loader2, Megaphone, Plus, Save, Send } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import PageHeader from '@/components/app/PageHeader.vue'
+import PaymentDialog from '@/components/billing/PaymentDialog.vue'
 import StatusBadge from '@/components/app/StatusBadge.vue'
 import { leadTone } from '@/components/app/badges'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableEmpty, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
 import { billingApi, farmersApi, referralsApi } from '@/api'
 import { errorMessage } from '@/api/http'
-import type { FarmerDetail, FarmerReferral, LeadStatus, PaymentMethod, Plan, Subscription } from '@/api/types'
+import type { FarmerDetail, FarmerReferral, LeadStatus, Subscription } from '@/api/types'
 import { fmtDate, fmtDateTime, fmtMoney, fmtNum } from '@/lib/format'
 import { CROP, IRRIGATION, LANG, LEAD, P, PAYMENT, WATER } from '@/lib/labels'
 import { useAuth } from '@/stores/auth'
@@ -30,16 +29,11 @@ const id = Number(route.params.id)
 const farmer = ref<FarmerDetail | null>(null)
 const referral = ref<FarmerReferral | null>(null)
 const subs = ref<Subscription[]>([])
-const plans = ref<Plan[]>([])
 
 const lead = reactive<{ status: LeadStatus; note: string }>({ status: 'NONE', note: '' })
 const savingLead = ref(false)
 
 const payOpen = ref(false)
-const paying = ref(false)
-const pay = reactive({ planId: '', paymentMethod: 'CASH' as PaymentMethod, amount: '', validFrom: '', validUntil: '', note: '' })
-const paidPlans = computed(() => plans.value.filter((p) => !p.systemPlan && p.active))
-const selectedPlan = computed(() => plans.value.find((p) => String(p.id) === pay.planId))
 
 const cancelTarget = ref<Subscription | null>(null)
 const cancelReason = ref('')
@@ -51,7 +45,7 @@ async function load() {
     lead.status = farmer.value.leadStatus
     lead.note = farmer.value.leadNote ?? ''
     if (auth.can(P.BILLING_READ)) {
-      ;[subs.value, plans.value] = await Promise.all([billingApi.history(id), billingApi.plans()])
+      subs.value = await billingApi.history(id)
     }
   } catch (e) {
     toast.error(errorMessage(e))
@@ -67,34 +61,6 @@ async function saveLead() {
     toast.error(errorMessage(e))
   } finally {
     savingLead.value = false
-  }
-}
-
-function openPay() {
-  const first = paidPlans.value[0]
-  Object.assign(pay, { planId: first ? String(first.id) : '', paymentMethod: 'CASH', amount: '', validFrom: '', validUntil: '', note: '' })
-  payOpen.value = true
-}
-
-async function submitPay() {
-  if (!pay.planId) return
-  paying.value = true
-  try {
-    const s = await billingApi.recordPayment(id, {
-      planId: Number(pay.planId),
-      paymentMethod: pay.paymentMethod,
-      amount: pay.amount === '' ? null : Number(pay.amount),
-      validFrom: pay.validFrom || null,
-      validUntil: pay.validUntil || null,
-      note: pay.note || null,
-    })
-    toast.success(`Toʻlov qayd etildi: ${fmtDate(s.validFrom)} – ${fmtDate(s.validUntil)}`)
-    payOpen.value = false
-    await load()
-  } catch (e) {
-    toast.error(errorMessage(e))
-  } finally {
-    paying.value = false
   }
 }
 
@@ -164,7 +130,7 @@ onMounted(load)
             <span>Dalalar</span><span class="text-foreground text-right">{{ farmer.fields.length }} / {{ farmer.plan.maxFields ?? '∞' }}</span>
             <span>Tahlillar</span><span class="text-foreground text-right">{{ farmer.plan.usedAnalyses }} / {{ farmer.plan.maxAnalyses ?? '∞' }}</span>
           </div>
-          <Button v-if="auth.can(P.BILLING_MANAGE)" class="w-full" @click="openPay"><Plus /> Toʻlov qildi</Button>
+          <Button v-if="auth.can(P.BILLING_MANAGE)" class="w-full" @click="payOpen = true"><Plus /> Toʻlov qildi</Button>
         </CardContent>
       </Card>
 
@@ -274,47 +240,7 @@ onMounted(load)
     </div>
   </template>
 
-  <Dialog v-model:open="payOpen">
-    <DialogContent class="sm:max-w-md">
-      <DialogHeader>
-        <DialogTitle>Toʻlovni qayd etish</DialogTitle>
-        <DialogDescription>Boʻsh maydonlar tarifdan olinadi. Muddat joriy obuna tugagan kundan davom etadi.</DialogDescription>
-      </DialogHeader>
-      <form class="space-y-3" @submit.prevent="submitPay">
-        <div class="space-y-1.5">
-          <Label>Tarif</Label>
-          <Select v-model="pay.planId">
-            <SelectTrigger class="w-full"><SelectValue placeholder="Tanlang" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="p in paidPlans" :key="p.id" :value="String(p.id)">
-                {{ p.name }} · {{ fmtMoney(p.price, p.currency) }} / {{ p.durationDays }} kun
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div class="space-y-1.5">
-            <Label>Summa</Label>
-            <Input v-model="pay.amount" type="number" min="0" step="0.01" :placeholder="selectedPlan ? String(selectedPlan.price) : ''" />
-          </div>
-          <div class="space-y-1.5">
-            <Label>Usul</Label>
-            <Select v-model="pay.paymentMethod">
-              <SelectTrigger class="w-full"><SelectValue /></SelectTrigger>
-              <SelectContent><template v-for="(l, k) in PAYMENT" :key="k"><SelectItem v-if="k !== 'REFERRAL'" :value="k">{{ l }}</SelectItem></template></SelectContent>
-            </Select>
-          </div>
-          <div class="space-y-1.5"><Label>Boshlanish (ixtiyoriy)</Label><Input v-model="pay.validFrom" type="date" /></div>
-          <div class="space-y-1.5"><Label>Tugash (ixtiyoriy)</Label><Input v-model="pay.validUntil" type="date" /></div>
-        </div>
-        <div class="space-y-1.5"><Label>Izoh</Label><Textarea v-model="pay.note" rows="2" maxlength="1000" placeholder="Chek raqami, kim toʻladi..." /></div>
-        <DialogFooter>
-          <Button type="button" variant="outline" @click="payOpen = false">Bekor</Button>
-          <Button type="submit" :disabled="paying || !pay.planId"><Loader2 v-if="paying" class="animate-spin" /> Saqlash</Button>
-        </DialogFooter>
-      </form>
-    </DialogContent>
-  </Dialog>
+  <PaymentDialog v-model:open="payOpen" :farmer-id="id" @saved="load" />
 
   <Dialog :open="!!cancelTarget" @update:open="(v: boolean) => { if (!v) cancelTarget = null }">
     <DialogContent class="sm:max-w-md">

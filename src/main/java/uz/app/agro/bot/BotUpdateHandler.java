@@ -70,6 +70,7 @@ public class BotUpdateHandler {
     private final BotReferral referralSection;
     private final BotPlans planSection;
     private final BotWeather weatherSection;
+    private final BotMonitoring monitoringSection;
     private final BotOnboarding onboarding;
     private final BotMenu botMenu;
     private final FileRegistry fileRegistry;
@@ -749,10 +750,12 @@ public class BotUpdateHandler {
                 sender.answer(cb.id(), null);
                 fields.card(tg, id).ifPresentOrElse(f -> {
                     String water = irrigation.cardLine(lang, tg, id);
+                    String monitor = monitoringSection.cardLine(lang, tg, id);
                     var kb = keyboards.fieldActions(lang, f);
                     var waterButtons = irrigation.cardButtons(lang, tg, id);
                     if (!waterButtons.isEmpty()) kb.addRow(waterButtons.toArray(com.pengrad.telegrambot.model.request.InlineKeyboardButton[]::new));
-                    sender.edit(chatId, messageId, cardText(lang, f) + (water.isEmpty() ? "" : "\n" + water), kb);
+                    sender.edit(chatId, messageId, cardText(lang, f) + (water.isEmpty() ? "" : "\n" + water)
+                            + (monitor.isEmpty() ? "" : "\n" + monitor), kb);
                 }, () -> sender.edit(chatId, messageId, messages.text(lang, "field.notFound"), null));
             }
             case BotKeyboards.FIELD_REPORT -> {

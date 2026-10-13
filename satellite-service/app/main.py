@@ -11,7 +11,7 @@ import numpy as np
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 
-from app import analysis, render, report, water, weather
+from app import analysis, monitor, render, report, water, weather
 from app.geometry import CountryIndex, check_area, parse_polygon, to_utm
 from app.schemas import (AnalyzeRequest, AnalyzeResponse, Period, Point, Recommendation, Rejected,
                          Upstream, Zones)
@@ -173,6 +173,15 @@ def ndvi_latest(req: LatestNdviRequest):
         raise Rejected(404, "NO_SCENES")
     ndvi, _ = analysis.medians(s)
     return LatestNdviResponse(ndvi=round(float(ndvi[-1]), 3), date=s.dates[-1], scenes=len(s.dates))
+
+
+@app.post("/monitor", response_model=monitor.MonitorResponse)
+def monitor_check(req: monitor.MonitorRequest):
+    """C3: since dan keyin yangi ochiq surat bo'lsa — oldingisi bilan piksel bo'yicha solishtirish."""
+    poly = parse_polygon(req.geometry)
+    poly_utm, epsg = to_utm(poly)
+    check_area(poly_utm.area / 10_000)
+    return monitor.check(req, poly, poly_utm, epsg)
 
 
 def recommend(z: dict, season, stress, peak: float, prev_peak: float | None, scenes: int) -> list[Recommendation]:
