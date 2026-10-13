@@ -74,8 +74,12 @@ def load_series(poly_wgs: Polygon, poly_utm: Polygon, epsg: int, start: date, en
     red, nir, swir = refl(ds.red), refl(ds.nir), refl(ds.swir16)
     mask = xr.DataArray(inside, dims=("y", "x"), coords={"y": ds.y, "x": ds.x})
     clear = ~ds.scl.isin(BAD_SCL) & mask
+    # OFFSET (−0.1) tufayli qorong'i piksel (suv, soya) aks ettirishi manfiy bo'lishi mumkin — indeks [−1, 1] dan
+    # chiqib ketadi (−1.1 kabi) va medianani buzadi. Fizik ma'nosiz qiymat — NaN
     ndvi = ((nir - red) / (nir + red)).where(clear)
     ndmi = ((nir - swir) / (nir + swir)).where(clear)
+    ndvi = ndvi.where((ndvi >= -1) & (ndvi <= 1))
+    ndmi = ndmi.where((ndmi >= -1) & (ndmi <= 1))
 
     clear_frac = (clear.sum(("y", "x")) / inside.sum()).values
     keep = clear_frac >= MIN_CLEAR

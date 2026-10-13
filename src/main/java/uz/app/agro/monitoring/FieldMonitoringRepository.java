@@ -11,7 +11,7 @@ public interface FieldMonitoringRepository extends JpaRepository<FieldMonitoring
 
     /**
      * Kuzatiladigan dala: o'chirilmagan, fermer botni bloklamagan va (paidOnly bo'lsa) bugun faol pullik obunasi bor.
-     * Bitta joyda — enroll va due ikkalasi ishlatadi.
+     * Bitta joyda — enroll va lockDue ikkalasi ishlatadi. ⚠️ "Pullik" ta'rifi Java'da ham: PlanService.paidOn
      */
     String ELIGIBLE = """
             f.deleted = FALSE AND fa.deleted = FALSE AND fa.blocked_bot = FALSE
@@ -25,8 +25,17 @@ public interface FieldMonitoringRepository extends JpaRepository<FieldMonitoring
             + ELIGIBLE + " ON CONFLICT (field_id) DO NOTHING", nativeQuery = true)
     int enroll(@Param("paidOnly") boolean paidOnly);
 
-    /** Vaqti kelgan — eng uzoq kutganlari birinchi. Tarif tugagan dala navbatda qoladi, lekin tanlanmaydi */
+    /**
+     * Vaqti kelgan — eng uzoq kutganlari birinchi. Tarif tugagan dala navbatda qoladi, lekin tanlanmaydi.
+     * SKIP LOCKED: ikkinchi instans shu qatorlarni olmaydi (keyin lease() — tranzaksiyadan keyin ham band)
+     */
     @Query(value = "SELECT fm.field_id FROM field_monitoring fm JOIN fields f ON f.id = fm.field_id JOIN farmers fa ON fa.id = f.farmer_id"
-            + " WHERE fm.next_check_at <= now() AND " + ELIGIBLE + " ORDER BY fm.next_check_at LIMIT :limit", nativeQuery = true)
-    List<Long> due(@Param("paidOnly") boolean paidOnly, @Param("limit") int limit);
+            + " WHERE fm.next_check_at <= now() AND " + ELIGIBLE + " ORDER BY fm.next_check_at LIMIT :limit"
+            + " FOR UPDATE OF fm SKIP LOCKED", nativeQuery = true)
+    List<Long> lockDue(@Param("paidOnly") boolean paidOnly, @Param("limit") int limit);
+
+    /** Olingan dalalar band — ishlash davomida (Python ~10 s × batch) boshqa instans tanlamasin; ilova o'chsa — muddat tugagach qaytadi */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = "UPDATE field_monitoring SET next_check_at = now() + CAST(:lease AS interval) WHERE field_id IN (:ids)", nativeQuery = true)
+    int lease(@Param("ids") List<Long> ids, @Param("lease") String lease);
 }

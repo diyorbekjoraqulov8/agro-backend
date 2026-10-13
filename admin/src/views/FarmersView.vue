@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { refDebounced } from '@vueuse/core'
 import { CreditCard, ExternalLink, History, Map as MapIcon, Search, Send } from '@lucide/vue'
@@ -23,9 +23,14 @@ import { toast } from 'vue-sonner'
 
 const router = useRouter()
 const auth = useAuth()
-const payFor = ref<FarmerListItem | null>(null)          // "To'lov qildi" oynasi — qaysi fermer uchun
-const payOpen = computed({ get: () => !!payFor.value, set: (v) => { if (!v) payFor.value = null } })
+// "To'lov qildi" oynasi — qaysi fermer uchun (yopilganda ham saqlanadi: yopilish animatsiyasida sarlavha o'chmasin)
+const payFor = ref<FarmerListItem | null>(null)
+const payOpen = ref(false)
 const name = (r: FarmerListItem) => r.fullName ?? (r.telegramUsername ? '@' + r.telegramUsername : `#${r.id}`)
+function openPay(r: FarmerListItem) {
+  payFor.value = r
+  payOpen.value = true
+}
 const ALL = 'ALL'                       // reka Select bo'sh qiymatni qabul qilmaydi
 const q = ref('')
 const qDebounced = refDebounced(q, 350)
@@ -93,7 +98,7 @@ onMounted(load)
           </TableRow>
         </TableHeader>
         <TableBody :class="{ 'opacity-60': loading }">
-          <TableRow v-for="r in data?.content ?? []" :key="r.id" class="cursor-pointer" @click="router.push(`/farmers/${r.id}`)">
+          <TableRow v-for="r in data?.content ?? []" :key="r.id" class="group cursor-pointer" @click="router.push(`/farmers/${r.id}`)">
             <TableCell>
               <div class="font-medium">{{ r.fullName ?? '—' }}</div>
               <div class="text-muted-foreground text-xs">{{ r.telegramUsername ? '@' + r.telegramUsername : `#${r.id}` }}
@@ -105,12 +110,13 @@ onMounted(load)
             <TableCell>{{ r.source ?? '—' }}</TableCell>
             <TableCell><StatusBadge :tone="leadTone[r.leadStatus]" :label="LEAD[r.leadStatus]" /></TableCell>
             <TableCell class="text-muted-foreground">{{ fmtDate(r.createdDate) }}</TableCell>
-            <TableCell class="bg-card sticky right-0">
-              <div class="flex justify-end gap-0.5">
+            <!-- sticky katak shaffof bo'lmasin (ostidan matn ko'rinmasin), hover — qator bilan bir xil rang -->
+            <TableCell class="bg-card sticky right-0 p-0">
+              <div class="group-hover:bg-muted/50 flex h-full justify-end gap-0.5 p-2">
                 <IconAction v-if="auth.can(P.NOTIFICATION_SEND)" :icon="Send" :disabled="r.blockedBot"
                             :label="r.blockedBot ? 'Botni bloklagan — xabar yetmaydi' : 'Xabar yozish'"
                             :to="`/notifications?tab=compose&farmerId=${r.id}`" />
-                <IconAction v-if="auth.can(P.BILLING_MANAGE)" :icon="CreditCard" label="Toʻlov qildi" @click="payFor = r" />
+                <IconAction v-if="auth.can(P.BILLING_MANAGE)" :icon="CreditCard" label="Toʻlov qildi" @click="openPay(r)" />
                 <IconAction v-if="auth.can(P.NOTIFICATION_READ)" :icon="History" label="Xabarlar jurnali"
                             :to="`/notifications?tab=log&farmerId=${r.id}`" />
                 <IconAction v-if="auth.can(P.FIELD_READ)" :icon="MapIcon" label="Dalalari" :to="`/fields?farmerId=${r.id}`" />

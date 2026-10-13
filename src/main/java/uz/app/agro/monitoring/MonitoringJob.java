@@ -15,7 +15,9 @@ import uz.app.agro.satellite.dto.WaterDtos.MonitorResponse;
 import uz.app.agro.settings.Setting;
 import uz.app.agro.settings.SettingsService;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.List;
 
@@ -30,11 +32,10 @@ import java.util.List;
 @ConditionalOnProperty(name = "monitoring.job-enabled", havingValue = "true", matchIfMissing = true)
 class MonitoringJob {
 
-    /** Sustlashuv bo'lmasa xarita (PNG) so'ralmaydi — Python ham, disk ham tejaladi */
-    private static final double NO_MAP = 101;
+    /** Olingan dala shuncha vaqt band (boshqa instans tanlamaydi); ilova yiqilsa — keyin navbatga qaytadi */
+    private static final String LEASE = "1 hour";
 
     private final MonitoringStore store;
-    private final FieldMonitoringRepository queue;
     private final SatelliteClient satellite;
     private final FileRegistry files;
     private final SettingsService settings;
@@ -50,7 +51,7 @@ class MonitoringJob {
             MDC.put("requestId", "monitor");
             int enrolled = store.enroll(paidOnly);
             if (enrolled > 0) log.info("monitoring: {} ta yangi dala navbatga qo'shildi", enrolled);
-            run(queue.due(paidOnly, props.batch()));
+            run(store.claim(paidOnly, props.batch(), LEASE));
         } catch (RuntimeException e) {
             log.error("monitoring job'i to'xtadi", e);
         } finally {
@@ -62,41 +63,44 @@ class MonitoringJob {
         double drop = settings.getInt(Setting.MONITORING_DROP) / 100.0;
         int declinePct = settings.getInt(Setting.MONITORING_DECLINE_PCT);
         int checked = 0, alerts = 0;
-        for (Long fieldId : due) {
+        for (int i = 0; i < due.size(); i++) {
+            long fieldId = due.get(i);
             MDC.put("requestId", "monitor-" + fieldId);
-            var in = store.input(fieldId).orElse(null);
-            if (in == null) continue;
             try {
-                // 1-bosqich arzon: xaritasiz. Sustlashuv chiqsa — xarita bilan qayta (kamdan-kam)
-                MonitorResponse r = satellite.monitor(new MonitorRequest(in.geometry(), in.since(), drop, NO_MAP));
+                var in = store.input(fieldId).orElse(null);
+                if (in == null) continue;
+                // Bitta chaqiruv: xarita (PNG) Python'da faqat sustlashuv chegaradan oshganda yasaladi
+                MonitorResponse r = satellite.monitor(new MonitorRequest(in.geometry(), in.since(), drop, declinePct));
                 checked++;
                 if (!r.newScene() || r.sceneDate() == null) {
-                    store.reschedule(fieldId, LocalDateTime.now().plus(props.afterNoScene()), false);
+                    store.reschedule(fieldId, LocalDateTime.now().plus(props.afterNoScene()), r.latestSeen());
                     continue;
                 }
-                Verdict verdict = Verdict.of(r, declinePct);
+                long age = ChronoUnit.DAYS.between(r.sceneDate(), LocalDate.now());
+                Verdict verdict = Verdict.of(r, declinePct, in.since() == null, age);
                 String mapHashId = null;
-                if (verdict == Verdict.DECLINE) {
-                    MonitorResponse withMap = satellite.monitor(new MonitorRequest(in.geometry(), null, drop, 0));
-                    if (r.sceneDate().equals(withMap.sceneDate()) && withMap.mapPngBase64() != null) {
-                        mapHashId = files.store(Base64.getDecoder().decode(withMap.mapPngBase64()),
-                                "monitoring-" + fieldId + "-" + r.sceneDate() + ".png", FileRegistry.Uploader.system()).hashId();
-                    }
+                if (verdict == Verdict.DECLINE && r.mapPngBase64() != null && store.isNewScene(fieldId, r.sceneDate())) {
+                    mapHashId = files.store(Base64.getDecoder().decode(r.mapPngBase64()),
+                            "monitoring-" + fieldId + "-" + r.sceneDate() + ".png", FileRegistry.Uploader.system()).hashId();
                 }
                 if (store.record(in, r, verdict, mapHashId, LocalDateTime.now().plus(props.afterNewScene()))) alerts++;
                 log.info("monitoring: dala {} surat {} — {} (sustlashgan {}%)", fieldId, r.sceneDate(), verdict, r.declinePct());
             } catch (SatelliteRejectedException e) {
-                // Poligon yaroqsiz / surat yo'q — ertaga (har soat urinish befoyda)
+                // Poligon yaroqsiz / surat yo'q — kamroq urinish (har xatoda oraliq uzayadi)
                 log.warn("monitoring: dala {} rad etildi: {}", fieldId, e.getMessage());
-                store.reschedule(fieldId, LocalDateTime.now().plus(props.afterNoScene()), true);
+                store.fail(fieldId, props.afterNoScene());
             } catch (SatelliteUnavailableException e) {
-                // Python yoki Earth Search ishlamayapti — qolganlari ham bo'lmaydi, keyingi tick'da
-                log.warn("monitoring: satellite ishlamayapti ({}), {} ta dala keyingi safar", e.getMessage(), due.size() - checked);
-                store.reschedule(fieldId, LocalDateTime.now().plus(props.afterUnavailable()), true);
-                break;
+                if (e.serviceDown()) {
+                    // Python yoki Earth Search ishlamayapti — qolganlari ham bo'lmaydi; ular lease tugagach (1 soat) qaytadi
+                    log.warn("monitoring: satellite ishlamayapti ({}), {} ta dala keyingi safar", e.getMessage(), due.size() - i - 1);
+                    store.fail(fieldId, props.afterUnavailable());
+                    break;
+                }
+                log.warn("monitoring: dala {} Python xatosi: {}", fieldId, e.getMessage());   // 500 — faqat shu dala
+                store.fail(fieldId, props.afterNoScene());
             } catch (RuntimeException e) {
                 log.warn("monitoring: dala {} xato: {}", fieldId, e.toString());
-                store.reschedule(fieldId, LocalDateTime.now().plus(props.afterNoScene()), true);
+                store.fail(fieldId, props.afterNoScene());
             }
         }
         if (checked > 0) log.info("monitoring: {} ta dala tekshirildi, {} ta xabar", checked, alerts);

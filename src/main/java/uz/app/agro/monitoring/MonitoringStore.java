@@ -13,9 +13,11 @@ import uz.app.agro.satellite.dto.WaterDtos.MonitorResponse;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -26,6 +28,8 @@ import java.util.Optional;
 @Component
 @RequiredArgsConstructor
 class MonitoringStore {
+
+    static final int MAX_BACKOFF = 7;
 
     record Input(long fieldId, String fieldName, long farmerId, Map<String, Object> geometry, LocalDate since) {}
 
@@ -39,22 +43,48 @@ class MonitoringStore {
         return queue.enroll(paidOnly);
     }
 
+    /** Navbatdan olish (SKIP LOCKED) va band qilish — ikki instans bir dalani parallel tekshirmaydi */
+    @Transactional
+    public List<Long> claim(boolean paidOnly, int limit, String lease) {
+        List<Long> ids = queue.lockDue(paidOnly, limit);
+        if (!ids.isEmpty()) queue.lease(ids, lease);
+        return ids;
+    }
+
+    /** Shu surat hali ko'rilmaganmi — xarita (fayl) saqlashdan OLDIN: aks holda bog'lanmagan PNG qolardi */
+    @Transactional(readOnly = true)
+    public boolean isNewScene(long fieldId, LocalDate sceneDate) {
+        return !events.existsByFieldIdAndSceneDate(fieldId, sceneDate);
+    }
+
     /** Python'ga yuboriladigan narsa — LAZY tranzaksiya ichida o'qiladi. Dala o'chirilgan — bo'sh */
     @Transactional(readOnly = true)
     public Optional<Input> input(long fieldId) {
         FieldEntity f = fields.findById(fieldId).orElse(null);
         FieldMonitoringEntity m = queue.findById(fieldId).orElse(null);
         if (f == null || m == null) return Optional.empty();
-        return Optional.of(new Input(fieldId, f.getName(), f.getFarmer().getId(), new HashMap<>(f.getBoundaryGeojson()), m.getLastSceneDate()));
+        return Optional.of(new Input(fieldId, f.getName(), f.getFarmer().getId(), new HashMap<>(f.getBoundaryGeojson()),
+                later(m.getLastSceneDate(), m.getLastSeenDate())));
     }
 
-    /** Yangi surat yo'q (yoki dala ustida bulut) — keyingi tekshiruv vaqti */
+    /** Yangi ochiq surat yo'q — keyingi tekshiruv; seen — metadata ko'rgan (bulutli) surat sanasi, keyingi `since` */
     @Transactional
-    public void reschedule(long fieldId, LocalDateTime next, boolean failed) {
+    public void reschedule(long fieldId, LocalDateTime next, LocalDate seen) {
         queue.findById(fieldId).ifPresent(m -> {
             m.setNextCheckAt(next);
             m.setLastCheckedAt(LocalDateTime.now());
-            m.setFailures(failed ? m.getFailures() + 1 : 0);
+            m.setFailures(0);
+            m.setLastSeenDate(later(m.getLastSeenDate(), seen));
+        });
+    }
+
+    /** Xato — ketma-ket xatolar soniga qarab kamroq urinish: base × failures (ko'pi bilan MAX_BACKOFF marta) */
+    @Transactional
+    public void fail(long fieldId, Duration base) {
+        queue.findById(fieldId).ifPresent(m -> {
+            m.setFailures(m.getFailures() + 1);
+            m.setNextCheckAt(LocalDateTime.now().plus(base.multipliedBy(Math.min(m.getFailures(), MAX_BACKOFF))));
+            m.setLastCheckedAt(LocalDateTime.now());
         });
     }
 
@@ -63,6 +93,7 @@ class MonitoringStore {
     public boolean record(Input in, MonitorResponse r, Verdict verdict, String mapHashId, LocalDateTime next) {
         FieldMonitoringEntity m = queue.findById(in.fieldId()).orElseThrow();
         m.setLastSceneDate(r.sceneDate());
+        m.setLastSeenDate(later(m.getLastSeenDate(), later(r.latestSeen(), r.sceneDate())));
         m.setLastNdvi(dec(r.ndvi(), 3));
         m.setNextCheckAt(next);
         m.setLastCheckedAt(LocalDateTime.now());
@@ -92,6 +123,11 @@ class MonitoringStore {
                 .preview("Monitoring: «" + in.fieldName() + "» " + r.declinePct() + "% sustlashdi (" + r.sceneDate() + ")");
         notifications.enqueue(n);
         return true;
+    }
+
+    private static LocalDate later(LocalDate a, LocalDate b) {
+        if (a == null) return b;
+        return b == null || a.isAfter(b) ? a : b;
     }
 
     private static BigDecimal dec(Double v, int scale) {

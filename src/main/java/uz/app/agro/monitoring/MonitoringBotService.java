@@ -35,7 +35,7 @@ public class MonitoringBotService {
         var field = fields.findById(fieldId).filter(f -> f.getFarmer().getTelegramUserId() == telegramUserId).orElse(null);
         if (field == null) return Optional.empty();
         if (!settings.getBool(Setting.MONITORING_ENABLED)) return Optional.of(new CardStatus(Mode.OFF, null, null, null));
-        if (settings.getBool(Setting.MONITORING_PAID_ONLY) && !plans.effective(field.getFarmer().getId(), LocalDate.now()).paid()) {
+        if (settings.getBool(Setting.MONITORING_PAID_ONLY) && !plans.paidOn(field.getFarmer().getId(), LocalDate.now())) {
             return Optional.of(new CardStatus(Mode.PRO_ONLY, null, null, null));
         }
         return Optional.of(events.findFirstByFieldIdOrderBySceneDateDesc(fieldId)

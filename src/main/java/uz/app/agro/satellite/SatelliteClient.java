@@ -95,7 +95,8 @@ public class SatelliteClient {
                         throw rejected(rs.getStatusCode(), rs.getBody().readAllBytes());
                     })
                     .onStatus(HttpStatusCode::isError, (rq, rs) -> {
-                        throw new SatelliteUnavailableException("satellite " + path + " " + rs.getStatusCode().value(), null);
+                        throw new SatelliteUnavailableException("satellite " + path + " " + rs.getStatusCode().value(), null,
+                                rs.getStatusCode().value());
                     })
                     .body(type);
         } catch (ResourceAccessException e) {

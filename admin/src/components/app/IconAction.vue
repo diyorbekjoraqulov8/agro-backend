@@ -22,7 +22,11 @@ const emit = defineEmits<{ click: [] }>()
       <Button v-else-if="href && !disabled" variant="ghost" size="icon-sm" :aria-label="label" as-child @click.stop>
         <a :href="href" target="_blank" rel="noopener noreferrer"><component :is="icon" /></a>
       </Button>
-      <Button v-else variant="ghost" size="icon-sm" :aria-label="label" :disabled="disabled" @click.stop="emit('click')">
+      <!-- disabled Button'da pointer-events yo'q: bosish qatorga o'tib sahifani ochardi va tooltip chiqmasdi — o'ramda ushlaymiz -->
+      <span v-else-if="disabled" tabindex="0" class="inline-flex" :aria-label="label" @click.stop>
+        <Button variant="ghost" size="icon-sm" disabled tabindex="-1"><component :is="icon" /></Button>
+      </span>
+      <Button v-else variant="ghost" size="icon-sm" :aria-label="label" @click.stop="emit('click')">
         <component :is="icon" />
       </Button>
     </TooltipTrigger>

@@ -45,7 +45,8 @@ public final class WaterDtos {
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record MonitorResponse(boolean newScene, LocalDate sceneDate, LocalDate refDate, Double ndvi, Double ndviRef,
-                                  Double declinePct, String declineSide, Double improvePct, String mapPngBase64) {}
+                                  Double declinePct, String declineSide, Double improvePct, String mapPngBase64,
+                                  LocalDate latestSeen) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record NdviResponse(double ndvi, LocalDate date, int scenes) {}

@@ -25,6 +25,10 @@ public class FieldMonitoringEntity {
     @Column(name = "last_scene_date")
     private LocalDate lastSceneDate;
 
+    /** Metadata bo'yicha ko'rilgan eng yangi surat (bulutli bo'lsa ham) — keyingi tekshiruvda shundan keyingisi so'raladi */
+    @Column(name = "last_seen_date")
+    private LocalDate lastSeenDate;
+
     @Column(name = "last_ndvi", precision = 5, scale = 3)
     private BigDecimal lastNdvi;
 

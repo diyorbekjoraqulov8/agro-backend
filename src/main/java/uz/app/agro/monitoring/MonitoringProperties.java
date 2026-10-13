@@ -1,5 +1,6 @@
 package uz.app.agro.monitoring;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -11,6 +12,7 @@ import java.time.Duration;
 /**
  * Texnika (yuk, oraliqlar). Chegaralar va yoqish — admin Sozlamalarida (Setting.MONITORING_*).
  * batch — bir tick'da nechta dala: har biri Python'da ~2 s (yangi surat yo'q) yoki ~10 s (bor).
+ * Sig'im: batch × (hours-to − hours-from) ≈ 480 dala/kun — undan ko'p bo'lsa navbat o'sadi (batch yoki soatlarni oshiring).
  */
 @Validated
 @ConfigurationProperties(prefix = "monitoring")
@@ -21,4 +23,9 @@ public record MonitoringProperties(
         @NotNull Duration afterUnavailable,   // Python/Earth Search ishlamadi — tezroq qayta
         @Min(0) @Max(23) int hoursFrom,       // server vaqti: xabarlar kunduzi ketsin
         @Min(1) @Max(24) int hoursTo
-) {}
+) {
+    @AssertTrue(message = "monitoring.hours-from hours-to dan kichik bo'lsin (aks holda job hech qachon ishlamaydi)")
+    public boolean isHoursValid() {
+        return hoursFrom < hoursTo;
+    }
+}

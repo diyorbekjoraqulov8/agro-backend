@@ -46,6 +46,14 @@ public class PlanService {
                 .filter(PlanEntity::isActive).map(mapper::toResponse).toList();
     }
 
+    /**
+     * Bugun faol pullik obunasi bormi — limitlarsiz, bitta so'rov (monitoring kartochkasi).
+     * ⚠️ Xuddi shu ta'rif SQL'da: FieldMonitoringRepository.ELIGIBLE — o'zgarsa ikkalasi ham
+     */
+    public boolean paidOn(long farmerId, LocalDate day) {
+        return !subscriptionRepository.findActiveOn(farmerId, day).isEmpty();
+    }
+
     /** "Pullik tarifda N ga gacha" — faol pullik rejalar orasida eng kattasi */
     public BigDecimal maxPaidFieldHa() {
         return planRepository.maxPaidFieldHa().orElse(null);

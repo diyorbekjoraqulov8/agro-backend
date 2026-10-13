@@ -7,19 +7,22 @@ import { Table, TableBody, TableCell, TableEmpty, TableHead, TableHeader, TableR
 import { fieldsApi } from '@/api'
 import type { FieldMonitoring, MonitoringVerdict } from '@/api/types'
 import { fmtDate, fmtDateTime, fmtNum } from '@/lib/format'
-import { SIDE } from '@/lib/labels'
+import { P, SIDE } from '@/lib/labels'
+import { useAuth } from '@/stores/auth'
 
 /** C3: dala monitoringi — navbat holati va har yangi surat natijasi (sustlashganda — o'zgarish xaritasi) */
 const props = defineProps<{ fieldId: number }>()
+const auth = useAuth()
 const data = ref<FieldMonitoring | null>(null)
 const viewing = ref<number | null>(null)
 
 const VERDICT: Record<MonitoringVerdict, { l: string; t: 'red' | 'green' | 'gray' | 'amber' | 'blue' }> = {
   DECLINE: { l: 'Sustlashdi — xabar ketdi', t: 'red' }, STABLE: { l: 'Oʻzgarish yoʻq', t: 'green' },
-  HARVEST: { l: 'Oʻrim-yigʻim?', t: 'amber' }, NO_CROP: { l: 'Ekin yoʻq', t: 'gray' }, BASELINE: { l: 'Boshlandi', t: 'blue' },
+  HARVEST: { l: 'Bir tekis (pishish/oʻrim)', t: 'amber' }, NO_CROP: { l: 'Ekin yoʻq', t: 'gray' }, BASELINE: { l: 'Boshlandi', t: 'blue' },
 }
 const fileUrl = (h: string) => `/api/v1/files/${h}`
-const maps = computed(() => (data.value?.events ?? []).filter((e) => e.mapFileHashId)
+// Xarita — fayl servisi orqali (file:read); huquq yo'q bo'lsa rasm o'rniga hech narsa
+const maps = computed(() => (auth.can(P.FILE_READ) ? data.value?.events ?? [] : []).filter((e) => e.mapFileHashId)
   .map((e) => ({ url: fileUrl(e.mapFileHashId!), name: `monitoring-${props.fieldId}-${e.sceneDate}.png`, caption: `${fmtDate(e.sceneDate)} · ${e.declinePct}% sustlashgan`, hashId: e.mapFileHashId })))
 const open = (hashId: string) => { viewing.value = maps.value.findIndex((m) => m.hashId === hashId) }
 
@@ -64,7 +67,7 @@ onMounted(async () => {
             <TableCell class="text-right tabular-nums">{{ e.improvePct != null ? `${e.improvePct}%` : '—' }}</TableCell>
             <TableCell><StatusBadge :tone="VERDICT[e.verdict].t" :label="VERDICT[e.verdict].l" /></TableCell>
             <TableCell class="w-14">
-              <button v-if="e.mapFileHashId" type="button" class="block" @click="open(e.mapFileHashId)">
+              <button v-if="e.mapFileHashId && auth.can(P.FILE_READ)" type="button" class="block" @click="open(e.mapFileHashId)">
                 <img :src="`${fileUrl(e.mapFileHashId)}/thumb`" alt="Oʻzgarish xaritasi" class="size-10 rounded-md border object-cover" loading="lazy" />
               </button>
             </TableCell>
