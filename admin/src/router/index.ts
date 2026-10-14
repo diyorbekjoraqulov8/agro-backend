@@ -29,6 +29,7 @@ const router = createRouter({
         { path: 'billing/subscriptions', component: () => import('@/views/SubscriptionsView.vue'), meta: { title: 'Toʻlovlar', perm: P.BILLING_READ } },
         { path: 'feedback', component: () => import('@/views/FeedbackView.vue'), meta: { title: 'Murojaatlar', perm: P.FEEDBACK_READ } },
         { path: 'referrals', component: () => import('@/views/ReferralsView.vue'), meta: { title: 'Takliflar', perm: P.REFERRAL_READ } },
+        { path: 'advisor', component: () => import('@/views/AdvisorView.vue'), meta: { title: 'AI maslahat', perm: P.ADVISOR_READ } },
         { path: 'notifications', component: () => import('@/views/NotificationsView.vue'), meta: { title: 'Bildirishnomalar', perm: P.NOTIFICATION_READ } },
         { path: 'onboarding', component: () => import('@/views/OnboardingView.vue'), meta: { title: 'Onboarding', perm: P.ONBOARDING_READ } },
         { path: 'settings', component: () => import('@/views/SettingsView.vue'), meta: { title: 'Sozlamalar', perm: P.SETTINGS_READ } },

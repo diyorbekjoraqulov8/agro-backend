@@ -144,7 +144,7 @@ export interface OperatorStats { staffId: number; email: string; open: number; c
 
 // ── Sozlamalar ───────────────────────────────────────────────────────────
 export interface AppSetting {
-  key: string; group: string; description: string; type: 'BOOL' | 'INT' | 'STRING' | 'PLAN'
+  key: string; group: string; description: string; type: 'BOOL' | 'INT' | 'STRING' | 'PLAN' | 'MODEL'
   value: string; defaultValue: string; min: number | null; max: number | null
   custom: boolean; updatedByEmail: string | null; updatedDate: string | null; warning: string | null
 }
@@ -176,7 +176,7 @@ export interface StepRequest { code?: string; kind?: StepKind; texts: Texts; opt
 
 // ── Bildirishnomalar ─────────────────────────────────────────────────────
 export type NotificationStatus = 'PENDING' | 'SENDING' | 'SENT' | 'FAILED' | 'SKIPPED' | 'CANCELLED'
-export type NotificationCategory = 'ANALYSIS' | 'IRRIGATION' | 'FEEDBACK' | 'REFERRAL' | 'BROADCAST' | 'SYSTEM' | 'WEATHER' | 'MONITORING'
+export type NotificationCategory = 'ANALYSIS' | 'IRRIGATION' | 'FEEDBACK' | 'REFERRAL' | 'BROADCAST' | 'SYSTEM' | 'WEATHER' | 'MONITORING' | 'ADVISOR'
 export type CampaignStatus = 'SCHEDULED' | 'SENDING' | 'DONE' | 'CANCELLED'
 export interface NotificationItem {
   id: number; farmerId: number; farmerName: string | null; channel: string; category: NotificationCategory; template: string
@@ -208,4 +208,22 @@ export interface MonitoringEvent {
 export interface FieldMonitoring {
   status: { lastSceneDate: string | null; lastNdvi: number | null; nextCheckAt: string; lastCheckedAt: string | null; failures: number } | null
   events: MonitoringEvent[]
+}
+
+// ── C4: AI maslahat ──
+export type AdvisorStatus = 'PENDING' | 'ANSWERED' | 'FAILED'
+export type AdvisorCategory = 'DISEASE' | 'PEST' | 'NUTRIENT' | 'WATER' | 'ABIOTIC' | 'HEALTHY' | 'UNCLEAR' | 'NOT_PLANT'
+export interface AdvisorDiagnosis {
+  category: AdvisorCategory; summary: string; causes: { name: string; confidencePct: number; evidence: string }[]
+  checks: string[]; actions: string[]; urgent: boolean; photoAdvice: string
+}
+export interface AdvisorItem {
+  id: number; farmerId: number; farmerName: string | null; fieldId: number | null; fieldName: string | null
+  photoHashId: string; farmerNote: string | null; language: string; status: AdvisorStatus; attempts: number
+  aiModel: string | null; diagnosis: AdvisorDiagnosis | null; aiError: string | null
+  inputTokens: number | null; outputTokens: number | null; createdDate: string; answeredAt: string | null
+}
+export interface AdvisorStats {
+  byStatus: Partial<Record<AdvisorStatus, number>>; byCategory: Partial<Record<AdvisorCategory, number>>
+  tokens: { model: string; inputTokens: number; outputTokens: number; requests: number }[]
 }

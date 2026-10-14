@@ -71,6 +71,7 @@ public class BotUpdateHandler {
     private final BotPlans planSection;
     private final BotWeather weatherSection;
     private final BotMonitoring monitoringSection;
+    private final BotAdvisor advisorSection;
     private final BotOnboarding onboarding;
     private final BotMenu botMenu;
     private final FileRegistry fileRegistry;
@@ -129,6 +130,10 @@ public class BotUpdateHandler {
             default -> {
                 Optional<FarmerSnapshot> farmer = farmers.find(from.id());
                 Optional<BotStep> step = states.current(from.id());
+                if (farmer.isPresent() && step.isPresent() && step.get() == BotStep.ADVISOR_PHOTO) {
+                    onAdvisorMessage(m, farmer.get().language(), text);
+                    return;
+                }
                 if (farmer.isPresent() && step.isPresent() && step.get() == BotStep.FEEDBACK_TEXT) {
                     onFeedbackMessage(m, farmer.get().language(), text);
                     return;
@@ -205,6 +210,7 @@ public class BotUpdateHandler {
                     + states.feedbackKind(chatId).orElse(FeedbackKind.QUESTION.name())), keyboards.cancelOnly(lang));
             case FEEDBACK_CHAT -> sender.send(chatId, messages.text(lang, "feedback.chat.hint",
                     states.chatFeedbackId(chatId).map(String::valueOf).orElse("")), keyboards.chatMenu(lang));
+            case ADVISOR_PHOTO -> sender.send(chatId, messages.text(lang, "advisor.askPhoto"), keyboards.cancelOnly(lang));
         }
     }
 
@@ -235,6 +241,8 @@ public class BotUpdateHandler {
             referralSection.showSettings(chatId, lang);
         } else if (labels("menu.irrigation").contains(text)) {
             irrigation.overview(tg, chatId, lang);
+        } else if (labels("menu.advisor").contains(text)) {
+            advisorSection.start(tg, chatId, lang);
         } else if (labels("menu.weather").contains(text)) {
             weatherSection.showForecast(tg, chatId, lang);
         } else if (labels("menu.plans").contains(text)) {
@@ -257,7 +265,7 @@ public class BotUpdateHandler {
     /** Asosiy menyu bo'limlari — murojaat/suhbat rejimida bosilsa rejimdan chiqaradi (matn murojaat bo'lib saqlanmaydi) */
     private boolean isSectionButton(String text) {
         for (String key : new String[]{"menu.myFields", "menu.newField", "menu.feedback", "menu.friends", "menu.settings", "menu.language",
-                "menu.irrigation", "menu.weather", "menu.plans", "menu.help"}) {
+                "menu.irrigation", "menu.weather", "menu.plans", "menu.help", "menu.advisor"}) {
             if (labels(key).contains(text)) return true;
         }
         return false;
@@ -299,6 +307,7 @@ public class BotUpdateHandler {
             case REPORTED -> "report.done";
             case FEEDBACK_TEXT -> "feedback.ask." + FeedbackKind.QUESTION.name();
             case FEEDBACK_CHAT -> "feedback.write";
+            case ADVISOR_PHOTO -> "advisor.askPhoto";
         });
     }
 
@@ -431,6 +440,52 @@ public class BotUpdateHandler {
             default -> sender.send(chatId, messages.text(lang, "plans.unavailable"), null);   // ro'yxatdan o'tmagan va h.k.
         }
     }
+
+    /**
+     * ADVISOR_PHOTO: rasm (izohi bilan) — AI maslahatga. "Bekor qilish" / menyu tugmasi — rejimdan chiqadi.
+     * Matn yoki stiker — rasm qayta so'raladi (izohsiz rasm ham bo'ladi).
+     */
+    private void onAdvisorMessage(Message m, String lang, String text) {
+        long tg = m.from().id();
+        long chatId = m.chat().id();
+        if (labels("menu.cancel").contains(text) || isSectionButton(text)) {
+            BotStep prev = states.leaveFeedback(tg);
+            if (labels("menu.cancel").contains(text)) {
+                sender.send(chatId, messages.text(lang, "advisor.cancelled"), menu(chatId, lang));
+                if (isQuestion(prev)) ask(chatId, lang, prev);       // onboarding savoli paytida kirgan bo'lsa
+            } else {
+                onMenu(tg, chatId, lang, text);
+            }
+            return;
+        }
+        // Faqat rasm: Telegram fotosurati yoki JPG/PNG hujjat (≤ 5 MB — Claude rasm chegarasi)
+        boolean photo = m.photo() != null && m.photo().length > 0;
+        var doc = m.document();
+        if (!photo && (doc == null || !ADVISOR_IMAGE_TYPES.contains(doc.mimeType()))) {
+            sender.send(chatId, messages.text(lang, "advisor.photoOnly"), null);
+            return;
+        }
+        if (!photo && (doc.fileSize() == null || doc.fileSize() > ADVISOR_MAX_BYTES)) {
+            sender.send(chatId, messages.text(lang, "advisor.tooLarge"), null);
+            return;
+        }
+        Incoming in = incoming(m, lang);
+        if (in.rejected()) return;
+        if (in.att() == null || in.att().fileHashId() == null) {      // Telegram'dan yuklab bo'lmadi
+            sender.send(chatId, messages.text(lang, "feedback.fileFailed"), null);
+            return;
+        }
+        advisorSection.submit(tg, chatId, lang, in.att().fileHashId(), m.caption()).ifPresentOrElse(
+                id -> sender.send(chatId, messages.text(lang, "advisor.queued", String.valueOf(id)), menu(chatId, lang)),
+                () -> {
+                    advisorSection.explainBlocked(tg, chatId, lang);
+                    showMenu(chatId, lang);                          // rejimdagi "Bekor qilish" klaviaturasi qolmasin
+                });
+    }
+
+    private static final Set<String> ADVISOR_IMAGE_TYPES = Set.of("image/jpeg", "image/png");
+    /** Claude rasm chegarasi ~5 MB (base64 dan oldin); Telegram fotosurati doim kichik (≤ 1280 px) */
+    private static final long ADVISOR_MAX_BYTES = 4_500_000;
 
     /** Menyu "💬 Fikr va yordam" / /support: ochiq suhbat bo'lsa — unga qaytadi, aks holda yangi murojaat turi */
     private void openSupport(long tg, long chatId, String lang) {
@@ -645,6 +700,8 @@ public class BotUpdateHandler {
         } else if (data.equals(BotReferral.SETTINGS + "profile")) {
             sender.answer(cb.id(), null);
             onboarding.beginProfile(from.id(), chatId, lang);
+        } else if (advisorSection.onCallback(cb.id(), from.id(), chatId, lang, data)) {
+            // AI maslahat: av:<dala>
         } else if (data.equals(BotPlans.LIST)) {
             sender.answer(cb.id(), null);
             planSection.showCatalog(from.id(), chatId, lang);

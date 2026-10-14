@@ -57,9 +57,14 @@ public class BotPlans {
 
     /** "Mening tarifim" ostidagi tugmalar: barcha tariflar + (bepul bo'lsa) eng arzon pullik tarifni olish */
     public InlineKeyboardMarkup planButtons(String lang, EffectivePlan current) {
+        return planButtons(lang, current.paid());
+    }
+
+    /** @param paid — pullik tarifda: faqat "Barcha tariflar"; bepul — yana eng arzon pullik tarifni olish */
+    public InlineKeyboardMarkup planButtons(String lang, boolean paid) {
         InlineKeyboardMarkup kb = new InlineKeyboardMarkup(
                 new InlineKeyboardButton(messages.text(lang, "settings.plans")).callbackData(LIST));
-        if (!current.paid()) {
+        if (!paid) {
             upgrade(plans.catalog()).ifPresent(p -> kb.addRow(
                     new InlineKeyboardButton(messages.text(lang, "plans.buy", p.name())).callbackData(BUY + p.code())));
         }

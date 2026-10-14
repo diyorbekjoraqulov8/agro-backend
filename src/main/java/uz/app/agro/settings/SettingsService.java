@@ -126,6 +126,13 @@ public class SettingsService {
                 if (v.isEmpty()) throw new BadRequestException(s.key() + ": bo'sh bo'lmasin");
                 yield v;
             }
+            // Model ID ro'yxat bilan cheklanmaydi — yangi model chiqsa deploysiz almashtirish uchun; faqat shakl
+            case MODEL -> {
+                if (!v.matches("claude-[a-z0-9.-]{3,70}")) {           // ≤ 77 — advisor_requests.ai_model VARCHAR(80)
+                    throw new BadRequestException(s.key() + ": Claude model ID (masalan claude-opus-5-5, claude-haiku-5-5)");
+                }
+                yield v;
+            }
         };
     }
 

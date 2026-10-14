@@ -3,7 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Compon
 import { useRoute, useRouter } from 'vue-router'
 import { useIntervalFn } from '@vueuse/core'
 import {
-  BarChart3, CreditCard, FileClock, FolderOpen, Gift, Layers, Megaphone, Route, SlidersHorizontal, LogOut, Map, MessageSquare, ReceiptText, Satellite, Shield, UserRound, Users,
+  BarChart3, Bot, CreditCard, FileClock, FolderOpen, Gift, Layers, Megaphone, Route, SlidersHorizontal, LogOut, Map, MessageSquare, ReceiptText, Satellite, Shield, UserRound, Users,
 } from '@lucide/vue'
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader,
@@ -33,6 +33,7 @@ const groups: { label: string; items: NavItem[] }[] = [
       { to: '/fields', title: 'Dalalar', icon: Map, perm: P.FIELD_READ },
       { to: '/analyses', title: 'Tahlillar', icon: Satellite, perm: P.ANALYSIS_READ },
       { to: '/feedback', title: 'Murojaatlar', icon: MessageSquare, perm: P.FEEDBACK_READ },
+      { to: '/advisor', title: 'AI maslahat', icon: Bot, perm: P.ADVISOR_READ },
       { to: '/notifications', title: 'Bildirishnomalar', icon: Megaphone, perm: P.NOTIFICATION_READ },
     ],
   },

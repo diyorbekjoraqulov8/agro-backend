@@ -21,6 +21,15 @@ public enum Setting {
     NOTIFICATION_MAX_ATTEMPTS("notification.max-attempts", Type.INT, "4", 1, 10,
             "Bildirishnomalar", "Yetkazib bo'lmasa necha marta urinadi (oraliq: 1, 5, 30 daqiqa, keyin har soat)"),
 
+    ADVISOR_ENABLED("advisor.enabled", Type.BOOL, "true", null, null,
+            "AI maslahat", "AI maslahatchi yoqilgan (ANTHROPIC_API_KEY bo'lmasa baribir ishlamaydi)"),
+    ADVISOR_MODEL("advisor.model", Type.MODEL, "claude-opus-5-5", null, null,
+            "AI maslahat", "Claude modeli: claude-opus-5-5 (eng aniq, ~$0.03/rasm) yoki claude-haiku-5-5 (arzon, ~$0.001)"),
+    ADVISOR_PAID_DAILY("advisor.paid-daily", Type.INT, "10", 1, 100,
+            "AI maslahat", "Pullik tarif: fermer kuniga nechta rasm yubora oladi (AI javob bermagani hisoblanmaydi)"),
+    ADVISOR_FREE_TOTAL("advisor.free-total", Type.INT, "1", 0, 20,
+            "AI maslahat", "Bepul tarif: umrbod nechta (sinab ko'rish; 0 — faqat pullik)"),
+
     MONITORING_ENABLED("monitoring.enabled", Type.BOOL, "true", null, null,
             "Monitoring", "Avtomatik monitoring: har yangi sun'iy yo'ldosh suratida dala o'zi tekshiriladi"),
     MONITORING_PAID_ONLY("monitoring.paid-only", Type.BOOL, "true", null, null,
@@ -42,7 +51,7 @@ public enum Setting {
     WEATHER_RAIN_MM("weather.rain-mm", Type.INT, "20", 5, 200,
             "Ob-havo", "Jala: sutkalik yog'in shundan ko'p yoki teng (mm); 2 barobar — xavfli. Do'l/momaqaldiroq — har doim");
 
-    public enum Type { BOOL, INT, STRING, PLAN }
+    public enum Type { BOOL, INT, STRING, PLAN, MODEL }
 
     private final String key;
     private final Type type;

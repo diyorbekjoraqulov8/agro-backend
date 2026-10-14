@@ -35,6 +35,8 @@ public class BotKeyboards {
     static final String FEEDBACK = "fb:", FEEDBACK_WRITE = "fw:", FEEDBACK_END = "fx:", FEEDBACK_RATE = "fs:";
     // Onboarding javobi: "ob:CROP:COTTON"
     static final String ONBOARDING = "ob:";
+    // AI maslahat: dala tanlash "av:<fieldId>" (0 — dalasiz)
+    static final String ADVISOR = "av:";
 
     private final BotMessages messages;
     private final TelegramProperties props;
@@ -52,13 +54,14 @@ public class BotKeyboards {
         // crop — Mini App'dagi ekin tanlovining boshlang'ich qiymati (fermerning asosiy ekini)
         if (miniAppConfigured()) newField.webAppInfo(new WebAppInfo(miniAppUrl(lang, maxHa,
                 defaultCrop != null ? "&crop=" + defaultCrop.name() : null)));
-        // Bo'limlar: dalalar · sug'orish va ob-havo · do'stlar va yordam · tariflar, sozlamalar, qo'llanma.
-        // Keyingi fazalarda (C3–C5) monitoring, AI, daftar qo'shiladi
+        // Bo'limlar: dalalar · sug'orish va ob-havo · AI maslahat va yordam · do'stlar va tariflar · sozlamalar va qo'llanma.
+        // Keyingi faza (C5) — dala daftari
         return new ReplyKeyboardMarkup(
                 new KeyboardButton[]{newField, button(lang, "menu.myFields")},
                 new KeyboardButton[]{button(lang, "menu.irrigation"), button(lang, "menu.weather")},
-                new KeyboardButton[]{button(lang, "menu.friends"), button(lang, "menu.feedback")},
-                new KeyboardButton[]{button(lang, "menu.plans"), button(lang, "menu.settings"), button(lang, "menu.help")})
+                new KeyboardButton[]{button(lang, "menu.advisor"), button(lang, "menu.feedback")},
+                new KeyboardButton[]{button(lang, "menu.friends"), button(lang, "menu.plans")},
+                new KeyboardButton[]{button(lang, "menu.settings"), button(lang, "menu.help")})
                 .resizeKeyboard(true)
                 .isPersistent(true);
     }
@@ -94,7 +97,15 @@ public class BotKeyboards {
         return kb;
     }
 
-    /** Murojaat matnini kutayotganda — faqat "Bekor qilish" (menyu tugmasi tasodifan bosilmasin) */
+    /** AI maslahat: rasm qaysi dalaniki (ekin va joy kontekst bo'ladi) */
+    public InlineKeyboardMarkup advisorFields(String lang, List<FieldCard> fields) {
+        InlineKeyboardMarkup kb = new InlineKeyboardMarkup();
+        for (FieldCard f : fields) kb.addRow(new InlineKeyboardButton("📍 " + f.name()).callbackData(ADVISOR + f.id()));
+        kb.addRow(new InlineKeyboardButton(messages.text(lang, "advisor.noField")).callbackData(ADVISOR + "0"));
+        return kb;
+    }
+
+    /** Murojaat matni / AI maslahat rasmini kutayotganda — faqat "Bekor qilish" (menyu tugmasi tasodifan bosilmasin) */
     public ReplyKeyboardMarkup cancelOnly(String lang) {
         return new ReplyKeyboardMarkup(new KeyboardButton[]{new KeyboardButton(messages.text(lang, "menu.cancel"))})
                 .resizeKeyboard(true)

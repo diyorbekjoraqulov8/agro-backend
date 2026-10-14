@@ -49,6 +49,7 @@ export const P = {
   SETTINGS_READ: 'settings:read', SETTINGS_MANAGE: 'settings:manage', REFERRAL_READ: 'referral:read',
   ONBOARDING_READ: 'onboarding:read', ONBOARDING_MANAGE: 'onboarding:manage',
   NOTIFICATION_READ: 'notification:read', NOTIFICATION_SEND: 'notification:send',
+  ADVISOR_READ: 'advisor:read',
 } as const
 
 export const SOIL: Record<string, string> = { SAND: 'Qumloq', LOAM: 'Oʻrtacha (qumoq)', CLAY: 'Ogʻir (soz)' }

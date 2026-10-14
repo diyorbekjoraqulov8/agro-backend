@@ -128,7 +128,7 @@ function planName(code: string) {
 
             <form v-else class="flex items-center gap-2" @submit.prevent="save(s)">
               <Input v-model="draft[s.key]" :type="s.type === 'INT' ? 'number' : 'text'" :min="s.min ?? undefined" :max="s.max ?? undefined"
-                     :disabled="!canEdit" class="w-32" />
+                     :disabled="!canEdit" :class="s.type === 'MODEL' ? 'w-56' : 'w-32'" :list="s.type === 'MODEL' ? 'claude-models' : undefined" />
               <Button v-if="canEdit" type="submit" size="sm" :disabled="saving === s.key || draft[s.key] === s.value">
                 <Loader2 v-if="saving === s.key" class="animate-spin" /><Save v-else /> Saqlash
               </Button>
@@ -142,4 +142,10 @@ function planName(code: string) {
       </CardContent>
     </Card>
   </div>
+  <!-- MODEL: tavsiyalar; boshqa (yangi) Claude model ID ham yozilishi mumkin — server shaklini tekshiradi -->
+  <datalist id="claude-models">
+    <option value="claude-opus-5-5">Claude Opus 5.5 — eng aniq</option>
+    <option value="claude-sonnet-5-5">Claude Sonnet 5.5 — oʻrtacha</option>
+    <option value="claude-haiku-5-5">Claude Haiku 5.5 — eng arzon</option>
+  </datalist>
 </template>

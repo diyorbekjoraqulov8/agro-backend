@@ -20,6 +20,8 @@ public final class Templates {
     public static final String FEEDBACK_REPLY = "feedback.reply";
     /** {feedbackId, askRating} */
     public static final String FEEDBACK_CLOSED = "feedback.closed";
+    /** {requestId} — AI tavsiyasi yoki "AI javob bermadi, qayta yuboring" (natija bazada, fermer tilida) */
+    public static final String ADVISOR_ANSWER = "advisor.answer";
     /** {fieldId, fieldName, sceneDate, refDate, declinePct, side, fileHashId?} */
     public static final String MONITORING_ALERT = "monitoring.alert";
     /** {kind: FROST|HEAT|WIND|RAIN, level: WARNING|DANGER, date: yyyy-MM-dd, value, fields: [nom], escalated} */

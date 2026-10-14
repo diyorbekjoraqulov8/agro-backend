@@ -111,6 +111,12 @@ export const onboardingApi = {
   remove: (id: number) => http.del<void>(`/onboarding/steps/${id}`),
 }
 
+export const advisorApi = {
+  list: (q: Q) => http.get<T.Page<T.AdvisorItem>>('/advisor/requests', q),
+  get: (id: number) => http.get<T.AdvisorItem>(`/advisor/requests/${id}`),
+  stats: () => http.get<T.AdvisorStats>('/advisor/stats'),
+}
+
 export const notificationsApi = {
   search: (q: Q) => http.get<T.Page<T.NotificationItem>>('/notifications', q),
   stats: () => http.get<Partial<Record<T.NotificationStatus, number>>>('/notifications/stats'),

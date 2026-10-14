@@ -41,6 +41,20 @@ public class BotStateService {
         enter(telegramUserId, BotStep.FEEDBACK_TEXT, FEEDBACK_KIND, kind);
     }
 
+    private static final String ADVISOR_FIELD = "advisorField";
+
+    /** AI maslahat: rasm kutish rejimi; fieldId 0 — dalasiz. Chiqish — leaveFeedback (umumiy rejim) */
+    @Transactional
+    public void enterAdvisor(long telegramUserId, long fieldId) {
+        enter(telegramUserId, BotStep.ADVISOR_PHOTO, ADVISOR_FIELD, fieldId);
+    }
+
+    /** @return tanlangan dala (yo'q yoki 0 — dalasiz) */
+    public Optional<Long> advisorField(long telegramUserId) {
+        return repository.findById(telegramUserId).map(s -> s.getData().get(ADVISOR_FIELD))
+                .map(v -> ((Number) v).longValue()).filter(v -> v > 0);
+    }
+
     /** Operator bilan suhbat rejimi: keyingi xabarlar shu suhbatga */
     @Transactional
     public void enterChat(long telegramUserId, long feedbackId) {
@@ -111,8 +125,9 @@ public class BotStateService {
         return true;
     }
 
+    /** Vaqtinchalik rejimlar — oldingi bosqich data.prevStep da saqlanadi, chiqqanda qaytariladi */
     private static boolean isFeedback(BotStep step) {
-        return step == BotStep.FEEDBACK_TEXT || step == BotStep.FEEDBACK_CHAT;
+        return step == BotStep.FEEDBACK_TEXT || step == BotStep.FEEDBACK_CHAT || step == BotStep.ADVISOR_PHOTO;
     }
 
     public Optional<String> feedbackKind(long telegramUserId) {
@@ -129,6 +144,7 @@ public class BotStateService {
         Object prev = data.remove(PREV_STEP);
         data.remove(FEEDBACK_KIND);
         data.remove(FEEDBACK_ID);
+        data.remove(ADVISOR_FIELD);
         BotStep step;
         try {
             step = prev == null ? BotStep.REPORTED : BotStep.valueOf(prev.toString());

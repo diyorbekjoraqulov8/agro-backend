@@ -156,3 +156,12 @@ monitoring:
   after-unavailable: 2h
   hours-from: 8                        # server vaqti: kunduzi tekshiriladi va xabar ketadi
   hours-to: 20
+
+# C4: AI maslahatchi — Claude (Anthropic API, vision). Model, limitlar — admin Sozlamalarida (advisor.*).
+# ⚠️ Claude Pro (claude.ai) obunasi API EMAS: console.anthropic.com da API kalit + kredit kerak.
+advisor:
+  api-key: ${ANTHROPIC_API_KEY:}                # bo'sh — AI maslahat o'chiq
+  base-url: ${ANTHROPIC_BASE_URL:https://api.anthropic.com}
+  timeout: 120s                                 # rasm + adaptive thinking ~10–40 s
+  max-attempts: 3                               # 429/5xx — keyin agronomga
+  job-enabled: ${ADVISOR_JOB_ENABLED:true}

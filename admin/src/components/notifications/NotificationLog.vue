@@ -28,7 +28,7 @@ const STATUS: Record<NotificationStatus, { l: string; t: 'gray' | 'blue' | 'ambe
   FAILED: { l: 'Xato', t: 'red' }, SKIPPED: { l: 'Bloklagan', t: 'gray' }, CANCELLED: { l: 'Bekor', t: 'gray' },
 }
 const CATEGORY: Record<NotificationCategory, string> = {
-  ANALYSIS: 'Tahlil', IRRIGATION: 'Sugʻorish', FEEDBACK: 'Murojaat', REFERRAL: 'Taklif', BROADCAST: 'Kampaniya', SYSTEM: 'Tizim', WEATHER: 'Ob-havo', MONITORING: 'Monitoring',
+  ANALYSIS: 'Tahlil', IRRIGATION: 'Sugʻorish', FEEDBACK: 'Murojaat', REFERRAL: 'Taklif', BROADCAST: 'Kampaniya', SYSTEM: 'Tizim', WEATHER: 'Ob-havo', MONITORING: 'Monitoring', ADVISOR: 'AI maslahat',
 }
 
 const f = reactive({ status: ALL, category: ALL, from: '', to: '' })

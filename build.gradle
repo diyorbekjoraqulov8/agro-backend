@@ -49,6 +49,9 @@ dependencies {
 
 //    Telegram bot — Spring'ga bog'liq emas (Boot 4 bilan to'qnashuv xavfi kam)
     implementation 'com.github.pengrad:java-telegram-bot-api:10.3.0'
+
+    // C4: AI maslahatchi — Claude (vision). Ichida Jackson 2 (com.fasterxml) — loyihaning Jackson 3 (tools.jackson) bilan to'qnashmaydi
+    implementation 'com.anthropic:anthropic-java:2.34.0'
 }
 tasks.named('test') {
     useJUnitPlatform()
