@@ -162,6 +162,24 @@ class AnalysisJobStore {
         return false;
     }
 
+    /**
+     * Python xizmati umuman ishlamayapti — fermer aybi ham, dala aybi ham emas: urinish qaytariladi, kutamiz.
+     * Juda uzoq (service-down-max) davom etsa — oddiy saveRetry (cheksiz navbat bo'lmasin).
+     * @return true — kutishga qo'yildi; false — chegara o'tdi, chaqiruvchi saveRetry qiladi
+     */
+    @Transactional
+    public boolean saveWaiting(long jobId, String error) {
+        AnalysisJob job = jobRepository.findById(jobId).orElseThrow();
+        if (job.getCreatedDate() != null && job.getCreatedDate().plus(props.serviceDownMax()).isBefore(LocalDateTime.now())) {
+            return false;
+        }
+        job.setStatus(AnalysisJob.Status.PENDING);
+        job.setAttempts(Math.max(0, job.getAttempts() - 1));
+        job.setError(truncate("SERVICE_DOWN: " + error));
+        job.setNextTryAt(LocalDateTime.now().plus(props.serviceDownWait()));
+        return true;
+    }
+
     private void fail(AnalysisJob job, String error) {
         job.setStatus(AnalysisJob.Status.FAILED);
         job.setFinishedAt(LocalDateTime.now());

@@ -52,7 +52,10 @@ class AdvisorJob {
             boolean png = "image/png".equals(content.info().contentType());
             long t0 = System.currentTimeMillis();
             var result = claude.diagnose(settings.getString(Setting.ADVISOR_MODEL), content.bytes(), png, in.context());
-            store.answered(id, result);
+            if (!store.answered(id, result)) {
+                log.warn("advisor {}: javob keldi, lekin so'rov endi PENDING emas — natija saqlanmadi", id);
+                return;
+            }
             log.info("advisor {}: {} ({} ms, {} + {} token, {})", id, result.diagnosis().category(),
                     System.currentTimeMillis() - t0, result.inputTokens(), result.outputTokens(), result.model());
         } catch (ClaudeAdvisor.AdvisorException e) {

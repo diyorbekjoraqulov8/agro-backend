@@ -1,4 +1,4 @@
-import type { Crop, FeedbackKind, FeedbackStatus, IrrigationType, JobKind, JobStatus, LeadStatus, PaymentMethod, WaterSource } from '@/api/types'
+import type { Crop, DiscountAudience, DiscountKind, FeedbackKind, FeedbackStatus, IrrigationType, JobKind, JobStatus, LeadStatus, PaymentMethod, WaterSource } from '@/api/types'
 
 export const CROP: Record<Crop, string> = {
   COTTON: 'Paxta', WHEAT: 'Bugʻdoy', CORN: 'Makkajoʻxori', RICE: 'Sholi',
@@ -18,7 +18,7 @@ export const JOB_STATUS: Record<JobStatus, string> = {
 }
 export const JOB_KIND: Record<JobKind, string> = { FREE: 'Bepul', PAID: 'Pullik', STAFF: 'Xodim' }
 export const PAYMENT: Record<PaymentMethod, string> = {
-  CASH: 'Naqd', CARD: 'Karta', TRANSFER: 'Oʻtkazma', OTHER: 'Boshqa', REFERRAL: 'Taklif mukofoti',
+  CASH: 'Naqd', CARD: 'Karta', TRANSFER: 'Oʻtkazma', OTHER: 'Boshqa', REFERRAL: 'Taklif mukofoti', TRIAL: 'Pro sinovi',
 }
 export const SIDE: Record<string, string> = {
   N: 'shimoliy', NE: 'shimoli-sharqiy', E: 'sharqiy', SE: 'janubi-sharqiy', S: 'janubiy',
@@ -49,12 +49,15 @@ export const P = {
   SETTINGS_READ: 'settings:read', SETTINGS_MANAGE: 'settings:manage', REFERRAL_READ: 'referral:read',
   ONBOARDING_READ: 'onboarding:read', ONBOARDING_MANAGE: 'onboarding:manage',
   NOTIFICATION_READ: 'notification:read', NOTIFICATION_SEND: 'notification:send',
-  ADVISOR_READ: 'advisor:read',
+  ADVISOR_READ: 'advisor:read', PROBLEMS_READ: 'problems:read', PROBLEMS_MANAGE: 'problems:manage',
 } as const
 
 export const SOIL: Record<string, string> = { SAND: 'Qumloq', LOAM: 'Oʻrtacha (qumoq)', CLAY: 'Ogʻir (soz)' }
 export const REMINDER: Record<string, string> = { DUE: 'Sugʻorish vaqti', SOON: '1–2 kun qoldi', STATUS: 'Haftalik holat' }
 export const IRRIGATION_SOURCE: Record<string, string> = { FARMER: 'Fermer (✅ Sugʻordim)', SETUP: 'Sozlashda', STAFF: 'Xodim' }
 
-export const FEEDBACK_KIND: Record<FeedbackKind, string> = { PROBLEM: 'Muammo', SUGGESTION: 'Taklif', QUESTION: 'Savol' }
+export const FEEDBACK_KIND: Record<FeedbackKind, string> = { PROBLEM: 'Muammo', SUGGESTION: 'Taklif', QUESTION: 'Savol', SUBSCRIPTION: 'Obuna' }
 export const FEEDBACK_STATUS: Record<FeedbackStatus, string> = { NEW: 'Navbatda', OPEN: 'Suhbatda', CLOSED: 'Yakunlangan' }
+
+export const DISCOUNT_KIND: Record<DiscountKind, string> = { SEASONAL: 'Mavsumiy', PROMO: 'Aksiya', FIRST_PAYMENT: 'Birinchi toʻlov', LOYALTY: 'Uzaytirish (sodiq mijoz)' }
+export const DISCOUNT_AUDIENCE: Record<DiscountAudience, string> = { FREE: 'Bepul', TRIAL: 'Pro sinovida', PAID: 'Faol obunachi', EXPIRED: 'Obunasi tugagan' }

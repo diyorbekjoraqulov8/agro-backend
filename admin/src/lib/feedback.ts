@@ -1,7 +1,7 @@
 // Murojaatlar (suhbatlar) — ko'rinish yordamchilari
 import type { Feedback, FeedbackKind, FeedbackStatus } from '@/api/types'
 
-export const kindTone: Record<FeedbackKind, 'red' | 'violet' | 'blue'> = { PROBLEM: 'red', SUGGESTION: 'violet', QUESTION: 'blue' }
+export const kindTone: Record<FeedbackKind, 'red' | 'violet' | 'blue' | 'amber'> = { PROBLEM: 'red', SUGGESTION: 'violet', QUESTION: 'blue', SUBSCRIPTION: 'amber' }
 export const statusTone: Record<FeedbackStatus, 'amber' | 'green' | 'gray'> = { NEW: 'amber', OPEN: 'green', CLOSED: 'gray' }
 
 export function who(x: Pick<Feedback, 'farmerName' | 'farmerUsername' | 'farmerId'>): string {

@@ -12,6 +12,9 @@ public interface FarmerRepository extends JpaRepository<FarmerEntity, Long>,
 
     Optional<FarmerEntity> findByReferralCode(String referralCode);
 
+    /** Support guruhidagi mavzu → fermer (guruh ham — boshqa guruhning shu raqamli mavzusi boshqa fermer) */
+    Optional<FarmerEntity> findBySupportChatIdAndSupportTopicId(Long supportChatId, Long supportTopicId);
+
     /** Mukofot hisobi — bir fermer uchun ketma-ket (ikki do'st bir vaqtda faollashsa ham bitta mukofot) */
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @org.springframework.data.jpa.repository.Query("SELECT f FROM FarmerEntity f WHERE f.id = :id")

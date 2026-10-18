@@ -16,7 +16,6 @@ import uz.app.agro.irrigation.WaterStatus;
 import uz.app.agro.notification.NotificationChannel;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -35,13 +34,13 @@ public class BotIrrigation {
     static final String SETUP = "wp:", SOIL = "ws:", LAST = "wl:", IRRIGATED = "wi:", TOGGLE = "wo:";
     private static final int[] LAST_DAYS = {0, 2, 7, 14};
     private static final int OVERVIEW_MAX = 10;
-    private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("dd.MM");
 
     private final IrrigationService irrigation;
     private final BotMessages m;
     private final BotSender sender;
     private final FieldBotService fields;
     private final BotKeyboards keyboards;
+    private final uz.app.agro.problem.ProblemRecorder problems;
 
     // ── Menyu "💧 Sug'orish": barcha dalalar holati bir xabarda ────────────
 
@@ -118,14 +117,18 @@ public class BotIrrigation {
                     return true;
                 }
                 if (java.util.Arrays.stream(LAST_DAYS).noneMatch(x -> x == days)) return true;
-                var s = safe(() -> irrigation.setLastIrrigation(tg, fieldId, days, IrrigationEventEntity.Source.SETUP));
+                var r = safe(fieldId, () -> irrigation.setLastIrrigation(tg, fieldId, days, IrrigationEventEntity.Source.SETUP));
+                if (r.failed()) { sender.send(chatId, m.text(lang, "water.failed"), null); return true; }
+                var s = r.status();
                 if (s == null) { notFound(chatId, lang); return true; }
                 if (messageId != null) sender.edit(chatId, messageId, m.text(lang, "water.setup.last") + "\n✅ " + m.text(lang, "last." + days), null);
                 sender.send(chatId, m.text(lang, "water.enabled", nextLine(lang, s)) + "\n\n" + m.text(lang, "water.howto"),
                         actions(lang, s));
             }
             case IRRIGATED -> {
-                var s = safe(() -> irrigation.setLastIrrigation(tg, fieldId, 0, IrrigationEventEntity.Source.FARMER));
+                var r = safe(fieldId, () -> irrigation.setLastIrrigation(tg, fieldId, 0, IrrigationEventEntity.Source.FARMER));
+                if (r.failed()) { sender.send(chatId, m.text(lang, "water.failed"), null); return true; }
+                var s = r.status();
                 if (s == null) { notFound(chatId, lang); return true; }
                 sender.send(chatId, m.text(lang, "water.irrigatedSaved", s.fieldName(), nextLine(lang, s)), null);
             }
@@ -148,16 +151,16 @@ public class BotIrrigation {
         List<String> lines = new ArrayList<>();
         switch (kind) {
             case DUE -> lines.add(m.text(lang, "water.remind.DUE", s.fieldName(), pct(s.depletionPct())));
-            case SOON -> lines.add(m.text(lang, "water.remind.SOON", s.fieldName(), String.valueOf(s.daysUntil()), day(s.nextIrrigationOn())));
+            case SOON -> lines.add(m.text(lang, "water.remind.SOON", s.fieldName(), String.valueOf(s.daysUntil()), day(lang, s.nextIrrigationOn())));
             case STATUS -> lines.add(s.nextIrrigationOn() != null
-                    ? m.text(lang, "water.remind.STATUS", s.fieldName(), day(s.nextIrrigationOn()))
+                    ? m.text(lang, "water.remind.STATUS", s.fieldName(), day(lang, s.nextIrrigationOn()))
                     : m.text(lang, "water.remind.STATUS.later", s.fieldName()));
         }
         // Yomg'ir kutilsa — sug'orishni kechiktirish mumkin (DUE/SOON da foydali)
         if (kind != FieldWaterEntity.ReminderKind.STATUS && s.rainNext3dMm() != null && s.rainNext3dMm() >= 10) {
             lines.add(m.text(lang, "water.rain", String.valueOf(Math.round(s.rainNext3dMm()))));
         }
-        if (s.lastIrrigatedOn() != null) lines.add(m.text(lang, "water.lastIrrigated", day(s.lastIrrigatedOn())));
+        if (s.lastIrrigatedOn() != null) lines.add(m.text(lang, "water.lastIrrigated", day(lang, s.lastIrrigatedOn())));
         return sender.send(to.chatId(), String.join("\n", lines), actions(lang, s)) != null;
     }
 
@@ -169,7 +172,7 @@ public class BotIrrigation {
             if (!s.enabled()) return m.text(lang, "field.water.off");
             if (s.noCrop()) return m.text(lang, "water.next.noCrop");
             if (s.due()) return m.text(lang, "field.water.due");
-            return s.nextIrrigationOn() != null ? m.text(lang, "field.water.next", day(s.nextIrrigationOn()))
+            return s.nextIrrigationOn() != null ? m.text(lang, "field.water.next", day(lang, s.nextIrrigationOn()))
                     : m.text(lang, "field.water.later");
         }).orElse("");
     }
@@ -191,7 +194,7 @@ public class BotIrrigation {
     private String nextLine(String lang, WaterStatus s) {
         if (s.noCrop()) return m.text(lang, "water.next.noCrop");
         if (s.due()) return m.text(lang, "water.next.due");
-        if (s.nextIrrigationOn() != null) return m.text(lang, "water.next.days", day(s.nextIrrigationOn()), String.valueOf(s.daysUntil()));
+        if (s.nextIrrigationOn() != null) return m.text(lang, "water.next.days", day(lang, s.nextIrrigationOn()), String.valueOf(s.daysUntil()));
         return m.text(lang, "water.next.later");
     }
 
@@ -212,12 +215,17 @@ public class BotIrrigation {
     }
 
     // Python/Open-Meteo ishlamasa ham fermerga javob qaytsin
-    private static WaterStatus safe(java.util.function.Supplier<Optional<WaterStatus>> f) {
+    /** status null + failed=false — dala yo'q/begona; failed — hisoblashda xato (sana saqlangan, hisob keyin) */
+    private record Computed(WaterStatus status, boolean failed) {}
+
+    private Computed safe(long fieldId, java.util.function.Supplier<Optional<WaterStatus>> f) {
         try {
-            return f.get().orElse(null);
+            return new Computed(f.get().orElse(null), false);
         } catch (RuntimeException e) {
+            // Avval "Dala topilmadi" deyilardi — fermer chalg'iydi: aslida javob saqlangan, faqat hisob (Python/ob-havo) yiqildi
             log.warn("sug'orish hisobi bajarilmadi: {}", e.getMessage());
-            return null;
+            problems.error(uz.app.agro.problem.ProblemSource.IRRIGATION, "Sug'orish hisobi bajarilmadi: " + e.getMessage()).field(fieldId).cause(e).record();
+            return new Computed(null, true);
         }
     }
 
@@ -233,8 +241,8 @@ public class BotIrrigation {
         return new InlineKeyboardButton(text).callbackData(data);
     }
 
-    private static String day(LocalDate d) {
-        return d == null ? "—" : d.format(DAY);
+    private static String day(String lang, LocalDate d) {
+        return BotMessages.date(lang, d);
     }
 
     private static String pct(Double v) {

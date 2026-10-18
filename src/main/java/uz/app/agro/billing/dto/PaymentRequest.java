@@ -20,5 +20,9 @@ public record PaymentRequest(
         @NotNull(message = "paymentMethod ko'rsatilishi shart") PaymentMethod paymentMethod,
         LocalDate validFrom,
         LocalDate validUntil,
-        @Size(max = 1000, message = "note ko'pi bilan 1000 belgi") String note
+        @Size(max = 1000, message = "note ko'pi bilan 1000 belgi") String note,
+        // Necha davr (tarif muddati × N) — validUntil bo'sh bo'lsa; null — 1. Davr boshi shu tranzaksiyada hisoblanadi
+        @Min(value = 1, message = "periods kamida 1") @Max(value = 36, message = "periods ko'pi bilan 36") Integer periods,
+        // Qaysi chegirma bilan (summa qo'lda yozilganda). amount bo'sh bo'lsa — server eng foydali chegirmani o'zi qo'llaydi
+        Long discountId
 ) {}

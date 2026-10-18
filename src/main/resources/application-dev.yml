@@ -16,5 +16,6 @@ logging:
     org.hibernate.SQL: DEBUG
     org.hibernate.orm.jdbc.bind: TRACE
 app:
+  registration-enabled: true
   cookie:
     secure: false

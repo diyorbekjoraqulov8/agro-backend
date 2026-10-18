@@ -26,7 +26,7 @@ const saving = ref(false)
 const editing = ref<Plan | null>(null)
 const form = reactive({
   code: '', name: '', description: '', price: '0', currency: 'UZS', durationDays: '30',
-  maxFieldHa: '100', maxFields: '50', maxAnalyses: '', active: true,
+  maxFieldHa: '500', maxTotalHa: '200', maxFields: '50', maxAnalyses: '', active: true, contactSales: false,
 })
 
 async function load() {
@@ -38,8 +38,11 @@ function edit(p: Plan | null) {
   Object.assign(form, p ? {
     code: p.code, name: p.name, description: p.description ?? '', price: String(p.price), currency: p.currency,
     durationDays: p.durationDays != null ? String(p.durationDays) : '', maxFieldHa: String(p.maxFieldHa),
+    maxTotalHa: p.maxTotalHa != null ? String(p.maxTotalHa) : '',
     maxFields: p.maxFields != null ? String(p.maxFields) : '', maxAnalyses: p.maxAnalyses != null ? String(p.maxAnalyses) : '', active: p.active,
-  } : { code: '', name: '', description: '', price: '0', currency: 'UZS', durationDays: '30', maxFieldHa: '100', maxFields: '50', maxAnalyses: '', active: true })
+    contactSales: p.contactSales,
+  } : { code: '', name: '', description: '', price: '0', currency: 'UZS', durationDays: '30', maxFieldHa: '500', maxTotalHa: '200',
+        maxFields: '50', maxAnalyses: '', active: true, contactSales: false })
   open.value = true
 }
 
@@ -49,8 +52,9 @@ async function save() {
     code: editing.value ? undefined : form.code.trim().toUpperCase(),
     name: form.name, description: form.description || null, price: Number(form.price), currency: form.currency.toUpperCase(),
     durationDays: form.durationDays === '' ? null : Number(form.durationDays),
-    maxFieldHa: Number(form.maxFieldHa), maxFields: form.maxFields === '' ? null : Number(form.maxFields),
-    maxAnalyses: form.maxAnalyses === '' ? null : Number(form.maxAnalyses), active: form.active,
+    maxFieldHa: Number(form.maxFieldHa), maxTotalHa: form.maxTotalHa === '' ? null : Number(form.maxTotalHa),
+    maxFields: form.maxFields === '' ? null : Number(form.maxFields),
+    maxAnalyses: form.maxAnalyses === '' ? null : Number(form.maxAnalyses), active: form.active, contactSales: form.contactSales,
   }
   try {
     editing.value ? await billingApi.updatePlan(editing.value.id, body) : await billingApi.createPlan(body)
@@ -76,7 +80,7 @@ onMounted(load)
       <Table>
         <TableHeader>
           <TableRow><TableHead>Tarif</TableHead><TableHead class="text-right">Narx</TableHead><TableHead class="text-right">Muddat</TableHead>
-            <TableHead class="text-right">Maks. maydon</TableHead><TableHead class="text-right">Dalalar</TableHead><TableHead class="text-right">Tahlillar</TableHead>
+            <TableHead class="text-right">Jami maydon</TableHead><TableHead class="text-right">Dalalar</TableHead><TableHead class="text-right">Tahlillar</TableHead>
             <TableHead>Holat</TableHead><TableHead class="bg-card sticky right-0" /></TableRow>
         </TableHeader>
         <TableBody>
@@ -87,9 +91,12 @@ onMounted(load)
               <div class="font-medium">{{ p.name }} <span class="text-muted-foreground font-mono text-xs">{{ p.code }}</span></div>
               <div class="text-muted-foreground max-w-64 truncate text-xs">{{ p.description }}</div>
             </TableCell>
-            <TableCell class="text-right tabular-nums">{{ p.systemPlan ? '—' : fmtMoney(p.price, p.currency) }}</TableCell>
+            <TableCell class="text-right tabular-nums">{{ p.systemPlan ? '—' : p.contactSales ? 'Kelishiladi' : fmtMoney(p.price, p.currency) }}</TableCell>
             <TableCell class="text-right tabular-nums">{{ p.durationDays ? `${p.durationDays} kun` : '—' }}</TableCell>
-            <TableCell class="text-right tabular-nums">{{ fmtNum(p.maxFieldHa) }} ga</TableCell>
+            <TableCell class="text-right tabular-nums">
+              {{ p.maxTotalHa != null ? `${fmtNum(p.maxTotalHa)} ga` : '∞' }}
+              <div class="text-muted-foreground text-xs">bitta dala ≤ {{ fmtNum(p.maxFieldHa) }}</div>
+            </TableCell>
             <TableCell class="text-right tabular-nums">{{ p.maxFields ?? '∞' }}</TableCell>
             <TableCell class="text-right tabular-nums">{{ p.maxAnalyses ?? '∞' }}{{ p.systemPlan ? ' (umrbod)' : '' }}</TableCell>
             <TableCell>
@@ -120,8 +127,14 @@ onMounted(load)
           <div class="space-y-1.5"><Label>Valyuta</Label><Input v-model="form.currency" maxlength="3" required class="uppercase" /></div>
           <div class="space-y-1.5"><Label>Muddat (kun)</Label><Input v-model="form.durationDays" type="number" min="1" required /></div>
           <div class="flex items-end gap-2 pb-1.5"><Switch v-model="form.active" /><Label>Faol</Label></div>
+          <div class="col-span-2 flex items-start gap-2">
+            <Switch v-model="form.contactSales" />
+            <div><Label>Narx kelishiladi</Label>
+              <p class="text-muted-foreground text-xs">Botda narx koʻrsatilmaydi — fermer qisqa ariza qoldiradi (Agro Biznes). Toʻlov kelishilgan summa bilan yoziladi.</p></div>
+          </div>
         </template>
-        <div class="space-y-1.5"><Label>Maks. maydon (ga)</Label><Input v-model="form.maxFieldHa" type="number" min="0.5" max="500" step="0.5" required /></div>
+        <div class="space-y-1.5"><Label>Jami maydon, ga (boʻsh — cheksiz)</Label><Input v-model="form.maxTotalHa" type="number" min="0.5" step="0.5" /></div>
+        <div class="space-y-1.5"><Label>Bitta dala, ga (≤ 500)</Label><Input v-model="form.maxFieldHa" type="number" min="0.5" max="500" step="0.5" required /></div>
         <div class="space-y-1.5"><Label>Maks. dalalar (boʻsh — cheksiz)</Label><Input v-model="form.maxFields" type="number" min="1" /></div>
         <div class="col-span-2 space-y-1.5"><Label>Tahlillar soni (boʻsh — cheksiz)</Label><Input v-model="form.maxAnalyses" type="number" min="0" /></div>
         <DialogFooter class="col-span-2">

@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.json.JsonMapper;
+import uz.app.agro.problem.ProblemRecorder;
+import uz.app.agro.problem.ProblemSource;
 import uz.app.agro.farmer.FarmerEntity;
 import uz.app.agro.farmer.FarmerRepository;
 import uz.app.agro.field.FieldEntity;
@@ -43,6 +45,7 @@ class AdvisorStore {
     private final FarmerRepository farmers;
     private final FieldRepository fields;
     private final NotificationService notifications;
+    private final ProblemRecorder problems;
 
     /** Navbatdan bitta (SKIP LOCKED) — lease shu so'rovning o'zi uchun boshlanadi */
     @Transactional
@@ -71,10 +74,11 @@ class AdvisorStore {
     }
 
     /** AI javob berdi — natija + fermerga xabar. Faqat PENDING (lease o'tib boshqa worker yozgan bo'lsa — ikki marta yo'q) */
+    /** @return false — so'rov endi PENDING emas (lease o'tib boshqa worker yozgan), natija tashlandi */
     @Transactional
-    public void answered(long id, ClaudeAdvisor.Result result) {
+    public boolean answered(long id, ClaudeAdvisor.Result result) {
         AdvisorRequestEntity r = requests.findById(id).orElse(null);
-        if (r == null || r.getStatus() != AdvisorRequestEntity.Status.PENDING) return;
+        if (r == null || r.getStatus() != AdvisorRequestEntity.Status.PENDING) return false;
         @SuppressWarnings("unchecked")
         Map<String, Object> json = JsonMapper.shared().convertValue(result.diagnosis(), Map.class);
         r.setAiResult(json);
@@ -85,6 +89,7 @@ class AdvisorStore {
         r.setStatus(AdvisorRequestEntity.Status.ANSWERED);
         r.setAnsweredAt(LocalDateTime.now());
         notify(r, Templates.ADVISOR_ANSWER, "AI tavsiyasi: " + result.diagnosis().category() + " — " + Texts.cut(result.diagnosis().summary(), 300));
+        return true;
     }
 
     /**
@@ -103,6 +108,8 @@ class AdvisorStore {
         }
         r.setStatus(AdvisorRequestEntity.Status.FAILED);
         notify(r, Templates.ADVISOR_ANSWER, "AI javob bermadi — fermer qayta yuboradi");
+        problems.error(ProblemSource.ADVISOR, "AI maslahat javob bermadi: " + error)
+                .farmer(r.getFarmerId()).field(r.getFieldId()).ref("ADVISOR_REQUEST", r.getId()).record();
     }
 
     private void notify(AdvisorRequestEntity r, String template, String preview) {

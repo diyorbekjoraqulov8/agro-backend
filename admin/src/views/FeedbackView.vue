@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDocumentVisibility, useIntervalFn } from '@vueuse/core'
-import { Archive, Headset, Inbox, MessagesSquare } from '@lucide/vue'
+import { Archive, Gem, Headset, Inbox, MessagesSquare } from '@lucide/vue'
 import PageHeader from '@/components/app/PageHeader.vue'
 import ChatInbox from '@/components/feedback/ChatInbox.vue'
 import FeedbackHistory from '@/components/feedback/FeedbackHistory.vue'
@@ -16,14 +16,14 @@ import { useAuth } from '@/stores/auth'
  * Murojaatlar: Navbat → «Javob berish» (suhbat operatorga biriktiriladi) → Mening chatlarim → yakunlash → Tarix.
  * Holat URL'da (?tab=mine&chat=12) — havolani ulashsa yoki sahifa yangilansa o'sha suhbat ochiladi.
  */
-type Tab = 'queue' | 'mine' | 'all' | 'history'
+type Tab = 'queue' | 'sales' | 'mine' | 'all' | 'history'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuth()
 const manage = computed(() => auth.can(P.FEEDBACK_MANAGE))
 
-const tabs = computed<Tab[]>(() => (manage.value ? ['queue', 'mine', 'all', 'history'] : ['queue', 'mine', 'history']))
+const tabs = computed<Tab[]>(() => (manage.value ? ['queue', 'sales', 'mine', 'all', 'history'] : ['queue', 'sales', 'mine', 'history']))
 const tab = computed<Tab>({
   get: () => {
     const t = route.query.tab as Tab
@@ -50,6 +50,8 @@ const tabItems = computed(() => {
   const c = counts.value
   const all = [
     { key: 'queue' as Tab, title: 'Navbat', icon: Inbox, badge: c.NEW, badgeClass: 'bg-amber-500 text-white' },
+    // Pro olish / Agro Biznes arizalari — navbatdagisi ham, suhbatdagisi ham; nishon — javob kutayotganlar
+    { key: 'sales' as Tab, title: 'Obuna soʻrovlari', icon: Gem, badge: c.SALES ?? 0, badgeClass: 'bg-amber-500 text-white' },
     { key: 'mine' as Tab, title: 'Mening chatlarim', icon: Headset, badge: c.MINE_UNREAD || c.MINE,
       badgeClass: c.MINE_UNREAD ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground' },
     { key: 'all' as Tab, title: 'Barcha chatlar', icon: MessagesSquare, badge: c.OPEN ?? 0, badgeClass: 'bg-muted text-muted-foreground' },
@@ -81,6 +83,7 @@ function openMine(id: number) {
   </nav>
 
   <FeedbackQueue v-if="tab === 'queue'" @claimed="openMine" />
+  <ChatInbox v-else-if="tab === 'sales'" v-model:selected="chat" scope="all" kind="SUBSCRIPTION" />
   <ChatInbox v-else-if="tab === 'mine'" v-model:selected="chat" scope="mine" @to-queue="tab = 'queue'" />
   <ChatInbox v-else-if="tab === 'all'" v-model:selected="chat" scope="all" />
   <FeedbackHistory v-else />

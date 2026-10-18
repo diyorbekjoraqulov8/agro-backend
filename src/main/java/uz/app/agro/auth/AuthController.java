@@ -18,7 +18,9 @@ import uz.app.agro.security.CookieService;
 import uz.app.agro.security.JwtService;
 import uz.app.agro.security.SessionService;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -107,6 +109,21 @@ public class AuthController {
     @GetMapping("/me")
     public MeResponse me(@AuthenticationPrincipal AuthUser user) {
         return new MeResponse(user.id(), user.email(), user.roles(), user.permissions());
+    }
+
+    /** Support guruhida (support bot) javob shu xodim nomidan yoziladi */
+    @GetMapping("/me/telegram")
+    public Map<String, Long> myTelegram(@AuthenticationPrincipal AuthUser user) {
+        Map<String, Long> m = new HashMap<>();              // Map.of null qabul qilmaydi (CLAUDE.md 5.6)
+        m.put("telegramUserId", authService.myTelegram(user));
+        return m;
+    }
+
+    /** Bog'lash — faqat support bot orqali (POST /support/telegram-link → havola); bu yerda — uzish */
+    @DeleteMapping("/me/telegram")
+    public ResponseEntity<Void> unlinkTelegram(@AuthenticationPrincipal AuthUser user) {
+        authService.unlinkTelegram(user);
+        return ResponseEntity.noContent().build();
     }
 
 //    Sessions

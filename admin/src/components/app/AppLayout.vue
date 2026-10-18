@@ -3,8 +3,8 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Compon
 import { useRoute, useRouter } from 'vue-router'
 import { useIntervalFn } from '@vueuse/core'
 import {
-  BarChart3, Bot, CreditCard, FileClock, FolderOpen, Gift, Layers, Megaphone, Route, SlidersHorizontal, LogOut, Map, MessageSquare, ReceiptText, Satellite, Shield, UserRound, Users,
-} from '@lucide/vue'
+  TriangleAlert, BarChart3, Bot, CreditCard, FileClock, FolderOpen, Gift, Layers, Megaphone, Route, SlidersHorizontal, LogOut, Map, MessageSquare, ReceiptText, Satellite, Shield, UserRound, Users,
+ BadgePercent } from '@lucide/vue'
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader,
   SidebarInset, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail, SidebarTrigger,
@@ -16,7 +16,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
 import { useAuth } from '@/stores/auth'
 import { P } from '@/lib/labels'
-import { feedbackApi } from '@/api'
+import { feedbackApi, problemsApi } from '@/api'
 
 const auth = useAuth()
 const route = useRoute()
@@ -42,12 +42,14 @@ const groups: { label: string; items: NavItem[] }[] = [
     items: [
       { to: '/billing/subscriptions', title: 'Toʻlovlar', icon: ReceiptText, perm: P.BILLING_READ },
       { to: '/billing/plans', title: 'Tariflar', icon: CreditCard, perm: P.BILLING_READ },
+      { to: '/billing/discounts', title: 'Chegirmalar', icon: BadgePercent, perm: P.BILLING_READ },
       { to: '/referrals', title: 'Takliflar', icon: Gift, perm: P.REFERRAL_READ },
     ],
   },
   {
     label: 'Tizim',
     items: [
+      { to: '/problems', title: 'Muammolar', icon: TriangleAlert, perm: P.PROBLEMS_READ },
       { to: '/onboarding', title: 'Onboarding', icon: Route, perm: P.ONBOARDING_READ },
       { to: '/settings', title: 'Sozlamalar', icon: SlidersHorizontal, perm: P.SETTINGS_READ },
       { to: '/files', title: 'Fayllar', icon: FolderOpen, perm: P.FILE_MANAGE },
@@ -65,7 +67,11 @@ const visibleGroups = computed(() =>
 // Nishon: navbatdagi murojaatlar + mening suhbatlarimdagi o'qilmaganlar. Har 20 s (sahifa ko'rinib turganda),
 // sahifa almashganda va suhbat o'zgarganda yangilanadi — operator boshqa bo'limda bo'lsa ham yangi xabarni ko'radi
 const newFeedback = ref(0)
+const problemCount = ref(0)            // ochiq xatolar (24 soat) — "Muammolar" nishoni
 async function loadCounts() {
+  if (auth.can(P.PROBLEMS_READ)) {
+    try { problemCount.value = (await problemsApi.count()).errors } catch { /* nishon ixtiyoriy */ }
+  }
   if (!auth.can(P.FEEDBACK_READ)) return
   try {
     const c = await feedbackApi.counts()
@@ -129,6 +135,7 @@ async function logout() {
                   </RouterLink>
                 </SidebarMenuButton>
                 <SidebarMenuBadge v-if="i.to === '/feedback' && newFeedback">{{ newFeedback }}</SidebarMenuBadge>
+                <SidebarMenuBadge v-if="i.to === '/problems' && problemCount" class="text-red-600">{{ problemCount }}</SidebarMenuBadge>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>

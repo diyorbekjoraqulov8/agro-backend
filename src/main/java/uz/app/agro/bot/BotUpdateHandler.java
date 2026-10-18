@@ -9,6 +9,7 @@ import com.pengrad.telegrambot.model.message.MaybeInaccessibleMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import uz.app.agro.analysis.AnalysisReportService;
@@ -27,9 +28,9 @@ import uz.app.agro.file.FileRegistry;
 import uz.app.agro.field.FieldBotService;
 import uz.app.agro.field.FieldBotService.FieldCard;
 import uz.app.agro.field.FieldIntakeService;
+import uz.app.agro.billing.dto.PlanPrice;
+import uz.app.agro.supportbot.SupportBridge;
 
-import java.math.BigDecimal;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -38,7 +39,8 @@ import java.util.stream.Collectors;
 
 /**
  * Holat mashinasi: /start → onboarding (BotOnboarding: admin sozlagan xabar va savollar) → dala chizish → asosiy menyu.
- * Asosiy menyu (doimiy reply keyboard): 🗺 Yangi dala (Mini App) · 📋 Dalalarim · 💬 Fikr va yordam · 🌐 Til.
+ * Asosiy menyu (doimiy reply keyboard): 🛰 Dalani tekshirish (Mini App) · 📋 Dalalarim · 💧 Sug'orish · 🌦 Ob-havo · ⚙️ Sozlamalar
+ * (fikr va yordam, qo'llanma, til, tarif, do'stlar — Sozlamalar ichida).
  * Dalalarim (inline): hisobot, qayta tahlil, chegarani tahrirlash (Mini App eski chegara bilan), o'chirish.
  * Fikr va yordam: tur (muammo/taklif/savol) → FEEDBACK_TEXT → birinchi xabar → FEEDBACK_CHAT (operator bilan
  * suhbat): har xabar suhbatga qo'shiladi, toki fermer yoki xodim yakunlamaguncha. Suhbat rejimidan chiqsa ham
@@ -57,6 +59,7 @@ public class BotUpdateHandler {
     private final BotStateService states;
     private final BotMessages messages;
     private final BotKeyboards keyboards;
+    private final BotTutorial tutorial;
     private final BotSender sender;
     private final FieldIntakeService fieldIntake;
     private final PlanService plans;
@@ -71,13 +74,15 @@ public class BotUpdateHandler {
     private final BotPlans planSection;
     private final BotWeather weatherSection;
     private final BotMonitoring monitoringSection;
+    private final BotSnapshot snapshotSection;
     private final BotAdvisor advisorSection;
+    private final BotBusiness businessSection;
+    private final ObjectProvider<SupportBridge> supportBridge;
     private final BotOnboarding onboarding;
     private final BotMenu botMenu;
     private final FileRegistry fileRegistry;
     private final FileProperties fileProps;
 
-    private static final DateTimeFormatter DAY_YEAR = DateTimeFormatter.ofPattern("dd.MM.yyyy");
 
     public void handle(Update update) {
         // pengrad o'z thread'ida chaqiradi — MdcFilter bu yerga yetmaydi (CLAUDE.md 5.6)
@@ -90,6 +95,27 @@ public class BotUpdateHandler {
             }
         } finally {
             MDC.clear();
+        }
+    }
+
+    /** Kutilmagan xatodan keyin — fermer jim qolmasin ("bosdim, hech narsa bo'lmadi"). O'zi hech qachon tashlamaydi. */
+    public void apologize(Update update) {
+        try {
+            User from = update.message() != null ? update.message().from()
+                    : update.callbackQuery() != null ? update.callbackQuery().from() : null;
+            Long chatId = update.message() != null && update.message().chat() != null ? update.message().chat().id()
+                    : update.callbackQuery() != null && update.callbackQuery().maybeInaccessibleMessage() != null
+                    ? update.callbackQuery().maybeInaccessibleMessage().chat().id() : null;
+            if (from == null || chatId == null || chatId < 0) return;
+            String lang = BotMessages.resolveLanguage(from.languageCode());
+            try {
+                lang = farmers.find(from.id()).map(FarmerSnapshot::language).orElse(lang);
+            } catch (RuntimeException dbDown) {
+                // xato sababi DB bo'lishi mumkin — uzr baribir Telegram tilida yetib borsin
+            }
+            sender.send(chatId, messages.text(lang, "common.failed"), null);
+        } catch (RuntimeException ignored) {
+            // uzr ham yetib bormasa — xato baribir Muammolar'da yozilgan
         }
     }
 
@@ -120,6 +146,7 @@ public class BotUpdateHandler {
             case "/help" -> {
                 String lang = farmers.find(from.id()).map(FarmerSnapshot::language)
                         .orElse(BotMessages.resolveLanguage(from.languageCode()));
+                tutorial.send(m.chat().id(), lang);
                 sender.send(m.chat().id(), messages.text(lang, "help"), null);
             }
             case "/support" -> {
@@ -132,6 +159,10 @@ public class BotUpdateHandler {
                 Optional<BotStep> step = states.current(from.id());
                 if (farmer.isPresent() && step.isPresent() && step.get() == BotStep.ADVISOR_PHOTO) {
                     onAdvisorMessage(m, farmer.get().language(), text);
+                    return;
+                }
+                if (farmer.isPresent() && step.isPresent() && step.get() == BotStep.BUSINESS_FORM) {
+                    onBusinessMessage(m, farmer.get().language(), text);
                     return;
                 }
                 if (farmer.isPresent() && step.isPresent() && step.get() == BotStep.FEEDBACK_TEXT) {
@@ -185,6 +216,7 @@ public class BotUpdateHandler {
             return;
         }
         // Ro'yxatdan o'tgan: savollar QAYTA berilmaydi (o'zgartirish — ⚙️ Sozlamalar → 📝 Ma'lumotlarim)
+        botMenu.syncChatButton(chatId, lang);
         states.leaveFeedback(tg);                     // murojaat rejimida bo'lsa — chiqadi (suhbat ochiq qoladi)
         BotStep cur = states.current(tg).orElse(null);
         boolean hasFields = !fields.list(tg).isEmpty();
@@ -211,6 +243,7 @@ public class BotUpdateHandler {
             case FEEDBACK_CHAT -> sender.send(chatId, messages.text(lang, "feedback.chat.hint",
                     states.chatFeedbackId(chatId).map(String::valueOf).orElse("")), keyboards.chatMenu(lang));
             case ADVISOR_PHOTO -> sender.send(chatId, messages.text(lang, "advisor.askPhoto"), keyboards.cancelOnly(lang));
+            case BUSINESS_FORM -> businessSection.reask(chatId, chatId, lang);
         }
     }
 
@@ -223,14 +256,18 @@ public class BotUpdateHandler {
         return botMenu.keyboard(chatId, lang);
     }
 
-    private BigDecimal maxHa(long telegramUserId) {
-        return botMenu.maxHa(telegramUserId);
-    }
-
     // ── Menyu ───────────────────────────────────────────────────────────────
 
     /** @return true — matn menyu tugmasi edi va qayta ishlandi */
     private boolean onMenu(long tg, long chatId, String lang, String text) {
+        // Admin o'chirgan bo'lim — telefonda eski klaviatura qolgan; sababini aytib, yangisini beramiz
+        for (BotSection section : BotSection.values()) {
+            if (labels(section.label).contains(text) && !botMenu.enabled(section, tg)) {
+                sender.send(chatId, messages.text(lang, "menu.sectionOff"), menu(chatId, lang));
+                return true;
+            }
+        }
+        // feedback/friends/plans/help — endi ⚙️ Sozlamalar ichida; telefondagi eski klaviaturadan bosilsa baribir ishlaydi
         if (labels("menu.myFields").contains(text)) {
             sendFieldList(tg, chatId, lang, null);
         } else if (labels("menu.feedback").contains(text)) {
@@ -238,7 +275,7 @@ public class BotUpdateHandler {
         } else if (labels("menu.friends").contains(text)) {
             referralSection.showFriends(tg, chatId, lang);
         } else if (labels("menu.settings").contains(text)) {
-            referralSection.showSettings(chatId, lang);
+            referralSection.showSettings(tg, chatId, lang);
         } else if (labels("menu.irrigation").contains(text)) {
             irrigation.overview(tg, chatId, lang);
         } else if (labels("menu.advisor").contains(text)) {
@@ -248,14 +285,17 @@ public class BotUpdateHandler {
         } else if (labels("menu.plans").contains(text)) {
             planSection.showCatalog(tg, chatId, lang);
         } else if (labels("menu.help").contains(text)) {
-            sender.send(chatId, messages.text(lang, "help.text"), null);
+            sendHelp(chatId, lang);
         } else if (labels("menu.language").contains(text)) {      // eski klaviatura (C1 gacha) — hali telefonlarda bor
             sender.send(chatId, messages.text(lang, "lang.choose"), keyboards.languages());
         } else if (labels("menu.cancel").contains(text)) {
             showMenu(chatId, lang);
-        } else if (labels("menu.newField").contains(text)) {
-            // Mini App sozlanmagan — tugma oddiy matn yuboradi
-            sender.send(chatId, messages.text(lang, "ask.polygon.soon"), menu(chatId, lang));
+        } else if (labels("menu.newField.legacy").contains(text) && !botMenu.enabled(BotSection.NEW_FIELD, tg)) {
+            sender.send(chatId, messages.text(lang, "menu.sectionOff"), menu(chatId, lang));
+        } else if (labels("menu.newField").contains(text) || labels("menu.newField.legacy").contains(text)) {
+            // Matn keldi: Mini App sozlanmagan yoki telefonda web_app'siz eski klaviatura — yangisini beramiz
+            sender.send(chatId, messages.text(lang, keyboards.miniAppConfigured() ? "menu.newFieldRetry" : "ask.polygon.soon"),
+                    menu(chatId, lang));
         } else {
             return false;
         }
@@ -264,11 +304,22 @@ public class BotUpdateHandler {
 
     /** Asosiy menyu bo'limlari — murojaat/suhbat rejimida bosilsa rejimdan chiqaradi (matn murojaat bo'lib saqlanmaydi) */
     private boolean isSectionButton(String text) {
-        for (String key : new String[]{"menu.myFields", "menu.newField", "menu.feedback", "menu.friends", "menu.settings", "menu.language",
-                "menu.irrigation", "menu.weather", "menu.plans", "menu.help", "menu.advisor"}) {
-            if (labels(key).contains(text)) return true;
+        for (String legacy : LEGACY_MENU) {                            // eski klaviaturalar (telefonda qolgan)
+            if (labels(legacy).contains(text)) return true;
+        }
+        for (BotSection section : BotSection.values()) {
+            if (labels(section.label).contains(text)) return true;
         }
         return false;
+    }
+
+    private static final List<String> LEGACY_MENU = List.of("menu.language", "menu.newField.legacy",
+            "menu.feedback", "menu.friends", "menu.plans", "menu.help");
+
+    /** ❓ Qo'llanma: video (bo'lmasa — jim) + matn. Sozlamalar ichidan va eski menyu tugmasidan */
+    private void sendHelp(long chatId, String lang) {
+        tutorial.send(chatId, lang);
+        sender.send(chatId, messages.text(lang, "help.text"), null);
     }
 
     private Set<String> labels(String key) {
@@ -280,8 +331,16 @@ public class BotUpdateHandler {
         List<FieldCard> list = fields.list(tg);
         String text = list.isEmpty() ? messages.text(lang, "fields.empty") : messages.text(lang, "fields.title", String.valueOf(list.size()));
         var kb = list.isEmpty() ? null : keyboards.fieldList(list);
+        if (!list.isEmpty()) text += proHint(tg, lang);
         if (editMessageId != null) sender.edit(chatId, editMessageId, text, kb);
         else sender.send(chatId, text, kb);
+    }
+
+    /** Bepul fermerga — bir qatorli Pro eslatmasi (asosiy menyuda "Pro" tugmasi yo'q, taklif kontekstda) */
+    private String proHint(long tg, String lang) {
+        var farmer = farmers.find(tg);
+        if (farmer.isEmpty() || plans.paidOn(farmer.get().id(), java.time.LocalDate.now())) return "";
+        return planSection.upgradeOffer().map(p -> "\n\n" + messages.text(lang, "fields.proHint", p.name())).orElse("");
     }
 
     private String cardText(String lang, FieldCard f) {
@@ -290,7 +349,7 @@ public class BotUpdateHandler {
         if ("ru".equals(lang) && f.areaHa() != null) area = area.replace(" ga", " га");
         String last = f.lastJobStatus() == null ? messages.text(lang, "field.last.none")
                 : messages.text(lang, "field.last." + f.lastJobStatus(),
-                        f.lastJobAt() == null ? "" : f.lastJobAt().format(DAY_YEAR));
+                        f.lastJobAt() == null ? "" : BotMessages.date(lang, f.lastJobAt().toLocalDate()));
         return messages.text(lang, "field.card", f.name(), messages.label(lang, f.crop()), area, last);
     }
 
@@ -308,6 +367,7 @@ public class BotUpdateHandler {
             case FEEDBACK_TEXT -> "feedback.ask." + FeedbackKind.QUESTION.name();
             case FEEDBACK_CHAT -> "feedback.write";
             case ADVISOR_PHOTO -> "advisor.askPhoto";
+            case BUSINESS_FORM -> "biz.ask.area";
         });
     }
 
@@ -351,20 +411,23 @@ public class BotUpdateHandler {
                         : messages.text(lang, "polygon.quotaUsed.free", p.name());
                 sender.send(chatId, edit ? messages.text(lang, "field.updated", p.name()) + "\n" + quota : quota, menu(chatId, lang));
             }
-            case AREA_LIMIT -> {
-                // Klaviatura o'zgarmaydi (yangi dala yoki tahrirlash tugmasi qoladi) — kichikroq qilib qayta chizsin
-                BigDecimal paidMax = plans.maxPaidFieldHa();
-                String key = !r.plan().paid() && paidMax != null && paidMax.compareTo(r.plan().maxFieldHa()) > 0
-                        ? "polygon.areaLimit.upgrade" : "polygon.areaLimit";
-                sender.send(chatId, messages.text(lang, key, ha(lang, r.areaHa()), ha(lang, r.plan().maxFieldHa().doubleValue()),
-                        paidMax == null ? "" : ha(lang, paidMax.doubleValue())), null);
-            }
+            // Klaviatura o'zgarmaydi (yangi dala yoki tahrirlash tugmasi qoladi) — kichikroq qilib qayta chizsin
+            case AREA_LIMIT, TOTAL_LIMIT -> sender.send(chatId, limitText(lang, r), null);
             case FIELD_LIMIT -> sender.send(chatId, messages.text(lang, "polygon.fieldLimit",
                     String.valueOf(r.plan().maxFields())), menu(chatId, lang));
             case BUSY -> sender.send(chatId, messages.text(lang, "field.busy"), menu(chatId, lang));
             case NOT_FOUND -> sender.send(chatId, messages.text(lang, "field.notFound"), menu(chatId, lang));
         }
         return r.outcome().name();
+    }
+
+    /** Maydon limiti: bitta dala yoki tarifdagi jami; ostida — qaysi tarif ko'proq beradi (bo'lsa) */
+    private String limitText(String lang, FieldIntakeService.Result r) {
+        String text = r.outcome() == FieldIntakeService.Outcome.TOTAL_LIMIT
+                ? messages.text(lang, "polygon.totalLimit", ha(lang, r.areaHa()), ha(lang, r.plan().maxTotalHa().doubleValue()),
+                        ha(lang, r.usedHa()), ha(lang, Math.max(0, r.plan().maxTotalHa().doubleValue() - r.usedHa())))
+                : messages.text(lang, "polygon.areaLimit", ha(lang, r.areaHa()), ha(lang, r.plan().maxFieldHa().doubleValue()));
+        return planSection.upgradeLine(lang, r.plan()).map(line -> text + "\n\n" + line).orElse(text);
     }
 
     // ── Fikr va yordam ──────────────────────────────────────────────────────
@@ -428,17 +491,51 @@ public class BotUpdateHandler {
             return;
         }
         // Xodimlar o'qiydi — o'zbekcha
-        String text = messages.text("uz", "plans.request.staff", plan.name(), planSection.price("uz", plan));
-        FeedbackBotService.Result r = feedback.submit(tg, FeedbackKind.QUESTION, text, null);
+        PlanPrice price = planSection.priceFor(tg, plan);
+        String staffText = messages.text("uz", "plans.request.staff", plan.name(), planSection.price("uz", plan, price))
+                + (price != null && price.discounted() ? "\n🏷 " + planSection.discountLine("uz", price) : "");
+        submitRequest(tg, chatId, lang, staffText,
+                "plans.request.saved");
+    }
+
+    /** "🌱 Mavsumiy obuna olish" — taklif hozir bo'lsa (sozlama/sotuv davri) xodimlarga so'rov */
+    private void requestSeason(long tg, long chatId, String lang) {
+        var offer = planSection.seasonOffer(tg).orElse(null);
+        if (offer == null) {
+            sender.send(chatId, messages.text(lang, "plans.unavailable"), null);
+            return;
+        }
+        submitRequest(tg, chatId, lang, messages.text("uz", "plans.season.staff") + "\n" + planSection.seasonText("uz", offer),
+                "plans.request.saved");
+    }
+
+    /** Tarif so'rovi / Agro Biznes arizasi → murojaat (xodimlar chatiga) va fermer suhbat rejimiga o'tadi */
+    private void submitRequest(long tg, long chatId, String lang, String text, String savedKey) {
+        FeedbackBotService.Result r = feedback.submit(tg, FeedbackKind.SUBSCRIPTION, text, null);
         switch (r.outcome()) {
             case SAVED, APPENDED -> {
                 states.enterChat(tg, r.id());
-                sender.send(chatId, messages.text(lang, "plans.request.saved", String.valueOf(r.id())), keyboards.chatMenu(lang));
-                if (r.outcome() == FeedbackBotService.Outcome.SAVED) notifyStaff(r, FeedbackKind.QUESTION, text, null);
+                sender.send(chatId, messages.text(lang, savedKey, String.valueOf(r.id())), keyboards.chatMenu(lang));
+                // Ochiq suhbatga qo'shilgan bo'lsa ham — xodimlar sotuv so'rovini alohida ko'rsin
+                notifyStaff(r, FeedbackKind.SUBSCRIPTION, text, null);
             }
             case LIMIT -> sender.send(chatId, messages.text(lang, "feedback.limit"), menu(chatId, lang));
             default -> sender.send(chatId, messages.text(lang, "plans.unavailable"), null);   // ro'yxatdan o'tmagan va h.k.
         }
+    }
+
+    /** BUSINESS_FORM: Agro Biznes arizasi savollari; bekor qilish yoki menyu tugmasi — rejimdan chiqadi */
+    private void onBusinessMessage(Message m, String lang, String text) {
+        long tg = m.from().id();
+        long chatId = m.chat().id();
+        if (labels("menu.cancel").contains(text) || isSectionButton(text)) {
+            states.leaveFeedback(tg);
+            if (labels("menu.cancel").contains(text)) sender.send(chatId, messages.text(lang, "biz.cancelled"), menu(chatId, lang));
+            else onMenu(tg, chatId, lang, text);
+            return;
+        }
+        businessSection.onMessage(tg, chatId, lang, m)
+                .ifPresent(staffText -> submitRequest(tg, chatId, lang, staffText, "biz.saved"));
     }
 
     /**
@@ -583,6 +680,9 @@ public class BotUpdateHandler {
     private void notifyStaff(FeedbackBotService.Result r, FeedbackKind kind, String text, Attachment att) {
         Long staffChat = props.supportChatId();
         if (staffChat == null) return;
+        // Support guruhi (alohida bot, mavzular) sozlangan — murojaat o'sha yerda to'liq ko'rinadi, takror kerak emas
+        var bridge = supportBridge.getIfAvailable();
+        if (bridge != null && bridge.active()) return;
         String who = (r.farmerName() == null ? "—" : r.farmerName())
                 + (r.farmerUsername() == null ? "" : " (@" + r.farmerUsername() + ")");
         String body = messages.text("uz", "staff.feedback", String.valueOf(r.id()),
@@ -687,12 +787,13 @@ public class BotUpdateHandler {
             if (!BotMessages.LANGUAGES.contains(newLang)) { sender.answer(cb.id(), null); return; }
             farmers.setLanguage(from.id(), newLang);
             sender.answer(cb.id(), null);
+            botMenu.syncChatButton(chatId, newLang);          // tugma matni yangi tilda
             sender.edit(chatId, msg.messageId(), messages.text(newLang, "lang.saved"), null);
             states.current(from.id()).ifPresent(step -> ask(chatId, newLang, step));
         } else if (data.startsWith(BotKeyboards.FEEDBACK)) {
             FeedbackKind k = parse(FeedbackKind.class, data.substring(BotKeyboards.FEEDBACK.length()));
             sender.answer(cb.id(), null);
-            if (k == null) return;
+            if (k == null || !k.farmerSelectable()) return;
             states.enterFeedback(from.id(), k.name());
             sender.edit(chatId, msg.messageId(), messages.text(lang, "feedback.choose") + "\n\n✅ "
                     + messages.text(lang, "btn.fb." + k.name()), null);
@@ -700,11 +801,25 @@ public class BotUpdateHandler {
         } else if (data.equals(BotReferral.SETTINGS + "profile")) {
             sender.answer(cb.id(), null);
             onboarding.beginProfile(from.id(), chatId, lang);
+        } else if (data.equals(BotReferral.SETTINGS + "support")) {
+            sender.answer(cb.id(), null);
+            openSupport(from.id(), chatId, lang);
+        } else if (data.equals(BotReferral.SETTINGS + "help")) {
+            sender.answer(cb.id(), null);
+            sendHelp(chatId, lang);
         } else if (advisorSection.onCallback(cb.id(), from.id(), chatId, lang, data)) {
             // AI maslahat: av:<dala>
+        } else if (data.equals(BotBusiness.START)) {
+            sender.answer(cb.id(), null);
+            businessSection.start(from.id(), chatId, lang);
+        } else if (businessSection.onCallback(cb.id(), from.id(), chatId, msg.messageId(), lang, data)) {
+            // Agro Biznes arizasi: bz:c:<CROP>, bz:done
         } else if (data.equals(BotPlans.LIST)) {
             sender.answer(cb.id(), null);
             planSection.showCatalog(from.id(), chatId, lang);
+        } else if (data.equals(BotPlans.SEASON)) {
+            sender.answer(cb.id(), null);
+            requestSeason(from.id(), chatId, lang);
         } else if (data.startsWith(BotPlans.BUY)) {
             sender.answer(cb.id(), null);
             requestPlan(from.id(), chatId, lang, data.substring(BotPlans.BUY.length()));
@@ -815,6 +930,14 @@ public class BotUpdateHandler {
                             + (monitor.isEmpty() ? "" : "\n" + monitor), kb);
                 }, () -> sender.edit(chatId, messageId, messages.text(lang, "field.notFound"), null));
             }
+            case BotKeyboards.FIELD_SNAPSHOT -> {
+                sender.answer(cb.id(), null);
+                snapshotSection.request(tg, chatId, lang, id);
+            }
+            case BotKeyboards.FIELD_GO_WEAK -> {
+                sender.answer(cb.id(), null);
+                snapshotSection.goWeak(tg, chatId, lang, id);
+            }
             case BotKeyboards.FIELD_REPORT -> {
                 sender.answer(cb.id(), null);
                 Long jobId = fields.card(tg, id).map(FieldCard::lastDoneJobId).orElse(null);
@@ -835,8 +958,7 @@ public class BotUpdateHandler {
                     case QUOTA_USED -> sender.send(chatId, r.plan().paid()
                             ? messages.text(lang, "polygon.quotaUsed.paid", name, String.valueOf(r.plan().maxAnalyses()))
                             : messages.text(lang, "polygon.quotaUsed.free", name), null);
-                    case AREA_LIMIT -> sender.send(chatId, messages.text(lang, "polygon.areaLimit", ha(lang, r.areaHa()),
-                            ha(lang, r.plan().maxFieldHa().doubleValue()), ""), null);
+                    case AREA_LIMIT, TOTAL_LIMIT -> sender.send(chatId, limitText(lang, r), null);
                     default -> sender.send(chatId, messages.text(lang, "field.notFound"), null);
                 }
             }
@@ -848,7 +970,7 @@ public class BotUpdateHandler {
                 }
                 fields.boundary(tg, id).ifPresentOrElse(
                         b -> sender.send(chatId, messages.text(lang, "field.editAsk", b.name()),
-                                keyboards.editMap(lang, maxHa(tg), id, b.name(), b.crop(), b.ring())),
+                                keyboards.editMap(tg, lang, botMenu.maxHa(tg, id), id, b.name(), b.crop(), b.ring(), fields.rings(tg, id))),
                         () -> sender.send(chatId, messages.text(lang, "field.notFound"), null));
             }
             case BotKeyboards.FIELD_CROP -> {

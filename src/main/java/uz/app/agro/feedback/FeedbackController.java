@@ -33,10 +33,12 @@ public class FeedbackController {
 
     @Operation(summary = "Suhbatlar ro'yxati",
                description = "Huquq: `feedback:read`. `feedback:manage` bo'lmasa — navbat (NEW) va o'z suhbatlari. "
-                       + "`mine=true` — menga biriktirilganlar. `q` — xabarlar va fermer ismi bo'yicha")
+                       + "`mine=true` — menga biriktirilganlar. `active=true` — yopilmaganlar (NEW + OPEN). "
+                       + "`q` — xabarlar va fermer ismi bo'yicha")
     @GetMapping
     public PageResponse<FeedbackResponse> search(
             @RequestParam(required = false) FeedbackStatus status,
+            @RequestParam(defaultValue = "false") boolean active,
             @RequestParam(required = false) FeedbackKind kind,
             @RequestParam(required = false) Long farmerId,
             @RequestParam(required = false) Long assigneeId,
@@ -44,7 +46,7 @@ public class FeedbackController {
             @RequestParam(defaultValue = "false") boolean mine,
             @RequestParam(required = false) String q,
             @ParameterObject @PageableDefault(size = 25, sort = "lastMessageAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        return feedbackService.search(status, kind, farmerId, assigneeId, rating, mine, q, Pages.guard(pageable, SORTABLE));
+        return feedbackService.search(status, active, kind, farmerId, assigneeId, rating, mine, q, Pages.guard(pageable, SORTABLE));
     }
 
     @Operation(summary = "Nishonlar: navbat, mening suhbatlarim, o'qilmaganlar", description = "Huquq: `feedback:read`")

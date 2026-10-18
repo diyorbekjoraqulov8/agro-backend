@@ -3,6 +3,7 @@ package uz.app.agro.bot;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
+import uz.app.agro.common.HumanDates;
 
 import java.util.Locale;
 import java.util.Set;
@@ -29,6 +30,11 @@ public class BotMessages {
 
     public String text(String lang, String key, Object... args) {
         return messageSource.getMessage(key, args, Locale.forLanguageTag(lang));
+    }
+
+    /** "11-oktabr" / "11 октября" / "11 October" — HumanDates */
+    public static String date(String lang, java.time.LocalDate d) {
+        return HumanDates.format(lang, d);
     }
 
     public String label(String lang, Enum<?> value) {

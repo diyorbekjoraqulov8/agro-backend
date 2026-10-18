@@ -27,7 +27,7 @@ public class SubscriptionGrants {
     @Transactional(propagation = Propagation.MANDATORY)
     public Granted grant(FarmerEntity farmer, String planCode, int days, PaymentMethod method, String note) {
         PlanEntity plan = planRepository.findByCode(planCode)
-                .filter(p -> !p.isSystemPlan() && p.isActive())
+                .filter(p -> !p.isSystemPlan() && p.isActive() && !p.isContactSales())
                 .orElseThrow(() -> new IllegalStateException("mukofot tarifi topilmadi yoki faol emas: " + planCode));
         LocalDate today = LocalDate.now();
         LocalDate last = subscriptionRepository.lastActiveUntil(farmer.getId(), today);

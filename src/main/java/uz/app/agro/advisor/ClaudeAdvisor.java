@@ -58,14 +58,14 @@ public class ClaudeAdvisor {
 
         String render() {
             return "Farmer language: " + language + "\nCrop: " + crop + "\nLocation: " + location + "\nDate: " + date
-                    + "\n<farmer_note>" + (farmerNote == null || farmerNote.isBlank() ? "(none)" : farmerNote.replace("</farmer_note>", ""))
+                    + "\n<farmer_note>" + (farmerNote == null || farmerNote.isBlank() ? "(none)" : farmerNote.replaceAll("(?i)</?farmer_note>", ""))
                     + "</farmer_note>";
         }
     }
 
     public record Result(AdvisorDiagnosis diagnosis, String model, long inputTokens, long outputTokens) {}
 
-    /** retryable — 429/5xx/tarmoq (keyinroq qayta); aks holda (kalit, 400, rad) — agronomga */
+    /** retryable — 429/5xx/tarmoq (keyinroq qayta); aks holda (kalit, 400, rad) — FAILED, fermer qayta yuboradi */
     public static class AdvisorException extends RuntimeException {
         private final boolean retryable;
 

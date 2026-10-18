@@ -9,6 +9,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import tools.jackson.databind.json.JsonMapper;
+import uz.app.agro.problem.ProblemRecorder;
+import uz.app.agro.problem.ProblemSource;
 import uz.app.agro.notification.Notification;
 import uz.app.agro.notification.NotificationCategory;
 import uz.app.agro.notification.Templates;
@@ -37,6 +39,7 @@ public class IrrigationReminderJob {
 
     private final FieldWaterRepository waterRepository;
     private final IrrigationService service;
+    private final ProblemRecorder problems;
 
     @Value("${irrigation.reminders.hour:7}")
     private int reminderHour;
@@ -49,6 +52,8 @@ public class IrrigationReminderJob {
                 runFor(fieldId, false);
             } catch (RuntimeException e) {
                 log.warn("field {}: eslatma hisoblanmadi: {}", fieldId, e.getMessage());
+                problems.error(ProblemSource.IRRIGATION, "Sug'orish eslatmasi hisoblanmadi: " + e.getMessage())
+                        .field(fieldId).cause(e).record();
             } finally {
                 MDC.clear();
             }

@@ -1,6 +1,7 @@
 package uz.app.agro.feedback;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uz.app.agro.farmer.FarmerEntity;
@@ -29,6 +30,7 @@ public class FeedbackBotService {
     private static final Pattern CONTROL = Pattern.compile("[\\p{Cntrl}&&[^\\n\\t]]");
 
     private final FeedbackRepository feedbackRepository;
+    private final ApplicationEventPublisher events;
     private final FeedbackMessageRepository messageRepository;
     private final FarmerRepository farmerRepository;
 
@@ -71,7 +73,13 @@ public class FeedbackBotService {
         Attachment att = file == null || file.empty() ? null : file;
         if (clean == null && att == null) return Result.of(Outcome.EMPTY);
         Optional<FeedbackEntity> open = feedbackRepository.findActive(farmer.getId());
-        if (open.isPresent()) return append(farmer, open.get(), clean, att);
+        if (open.isPresent()) {
+            // Fermerda bitta ochiq suhbat: obuna so'rovi unga qo'shilsa ham — suhbat "Obuna so'rovlari" tabiga o'tadi
+            if (kind == FeedbackKind.SUBSCRIPTION && open.get().getKind() != FeedbackKind.SUBSCRIPTION) {
+                feedbackRepository.markSubscription(open.get().getId());
+            }
+            return append(farmer, open.get(), clean, att);
+        }
         LocalDateTime now = LocalDateTime.now();
         if (feedbackRepository.countByFarmerIdAndCreatedDateAfter(farmer.getId(), now.minusDays(1)) >= DAILY_LIMIT) {
             return Result.of(Outcome.LIMIT);
@@ -84,7 +92,8 @@ public class FeedbackBotService {
         f.setLastSender(FeedbackSender.FARMER);
         f.setUnreadStaff(1);
         feedbackRepository.save(f);
-        messageRepository.save(farmerMessage(f.getId(), clean, att));
+        FeedbackMessageEntity m = messageRepository.save(farmerMessage(f.getId(), clean, att));
+        events.publishEvent(FeedbackActivityEvent.farmer(f.getId(), m.getId(), true));
         return new Result(Outcome.SAVED, f.getId(), farmer.getFullName(), farmer.getTelegramUsername());
     }
 
@@ -106,7 +115,8 @@ public class FeedbackBotService {
         }
         // Atomik: shu orada xodim yopgan bo'lsa 0 — xabar yopilgan suhbatga tushmaydi
         if (feedbackRepository.touchByFarmer(f.getId(), LocalDateTime.now()) == 0) return Result.of(Outcome.CLOSED, f.getId());
-        messageRepository.save(farmerMessage(f.getId(), clean, att));
+        FeedbackMessageEntity m = messageRepository.save(farmerMessage(f.getId(), clean, att));
+        events.publishEvent(FeedbackActivityEvent.farmer(f.getId(), m.getId(), false));
         return new Result(Outcome.APPENDED, f.getId(), farmer.getFullName(), farmer.getTelegramUsername());
     }
 
@@ -122,6 +132,7 @@ public class FeedbackBotService {
         f.setClosedAt(now);
         f.setClosedBy(FeedbackSender.FARMER);
         messageRepository.save(FeedbackStore.system(f.getId(), "Fermer suhbatni yakunladi"));
+        events.publishEvent(FeedbackActivityEvent.closed(f.getId()));
         return Optional.of(new Closed(f.getId(), f.getAssigneeId() != null));
     }
 

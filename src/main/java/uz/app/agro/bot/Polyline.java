@@ -1,5 +1,7 @@
 package uz.app.agro.bot;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -25,6 +27,25 @@ final class Polyline {
             write(sb, lon - pLon);
             pLat = lat;
             pLon = lon;
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Bir nechta halqa vergul bilan (vergul — 44, polyline belgilari 63..126 oralig'ida, to'qnashmaydi).
+     * Byudjet URL-encode QILINGAN uzunlik bo'yicha (alifboning ~17% i %XX bo'ladi). Sig'maydigan halqa tashlanadi,
+     * keyingilari sinab ko'riladi — bitta katta dala qolganlarini siqib chiqarmasin; chala halqa hech qachon yo'q.
+     */
+    static String encodeAll(List<List<List<Number>>> rings, int maxEncodedChars) {
+        StringBuilder sb = new StringBuilder();
+        int used = 0;
+        for (var ring : rings) {
+            String e = encode(ring);
+            int cost = URLEncoder.encode(e, StandardCharsets.UTF_8).length() + (sb.isEmpty() ? 0 : 3);   // "%2C"
+            if (used + cost > maxEncodedChars) continue;
+            if (!sb.isEmpty()) sb.append(',');
+            sb.append(e);
+            used += cost;
         }
         return sb.toString();
     }

@@ -42,3 +42,9 @@ src/main/resources/keys/
 
 ### Yuklangan fayllar (app.files.dir) — foydalanuvchi ma'lumoti, commit qilinmaydi ###
 /storage/
+
+### Prod deploy (sirlar, sertifikat, zaxira) ###
+deploy/.env.prod
+deploy/secrets/
+deploy/certbot/
+deploy/backups/

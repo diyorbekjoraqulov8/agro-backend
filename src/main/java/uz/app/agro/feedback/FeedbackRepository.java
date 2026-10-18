@@ -16,6 +16,31 @@ public interface FeedbackRepository extends JpaRepository<FeedbackEntity, Long>,
 
     long countByStatus(FeedbackStatus status);
 
+    /**
+     * Ochiq suhbatga obuna so'rovi qo'shildi — suhbat "Obuna so'rovlari" tabiga o'tadi. kind entity'da updatable=false
+     * (setKind jimgina yozilmaydi) — shuning uchun alohida UPDATE
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE FeedbackEntity f SET f.kind = uz.app.agro.feedback.FeedbackKind.SUBSCRIPTION WHERE f.id = :id")
+    int markSubscription(@Param("id") Long id);
+
+    /** Javob kutayotgan obuna so'rovlari: navbatda yoki oxirgi xabar fermerdan (admin nishoni) */
+    @Query("""
+            SELECT count(f) FROM FeedbackEntity f WHERE f.kind = uz.app.agro.feedback.FeedbackKind.SUBSCRIPTION
+               AND (f.status = uz.app.agro.feedback.FeedbackStatus.NEW
+                    OR (f.status = uz.app.agro.feedback.FeedbackStatus.OPEN AND f.lastSender = uz.app.agro.feedback.FeedbackSender.FARMER))
+            """)
+    long countSalesWaiting();
+
+    /** Operator (feedback:manage yo'q) — faqat ro'yxatda ko'radiganlari: navbatdagi + o'ziga biriktirilgan */
+    @Query("""
+            SELECT count(f) FROM FeedbackEntity f WHERE f.kind = uz.app.agro.feedback.FeedbackKind.SUBSCRIPTION
+               AND (f.status = uz.app.agro.feedback.FeedbackStatus.NEW
+                    OR (f.status = uz.app.agro.feedback.FeedbackStatus.OPEN AND f.assigneeId = :staffId
+                        AND f.lastSender = uz.app.agro.feedback.FeedbackSender.FARMER))
+            """)
+    long countSalesWaitingFor(@Param("staffId") Long staffId);
+
     long countByStatusAndAssigneeId(FeedbackStatus status, Long assigneeId);
 
     @Query("SELECT coalesce(sum(f.unreadStaff), 0) FROM FeedbackEntity f WHERE f.status = uz.app.agro.feedback.FeedbackStatus.OPEN AND f.assigneeId = :staffId")

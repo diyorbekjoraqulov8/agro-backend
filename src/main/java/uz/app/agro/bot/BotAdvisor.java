@@ -26,6 +26,8 @@ import java.util.Optional;
 @ConditionalOnProperty(name = "telegram.enabled", havingValue = "true")
 public class BotAdvisor {
 
+    private static final int TELEGRAM_MAX = 4096;
+
     private final BotSender sender;
     private final BotMessages messages;
     private final BotKeyboards keyboards;
@@ -104,7 +106,8 @@ public class BotAdvisor {
             case FREE_USED -> {
                 // Tarif tugmalari: "📋 Barcha tariflar" + eng arzon pullik
                 var kb = planSection.planButtons(lang, false);
-                sender.send(chatId, messages.text(lang, "advisor.freeUsed", String.valueOf(q.limit())), kb);
+                sender.send(chatId, q.limit() == 0 ? messages.text(lang, "advisor.paidOnly")
+                        : messages.text(lang, "advisor.freeUsed", String.valueOf(q.limit())), kb);
             }
             case DAILY_LIMIT -> sender.send(chatId, messages.text(lang, "advisor.dailyLimit", String.valueOf(q.limit())), null);
         }
@@ -117,7 +120,7 @@ public class BotAdvisor {
         if (d.category() == AdvisorDiagnosis.Category.UNCLEAR || d.category() == AdvisorDiagnosis.Category.NOT_PLANT) {
             if (d.photoAdvice() != null && !d.photoAdvice().isBlank()) parts.add("📸 " + d.photoAdvice());
             parts.add(messages.text(lang, "advisor.answer.retry"));
-            return String.join("\n\n", parts);
+            return Texts.cut(String.join("\n\n", parts), TELEGRAM_MAX);
         }
         if (d.urgent()) parts.add(messages.text(lang, "advisor.answer.urgent"));
         if (d.causes() != null && !d.causes().isEmpty()) {
@@ -130,9 +133,10 @@ public class BotAdvisor {
         }
         parts.add(list(messages.text(lang, "advisor.answer.checks"), d.checks()));
         parts.add(list(messages.text(lang, "advisor.answer.actions"), d.actions()));
-        parts.add(messages.text(lang, "advisor.answer.disclaimer"));
         parts.removeIf(String::isEmpty);
-        return Texts.cut(String.join("\n\n", parts), 4096);
+        // Ogohlantirish (agronom bilan maslahatlashing) — majburiy: uzun javobda matn kesiladi, ogohlantirish emas
+        String disclaimer = messages.text(lang, "advisor.answer.disclaimer");
+        return Texts.cut(String.join("\n\n", parts), TELEGRAM_MAX - disclaimer.length() - 2) + "\n\n" + disclaimer;
     }
 
     private static String list(String title, List<String> items) {

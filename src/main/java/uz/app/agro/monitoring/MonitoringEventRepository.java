@@ -17,6 +17,9 @@ public interface MonitoringEventRepository extends JpaRepository<MonitoringEvent
 
     Optional<MonitoringEventEntity> findFirstByFieldIdOrderBySceneDateDesc(Long fieldId);
 
+    /** Trend uchun: shu sanadan oldingi (yoki o'sha) eng yangi surat */
+    Optional<MonitoringEventEntity> findFirstByFieldIdAndSceneDateLessThanEqualOrderBySceneDateDesc(Long fieldId, java.time.LocalDate day);
+
     interface FileUseRow {
         String getHashId();
         Long getFieldId();

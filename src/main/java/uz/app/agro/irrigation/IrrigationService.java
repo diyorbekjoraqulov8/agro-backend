@@ -138,6 +138,6 @@ public class IrrigationService {
                 w.getLastIrrigatedOn(), today, next, daysUntil, due,
                 w.getDepletionPct() == null ? null : w.getDepletionPct().doubleValue(),
                 b == null ? null : b.rainNext3dMm(),
-                w.getNdvi() != null ? w.getNdvi().doubleValue() : ctx.analysisNdvi());
+                w.getNdvi() != null ? Double.valueOf(w.getNdvi().doubleValue()) : ctx.analysisNdvi());
     }
 }

@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#137d41">
   <title>Dropy — dala chegarasi</title>
   <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-  <link rel="stylesheet" href="style.css?v=9">
+  <link rel="stylesheet" href="style.css?v=11">
   <!-- Telegram SDK: telegram.org o'zi yangilaydi — SRI qo'yib bo'lmaydi -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="vendor/leaflet/leaflet.js"></script>
@@ -32,9 +32,14 @@
     <button id="locate" class="round" type="button" aria-label="my location">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Zm-1-7h2v3.06A8 8 0 0 1 19.94 11H23v2h-3.06A8 8 0 0 1 13 19.94V23h-2v-3.06A8 8 0 0 1 4.06 13H1v-2h3.06A8 8 0 0 1 11 4.06V1Zm1 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12Z"/></svg>
     </button>
+    <button id="wand" class="round wand" type="button" hidden aria-label="detect boundary">🪄</button>
     <button id="undo" class="round" type="button" disabled aria-label="undo">↶</button>
     <button id="clear" class="round" type="button" disabled aria-label="clear">✕</button>
+    <button id="del" class="round danger" type="button" hidden aria-label="delete point">🗑</button>
   </div>
+
+  <!-- Lupa: nuqtani surayotganda barmoq ostidagi joy -->
+  <div id="loupe" class="loupe" hidden><div id="loupeMap"></div></div>
 
   <div id="toast" class="toast" hidden></div>
 
@@ -47,6 +52,7 @@
     </div>
     <div id="area"></div>
     <div id="error" class="error" hidden></div>
+    <div id="warn" class="warn" hidden></div>
     <!-- Telegram tashqarisida (brauzerda sinash) — MainButton o'rniga -->
     <button id="fallback" class="primary" type="button" hidden></button>
     <pre id="debug" hidden></pre>
@@ -84,6 +90,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=14"></script>
+  <script src="app.js?v=18"></script>
 </body>
 </html>

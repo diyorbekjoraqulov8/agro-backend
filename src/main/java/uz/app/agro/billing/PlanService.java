@@ -7,7 +7,6 @@ import uz.app.agro.analysis.AnalysisJobRepository;
 import uz.app.agro.billing.dto.EffectivePlan;
 import uz.app.agro.billing.dto.PlanResponse;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -33,16 +32,16 @@ public class PlanService {
             long used = jobRepository.countPaidJobs(farmerId, s.getValidFrom().atStartOfDay(),
                     s.getValidUntil().plusDays(1).atStartOfDay());
             return new EffectivePlan(p.getCode(), p.getName(), true, s.getId(), s.getValidUntil(),
-                    p.getMaxFieldHa(), p.getMaxFields(), p.getMaxAnalyses(), used);
+                    p.getMaxFieldHa(), p.getMaxTotalHa(), p.getMaxFields(), p.getMaxAnalyses(), used);
         }
         PlanEntity free = freePlan();
         return new EffectivePlan(free.getCode(), free.getName(), false, null, null,
-                free.getMaxFieldHa(), free.getMaxFields(), free.getMaxAnalyses(), jobRepository.countFreeJobs(farmerId));
+                free.getMaxFieldHa(), free.getMaxTotalHa(), free.getMaxFields(), free.getMaxAnalyses(), jobRepository.countFreeJobs(farmerId));
     }
 
-    /** Bot "💎 Tariflar": faqat faollar — avval tizim (Bepul), keyin narx bo'yicha */
+    /** Bot "💎 Tariflar": faqat faollar — avval tizim (Bepul), keyin narx bo'yicha, "narx kelishiladi" (Agro Biznes) — oxirida */
     public List<PlanResponse> catalog() {
-        return planRepository.findAllByOrderBySystemPlanDescPriceAsc().stream()
+        return planRepository.findAllByOrderBySystemPlanDescContactSalesAscPriceAsc().stream()
                 .filter(PlanEntity::isActive).map(mapper::toResponse).toList();
     }
 
@@ -52,11 +51,6 @@ public class PlanService {
      */
     public boolean paidOn(long farmerId, LocalDate day) {
         return !subscriptionRepository.findActiveOn(farmerId, day).isEmpty();
-    }
-
-    /** "Pullik tarifda N ga gacha" — faol pullik rejalar orasida eng kattasi */
-    public BigDecimal maxPaidFieldHa() {
-        return planRepository.maxPaidFieldHa().orElse(null);
     }
 
     PlanEntity freePlan() {

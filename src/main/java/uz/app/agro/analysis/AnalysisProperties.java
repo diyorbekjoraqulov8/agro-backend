@@ -24,5 +24,13 @@ public record AnalysisProperties(
         Duration stuckAfter,
 
         @NotNull(message = "analysis.worker.retry-base ko'rsatilishi shart")
-        Duration retryBase
+        Duration retryBase,
+
+        // Python xizmati umuman ishlamayapti (ulanish/502–504) — urinish sanalmaydi, shuncha kutib qayta;
+        // job yaratilganidan service-down-max o'tsa — oddiy urinish (oxiri FAILED). Fermer "texnik xato" olmaydi
+        @NotNull(message = "analysis.worker.service-down-wait ko'rsatilishi shart")
+        Duration serviceDownWait,
+
+        @NotNull(message = "analysis.worker.service-down-max ko'rsatilishi shart")
+        Duration serviceDownMax
 ) {}

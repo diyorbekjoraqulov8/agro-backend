@@ -51,7 +51,7 @@ server:
     include-message: never
 
 jwt:
-  public-key: classpath:keys/public.pem
+  public-key: ${JWT_PUBLIC_KEY:classpath:keys/public.pem}
   private-key: ${JWT_PRIVATE_KEY:classpath:keys/private.pem}
   issuer: agro
   access-token-ttl: 15m
@@ -65,6 +65,14 @@ app:
   cookie:
     secure: true
     same-site: Strict
+
+  # Ochiq /auth/register — xavfsiz default o'chiq (dev'da yoqiq). Xodimlar — admin "Xodimlar" sahifasidan
+  registration-enabled: ${APP_REGISTRATION_ENABLED:false}
+  # Birinchi admin (prod, bo'sh baza): ikkalasi berilsa va bunday email yo'q bo'lsa — ishga tushishda yaratiladi.
+  # Kirgandan keyin parolni almashtiring va env'dan olib tashlang
+  bootstrap-admin:
+    email: ${ADMIN_EMAIL:}
+    password: ${ADMIN_PASSWORD:}
 
   login:
     max-attempts: 5
@@ -86,6 +94,8 @@ analysis:
     max-attempts: 3
     retry-base: 2m          # 2, 4, 8 daqiqa
     stuck-after: 10m        # RUNNING'da shundan ortiq — ilova o'chgan, navbatga qaytariladi
+    service-down-wait: 5m   # Python o'chiq — urinish sanalmaydi, 5 daqiqadan keyin qayta
+    service-down-max: 12h   # shundan keyin ham o'chiq bo'lsa — oddiy urinishlar (oxiri FAILED)
 
 # Sug'orish eslatmasi — har soat; dala MAHALLIY vaqti bo'yicha soat {hour} dan keyin, kuniga bir marta (global)
 irrigation:
@@ -103,6 +113,13 @@ telegram:
   miniapp-url: ${MINIAPP_URL:}
   support-chat-id: ${TELEGRAM_SUPPORT_CHAT_ID:}   # ixtiyoriy: yangi murojaatlar xodimlar guruhiga
   public-api-url: ${PUBLIC_API_URL:}              # ixtiyoriy: https://api.example.uz — onboarding oxiridagi inline "🗺" tugmasi
+
+# Alohida support bot: xodimlar guruhi (Topics) — har fermerga mavzu, javob guruhdan. Token bo'sh — o'chiq
+support-bot:
+  token: ${SUPPORT_BOT_TOKEN:}
+  group-id: ${SUPPORT_GROUP_ID:}                  # -100...: guruhda /id@<bot> yozing
+  polling: ${SUPPORT_BOT_POLLING:true}            # false — 2-instans/sinov (bitta token — bitta poller)
+  admin-url: ${ADMIN_URL:}                        # ixtiyoriy https — mavzudagi "🔗 Admin panelda" tugmasi
 
 springdoc:
   api-docs:
@@ -147,13 +164,18 @@ weather:
 
 # C3: Avtomatik monitoring — har yangi Sentinel-2 surati bilan dala tekshiriladi (Python /monitor).
 # Yoqish, "faqat pullik", chegaralar — admin Sozlamalarida (monitoring.*). Bu yerda — yuk va oraliqlar.
+trial:
+  reminder-cron: "0 50 9-19 * * *"     # Pro sinovi tugashi eslatmasi — kunduzi har soat :50 da (takror yo'q)
+
 monitoring:
   job-enabled: ${MONITORING_JOB_ENABLED:true}
   cron: "0 40 * * * *"                 # har soat :40 da (sug'orish :05, ob-havo :20)
-  batch: 40                            # bir tick'da nechta dala (Python ~2 s / ~10 s har biri)
+  batch: 60                            # bir tick'da nechta dala (Python ~2 s / ~10 s har biri)
   after-new-scene: 3d
   after-no-scene: 1d
   after-unavailable: 2h
+  free-after-new-scene: 7d             # bepul dalalar — faqat kartadagi holat uchun (xabarsiz), haftada bir
+  free-after-no-scene: 3d
   hours-from: 8                        # server vaqti: kunduzi tekshiriladi va xabar ketadi
   hours-to: 20
 
@@ -163,5 +185,5 @@ advisor:
   api-key: ${ANTHROPIC_API_KEY:}                # bo'sh — AI maslahat o'chiq
   base-url: ${ANTHROPIC_BASE_URL:https://api.anthropic.com}
   timeout: 120s                                 # rasm + adaptive thinking ~10–40 s
-  max-attempts: 3                               # 429/5xx — keyin agronomga
+  max-attempts: 3                               # 429/5xx — keyin FAILED (fermer qayta yuboradi, limitga hisoblanmaydi)
   job-enabled: ${ADVISOR_JOB_ENABLED:true}

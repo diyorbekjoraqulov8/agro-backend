@@ -13,6 +13,8 @@ import com.pengrad.telegrambot.request.SetMyDescription;
 import com.pengrad.telegrambot.request.SetMyName;
 import com.pengrad.telegrambot.request.SetMyShortDescription;
 import lombok.RequiredArgsConstructor;
+import uz.app.agro.problem.ProblemRecorder;
+import uz.app.agro.problem.ProblemSource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.SmartLifecycle;
@@ -34,19 +36,28 @@ public class BotRunner implements SmartLifecycle {
     private final TelegramBot bot;
     private final BotUpdateHandler handler;
     private final BotMessages messages;
+    private final ProblemRecorder problems;
     private volatile boolean running;
+    // Oxirgi getUpdates xatosi (admin "Muammolar" holati): 409 — ikkinchi poller, tarmoq — vaqtincha
+    private volatile java.time.Instant pollErrorAt;
+    private volatile String pollError;
 
     @Override
     public void start() {
         registerCommands();
         registerProfile();
         bot.setUpdatesListener(this::process, e -> {
+            pollErrorAt = java.time.Instant.now();
             if (e.response() != null && e.response().errorCode() == 409) {
                 log.error("telegram 409: shu token bilan BOSHQA jarayon ham poll qilyapti (IntelliJ + terminal?)");
+                pollError = "409: shu token bilan boshqa jarayon ham ishlayapti — xabarlar yo'qolishi mumkin";
+                problems.error(ProblemSource.SYSTEM, "Telegram 409: shu bot tokeni bilan BOSHQA jarayon ham poll qilyapti").record();
             } else if (e.response() != null) {
                 log.warn("telegram getUpdates {}: {}", e.response().errorCode(), e.response().description());
+                pollError = "getUpdates " + e.response().errorCode() + ": " + e.response().description();
             } else {
                 log.warn("telegram getUpdates tarmoq xatosi: {}", e.getMessage());
+                pollError = "Telegram'ga ulanib bo'lmadi: " + e.getMessage();
             }
         }, new GetUpdates().timeout(50).allowedUpdates("message", "callback_query"));
         running = true;
@@ -60,9 +71,25 @@ public class BotRunner implements SmartLifecycle {
             } catch (Exception e) {
                 // Bitta buzuq update butun paketni to'xtatmasin; qayta urinilmaydi (cheksiz sikl bo'lmasin)
                 log.error("update {} ishlanmadi", u.updateId(), e);
+                problems.error(ProblemSource.BOT, "Bot xabarni ishlay olmadi: " + e)
+                        .telegramUser(senderId(u)).cause(e).record();
+                handler.apologize(u);
             }
         }
         return UpdatesListener.CONFIRMED_UPDATES_ALL;
+    }
+
+    /** Oxirgi 5 daqiqadagi polling xatosi (admin holati uchun) */
+    public java.util.Optional<String> recentPollError() {
+        var at = pollErrorAt;
+        return at != null && at.isAfter(java.time.Instant.now().minusSeconds(300)) ? java.util.Optional.ofNullable(pollError)
+                : java.util.Optional.empty();
+    }
+
+    private static Long senderId(Update u) {
+        if (u.message() != null && u.message().from() != null) return u.message().from().id();
+        if (u.callbackQuery() != null && u.callbackQuery().from() != null) return u.callbackQuery().from().id();
+        return null;
     }
 
     /** Telegram'dagi "Menu" — har til uchun. Xato bo'lsa bot baribir ishlaydi. */

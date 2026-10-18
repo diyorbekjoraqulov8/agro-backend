@@ -1,0 +1,117 @@
+# Prod: bitta VPS. Ishga tushirish va yangilash — deploy/README.md.
+#   cd deploy && docker compose -f compose.prod.yaml --env-file .env.prod up -d --build
+# Tashqariga faqat nginx (80/443). DB, backend, Python — ichki tarmoqda.
+name: dropy
+
+# Har servis: log aylanadi (default json-file cheksiz o'sadi), vaqt mintaqasi — Toshkent
+# (cron, monitoring soatlari "08–20", admin'dagi vaqtlar shunga bog'liq)
+x-common: &common
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: { max-size: "20m", max-file: "5" }
+
+services:
+  db:
+    <<: *common
+    image: postgres:16-alpine
+    environment:
+      TZ: Asia/Tashkent
+      PGTZ: Asia/Tashkent
+      POSTGRES_DB: agro
+      POSTGRES_USER: agro
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?.env.prod da DB_PASSWORD yo'q}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agro -d agro"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    # 8 GB VPS (deploy/README.md): Postgres ~1 GB; ulanishlar — backend pool (10) + zaxira
+    command: ["postgres", "-c", "shared_buffers=512MB", "-c", "max_connections=50", "-c", "effective_cache_size=1536MB"]
+
+  satellite:
+    <<: *common
+    build: ../satellite-service
+    mem_limit: 4g                                 # 2 ta parallel tahlil ~3 GB
+    environment:
+      TZ: Asia/Tashkent
+      INTERNAL_KEY: ${SATELLITE_INTERNAL_KEY:?.env.prod da SATELLITE_INTERNAL_KEY yo'q}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8090/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  backend:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    mem_limit: 1536m                              # JVM heap — shundan 60% (MaxRAMPercentage)
+    depends_on:
+      db: { condition: service_healthy }
+      satellite: { condition: service_started }
+    env_file: .env.prod
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      TZ: Asia/Tashkent
+      SERVER_ADDRESS: 0.0.0.0                     # prod.yml'dagi 127.0.0.1 — konteyner ichida nginx yetolmasdi
+      DB_URL: jdbc:postgresql://db:5432/agro
+      DB_USERNAME: agro
+      SATELLITE_URL: http://satellite:8090
+      FILES_DIR: /var/lib/agro/files
+      JWT_PRIVATE_KEY: file:/run/keys/private.pem
+      JWT_PUBLIC_KEY: file:/run/keys/public.pem
+      PUBLIC_API_URL: https://${DOMAIN}
+    volumes:
+      - files:/var/lib/agro/files
+      - ./secrets/keys:/run/keys:ro
+    healthcheck:
+      # bash (Ubuntu image'da /bin/sh = dash, /dev/tcp ni bilmaydi); curl yo'q
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8081 && printf 'GET /actuator/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  nginx:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: deploy/nginx/Dockerfile
+    depends_on:
+      backend: { condition: service_started, restart: true }
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${DOMAIN:?.env.prod da DOMAIN yo'q}
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+
+  # Sertifikatni har 12 soatda tekshiradi (30 kun qolganda yangilaydi); nginx haftada qayta o'qiydi (README)
+  certbot:
+    <<: *common
+    image: certbot/certbot:v3.0.1
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: ["/bin/sh", "-c", "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done"]
+
+  # Kunlik zaxira: DB (pg_dump) — 14 kun saqlanadi. Fayllar (files volume) — README'dagi rsync/offsite
+  backup:
+    <<: *common
+    image: postgres:16-alpine
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      PGPASSWORD: ${DB_PASSWORD}
+    volumes:
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "-c", "while :; do f=/backups/agro-$$(date +%F).dump; pg_dump -h db -U agro -d agro -Fc -f $$f.tmp && mv $$f.tmp $$f && find /backups -name 'agro-*.dump' -mtime +14 -delete; sleep 24h; done"]
+
+volumes:
+  pgdata:
+  files:

@@ -30,6 +30,11 @@ public record PlanRequest(
         @DecimalMin(value = "0.5", message = "maxFieldHa kamida 0.5") @DecimalMax(value = "500", message = "maxFieldHa ko'pi bilan 500 (tahlil xizmati chegarasi)")
         BigDecimal maxFieldHa,
 
+        // Barcha dalalar jami maydoni; null — cheksiz
+        @DecimalMin(value = "0.5", message = "maxTotalHa kamida 0.5") @DecimalMax(value = "1000000", message = "maxTotalHa ko'pi bilan 1 000 000")
+        @Digits(integer = 8, fraction = 2, message = "maxTotalHa: 8 xona + 2 kasr")
+        BigDecimal maxTotalHa,
+
         // null — cheksiz
         @Min(value = 1, message = "maxFields kamida 1") @Max(value = 1000, message = "maxFields ko'pi bilan 1000")
         Integer maxFields,
@@ -37,5 +42,8 @@ public record PlanRequest(
         @Min(value = 0, message = "maxAnalyses manfiy bo'lmasin")
         Integer maxAnalyses,
 
-        boolean active
+        boolean active,
+
+        // Narx o'rniga "ariza qoldirish" (Agro Biznes). Tizim rejasida e'tiborsiz
+        boolean contactSales
 ) {}

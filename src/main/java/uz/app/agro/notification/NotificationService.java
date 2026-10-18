@@ -4,8 +4,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import uz.app.agro.common.HumanDates;
 import uz.app.agro.farmer.FarmerRepository;
 
+import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
@@ -45,11 +48,31 @@ public class NotificationService {
         return e.getId();
     }
 
-    /** Bot matni (messages*.properties) fermer tilida — raqamlarni String bilan bering (MessageFormat "1 000" qilmasin) */
+    /** enqueueMessage + ref: takror yubormaslik uchun (NotificationRepository.existsByRefTypeAndRefId) */
+    @Transactional
+    public long enqueueMessageRef(long farmerId, NotificationCategory category, String refType, long refId, String key, Object... args) {
+        return enqueue(message(farmerId, category, key, args).ref(refType, refId));
+    }
+
+    public boolean sent(String refType, long refId) {
+        return repository.existsByRefTypeAndRefId(refType, refId);
+    }
+
+    private String render(String lang, String key, Object... args) {
+        // LocalDate — fermer tilida "15-noyabr" (dd.MM.yyyy fermerga tushunarsiz)
+        Object[] localized = Arrays.stream(args)
+                .map(a -> a instanceof LocalDate d ? HumanDates.format(lang, d) : a).toArray();
+        return messages.getMessage(key, localized, Locale.forLanguageTag(lang));
+    }
+
+    /** Bot matni (messages*.properties) fermer tilida — raqamlarni String bilan bering (MessageFormat "1 000" qilmasin), sanani LocalDate */
     @Transactional
     public long enqueueMessage(long farmerId, NotificationCategory category, String key, Object... args) {
+        return enqueue(message(farmerId, category, key, args));
+    }
+
+    private Notification message(long farmerId, NotificationCategory category, String key, Object... args) {
         String lang = farmerRepository.findById(farmerId).map(f -> f.getLanguage()).orElse("uz");
-        String text = messages.getMessage(key, args, Locale.forLanguageTag(lang));
-        return enqueue(Notification.text(farmerId, category, text, List.of()));
+        return Notification.text(farmerId, category, render(lang, key, args), List.of());
     }
 }

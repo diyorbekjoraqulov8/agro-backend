@@ -4,6 +4,7 @@ import { toast } from 'vue-sonner'
 import { ArrowDown, ArrowUp, Flag, Loader2, MessageSquareText, Pencil, Plus, Save, Trash2, HelpCircle } from '@lucide/vue'
 import PageHeader from '@/components/app/PageHeader.vue'
 import StatusBadge from '@/components/app/StatusBadge.vue'
+import TutorialVideos from '@/components/app/TutorialVideos.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -124,6 +125,8 @@ async function save() {
       <Button @click="openEdit(null, 'QUESTION')"><Plus /> Savol qoʻshish</Button>
     </template>
   </PageHeader>
+
+  <TutorialVideos :can-edit="canEdit" />
 
   <div class="grid gap-4 xl:grid-cols-[1fr_420px]">
     <!-- Qadamlar -->

@@ -1,4 +1,6 @@
 import hmac
+import threading
+from contextlib import contextmanager
 import logging
 import os
 import time
@@ -11,7 +13,7 @@ import numpy as np
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 
-from app import analysis, monitor, render, report, water, weather
+from app import analysis, boundary, monitor, render, report, snapshot, water, weather
 from app.geometry import CountryIndex, check_area, parse_polygon, to_utm
 from app.schemas import (AnalyzeRequest, AnalyzeResponse, Period, Point, Recommendation, Rejected,
                          Upstream, Zones)
@@ -52,6 +54,30 @@ def upstream(_: Request, e: Upstream):
     return JSONResponse(status_code=502, content={"code": "UPSTREAM"})
 
 
+# Og'ir endpoint'lar (Sentinel-2 o'qish, 0,5–1,5 GB xotira): har worker'da bir vaqtda ko'pi bilan HEAVY ta.
+# Java tomonida tahlil, monitoring, 🪄 va 📸 parallel kelishi mumkin — xotira (OOM) va tarmoq bo'lingani uchun navbat.
+HEAVY = threading.BoundedSemaphore(int(os.environ.get("HEAVY_PER_WORKER", "2")))
+
+
+class Busy(Exception):
+    pass
+
+
+@app.exception_handler(Busy)
+def busy(_: Request, e: Busy):
+    return JSONResponse(status_code=503, content={"code": "BUSY"})
+
+
+@contextmanager
+def heavy(wait_s: float):
+    if not HEAVY.acquire(timeout=wait_s):
+        raise Busy()
+    try:
+        yield
+    finally:
+        HEAVY.release()
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "countries": countries.tree is not None}
@@ -60,79 +86,80 @@ def health():
 @app.post("/analyze", response_model=AnalyzeResponse, response_model_by_alias=True)
 def analyze(req: AnalyzeRequest):
     # def, async EMAS: raster ishi bloklovchi — FastAPI thread pool'da ishlatadi
-    t0 = time.monotonic()
-    if req.season_end <= req.season_start:
-        raise Rejected(422, "BAD_SEASON")
+    with heavy(110):
+        t0 = time.monotonic()
+        if req.season_end <= req.season_start:
+            raise Rejected(422, "BAD_SEASON")
 
-    poly = parse_polygon(req.geometry)
-    poly_utm, epsg = to_utm(poly)
-    area_ha = poly_utm.area / 10_000
-    check_area(area_ha)
-    c = poly.centroid
+        poly = parse_polygon(req.geometry)
+        poly_utm, epsg = to_utm(poly)
+        area_ha = poly_utm.area / 10_000
+        check_area(area_ha)
+        c = poly.centroid
 
-    # Joriy va o'tgan yil parallel: ikkalasi ham tarmoq (COG o'qish) — vaqt deyarli ikki barobar qisqaradi
-    year = timedelta(days=365)
-    prev_future = (_loader.submit(analysis.load_series, poly, poly_utm, epsg,
-                                  req.season_start - year, req.season_end - year)
-                   if req.compare_previous_year else None)
-    cur = analysis.load_series(poly, poly_utm, epsg, req.season_start, req.season_end)
-    if cur is None or len(cur.dates) < 3:
+        # Joriy va o'tgan yil parallel: ikkalasi ham tarmoq (COG o'qish) — vaqt deyarli ikki barobar qisqaradi
+        year = timedelta(days=365)
+        prev_future = (_loader.submit(analysis.load_series, poly, poly_utm, epsg,
+                                      req.season_start - year, req.season_end - year)
+                       if req.compare_previous_year else None)
+        cur = analysis.load_series(poly, poly_utm, epsg, req.season_start, req.season_end)
+        if cur is None or len(cur.dates) < 3:
+            if prev_future:
+                prev_future.cancel()
+            raise Rejected(404, "NO_SCENES")
+        ndvi, ndmi = analysis.medians(cur)
+        rel, z = analysis.zones(cur)
+        season = analysis.growing_season(cur.dates, ndvi)
+        stress = analysis.stress_periods(cur.dates, ndvi, ndmi, season)
+        t_cur = time.monotonic()
+
+        prev, prev_ndvi = None, None
         if prev_future:
-            prev_future.cancel()
-        raise Rejected(404, "NO_SCENES")
-    ndvi, ndmi = analysis.medians(cur)
-    rel, z = analysis.zones(cur)
-    season = analysis.growing_season(cur.dates, ndvi)
-    stress = analysis.stress_periods(cur.dates, ndvi, ndmi, season)
-    t_cur = time.monotonic()
+            try:
+                prev = prev_future.result()
+            except Upstream as e:                        # o'tgan yil — qo'shimcha; usiz ham hisobot bor
+                log.warning("o'tgan yil yuklanmadi: %s", e)
+            if prev is not None and len(prev.dates) >= 3:
+                prev_ndvi, _ = analysis.medians(prev)
+            else:
+                prev = None
+        t_prev = time.monotonic()
 
-    prev, prev_ndvi = None, None
-    if prev_future:
-        try:
-            prev = prev_future.result()
-        except Upstream as e:                        # o'tgan yil — qo'shimcha; usiz ham hisobot bor
-            log.warning("o'tgan yil yuklanmadi: %s", e)
-        if prev is not None and len(prev.dates) >= 3:
-            prev_ndvi, _ = analysis.medians(prev)
-        else:
-            prev = None
-    t_prev = time.monotonic()
+        water = None
+        if season:
+            days, et0, rain = weather.daily(c.y, c.x, req.season_start, req.season_end)
+            water = weather.water_need(cur.dates, ndvi, season, days, et0, rain)
 
-    water = None
-    if season:
-        days, et0, rain = weather.daily(c.y, c.x, req.season_start, req.season_end)
-        water = weather.water_need(cur.dates, ndvi, season, days, et0, rain)
+        peak_date, peak = analysis.season_peak(cur.dates, ndvi, season)
+        prev_peak = None
+        if prev_ndvi is not None:
+            # O'sha mavsum bir yil oldin (±30 kun) — 2 hosilli dalada boshqa ekin bilan solishtirmaslik
+            ref = season or Period(start=req.season_start, end=req.season_end)
+            win = Period(start=ref.start - year - timedelta(days=30), end=ref.end - year + timedelta(days=30))
+            vals = [float(v) for d, v in zip(prev.dates, prev_ndvi) if win.start <= d <= win.end and not np.isnan(v)]
+            prev_peak = max(vals) if vals else None
 
-    peak_date, peak = analysis.season_peak(cur.dates, ndvi, season)
-    prev_peak = None
-    if prev_ndvi is not None:
-        # O'sha mavsum bir yil oldin (±30 kun) — 2 hosilli dalada boshqa ekin bilan solishtirmaslik
-        ref = season or Period(start=req.season_start, end=req.season_end)
-        win = Period(start=ref.start - year - timedelta(days=30), end=ref.end - year + timedelta(days=30))
-        vals = [float(v) for d, v in zip(prev.dates, prev_ndvi) if win.start <= d <= win.end and not np.isnan(v)]
-        prev_peak = max(vals) if vals else None
-
-    resp = AnalyzeResponse(
-        field_id=req.field_id,
-        area_ha=round(area_ha, 2),
-        country_code=countries.lookup(c.x, c.y),
-        centroid_lat=round(c.y, 6), centroid_lon=round(c.x, 6),
-        scenes_used=len(cur.dates), scenes_rejected_cloud=cur.rejected,
-        zones=Zones(**z),
-        peak_ndvi=round(peak, 3), peak_date=peak_date,
-        prev_year_peak_ndvi=round(prev_peak, 3) if prev_peak is not None else None,
-        growing_season=season, stress_periods=stress, water=water,
-        timeseries=[Point(date=d, ndvi=round(float(v), 3), ndmi=round(float(m), 3))
-                    for d, v, m in zip(cur.dates, ndvi, ndmi) if not np.isnan(v)],
-        recommendations=recommend(z, season, stress, peak, prev_peak, len(cur.dates)),
-        map_png_base64=render.zone_map(rel, cur.x, cur.y, poly_utm),
-        chart_png_base64=render.season_chart(cur.dates, ndvi, prev.dates if prev else None,
-                                             prev_ndvi, season, stress),
-    )
-    log.info("field=%s epsg=%s area=%.2fha scenes=%d/%d prev=%s load=%.1fs prev_wait=%.1fs total=%.1fs",
-             req.field_id, epsg, area_ha, len(cur.dates), cur.rejected,
-             len(prev.dates) if prev else "-", t_cur - t0, t_prev - t_cur, time.monotonic() - t0)
-    return resp
+        resp = AnalyzeResponse(
+            field_id=req.field_id,
+            area_ha=round(area_ha, 2),
+            country_code=countries.lookup(c.x, c.y),
+            centroid_lat=round(c.y, 6), centroid_lon=round(c.x, 6),
+            scenes_used=len(cur.dates), scenes_rejected_cloud=cur.rejected,
+            zones=Zones(**z),
+            peak_ndvi=round(peak, 3), peak_date=peak_date,
+            prev_year_peak_ndvi=round(prev_peak, 3) if prev_peak is not None else None,
+            growing_season=season, stress_periods=stress, water=water,
+            timeseries=[Point(date=d, ndvi=round(float(v), 3), ndmi=round(float(m), 3))
+                        for d, v, m in zip(cur.dates, ndvi, ndmi) if not np.isnan(v)],
+            recommendations=recommend(z, season, stress, peak, prev_peak, len(cur.dates)),
+            map_png_base64=render.zone_map(rel, cur.x, cur.y, poly_utm),
+            chart_png_base64=render.season_chart(cur.dates, ndvi, prev.dates if prev else None,
+                                                 prev_ndvi, season, stress),
+        )
+        log.info("field=%s epsg=%s area=%.2fha scenes=%d/%d prev=%s load=%.1fs prev_wait=%.1fs total=%.1fs",
+                 req.field_id, epsg, area_ha, len(cur.dates), cur.rejected,
+                 len(prev.dates) if prev else "-", t_cur - t0, t_prev - t_cur, time.monotonic() - t0)
+        return resp
 
 
 @app.post("/report/pdf")
@@ -164,24 +191,43 @@ class LatestNdviResponse(BaseModel):
 @app.post("/ndvi/latest", response_model=LatestNdviResponse)
 def ndvi_latest(req: LatestNdviRequest):
     """So'nggi 30 kundagi oxirgi ochiq sana — sug'orish modeli uchun Kc (har hafta yangilanadi)."""
-    poly = parse_polygon(req.geometry)
-    poly_utm, epsg = to_utm(poly)
-    check_area(poly_utm.area / 10_000)
-    end = date.today()
-    s = analysis.load_series(poly, poly_utm, epsg, end - timedelta(days=30), end)
-    if s is None or not s.dates:
-        raise Rejected(404, "NO_SCENES")
-    ndvi, _ = analysis.medians(s)
-    return LatestNdviResponse(ndvi=round(float(ndvi[-1]), 3), date=s.dates[-1], scenes=len(s.dates))
+    with heavy(60):
+        poly = parse_polygon(req.geometry)
+        poly_utm, epsg = to_utm(poly)
+        check_area(poly_utm.area / 10_000)
+        end = date.today()
+        s = analysis.load_series(poly, poly_utm, epsg, end - timedelta(days=30), end)
+        if s is None or not s.dates:
+            raise Rejected(404, "NO_SCENES")
+        ndvi, _ = analysis.medians(s)
+        return LatestNdviResponse(ndvi=round(float(ndvi[-1]), 3), date=s.dates[-1], scenes=len(s.dates))
+
+
+@app.post("/field/snapshot", response_model=snapshot.SnapshotResponse)
+def field_snapshot(req: snapshot.SnapshotRequest):
+    """R4: oxirgi ochiq surat — dala xaritasi (mutlaq NDVI) va sust joy markazi (~5–15 s)."""
+    with heavy(30):
+        poly = parse_polygon(req.geometry)
+        poly_utm, epsg = to_utm(poly)
+        check_area(poly_utm.area / 10_000)
+        return snapshot.snapshot(poly, poly_utm, epsg)
+
+
+@app.post("/boundary/detect", response_model=boundary.DetectResponse)
+def boundary_detect(req: boundary.DetectRequest):
+    """R2: nuqta (fermer dala ichiga bosdi) → dala chegarasi taklifi (Sentinel-2, ~5–15 s)."""
+    with heavy(20):
+        return boundary.detect(req)
 
 
 @app.post("/monitor", response_model=monitor.MonitorResponse)
 def monitor_check(req: monitor.MonitorRequest):
     """C3: since dan keyin yangi ochiq surat bo'lsa — oldingisi bilan piksel bo'yicha solishtirish."""
-    poly = parse_polygon(req.geometry)
-    poly_utm, epsg = to_utm(poly)
-    check_area(poly_utm.area / 10_000)
-    return monitor.check(req, poly, poly_utm, epsg)
+    with heavy(60):
+        poly = parse_polygon(req.geometry)
+        poly_utm, epsg = to_utm(poly)
+        check_area(poly_utm.area / 10_000)
+        return monitor.check(req, poly, poly_utm, epsg)
 
 
 def recommend(z: dict, season, stress, peak: float, prev_peak: float | None, scenes: int) -> list[Recommendation]:

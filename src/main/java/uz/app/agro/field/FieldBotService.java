@@ -30,6 +30,15 @@ public class FieldBotService {
     public record FieldCard(long id, String name, Crop crop, BigDecimal areaHa,
                             Long lastJobId, String lastJobStatus, LocalDateTime lastJobAt, Long lastDoneJobId) {}
 
+    /** Tarif limiti uchun band maydon (gektar); exceptFieldId — tahrirlanayotgan dala (hisoblanmaydi), yo'q — null */
+    public BigDecimal usedHa(long farmerId, Long exceptFieldId) {
+        return fieldRepository.sumAreaHa(farmerId, exceptFieldId != null ? exceptFieldId : -1L);
+    }
+
+    public boolean hasFields(long telegramUserId) {
+        return fieldRepository.existsByFarmerTelegramUserId(telegramUserId);
+    }
+
     public List<FieldCard> list(long telegramUserId) {
         List<FieldEntity> fields = fieldRepository.findByFarmerTelegramUserIdOrderByIdDesc(telegramUserId);
         if (fields.isEmpty()) return List.of();
@@ -52,6 +61,15 @@ public class FieldBotService {
     public Optional<Boundary> boundary(long telegramUserId, long fieldId) {
         return owned(telegramUserId, fieldId).map(f -> new Boundary(f.getName(), f.getCrop(),
                 ((List<List<List<Number>>>) f.getBoundaryGeojson().get("coordinates")).getFirst()));
+    }
+
+    /** Mini App'da kulrang ko'rinadigan boshqa dalalar chegarasi (yangilari oldin); exceptId — tahrirlanayotgan dala */
+    @SuppressWarnings("unchecked")
+    public List<List<List<Number>>> rings(long telegramUserId, Long exceptId) {
+        return fieldRepository.findByFarmerTelegramUserIdOrderByIdDesc(telegramUserId).stream()
+                .filter(f -> !f.getId().equals(exceptId))
+                .map(f -> ((List<List<List<Number>>>) f.getBoundaryGeojson().get("coordinates")).getFirst())
+                .toList();
     }
 
     /** Almashlab ekish: dala chegarasi o'sha, ekin yangi (g'alladan keyin mosh/poliz) */

@@ -19,8 +19,6 @@ import uz.app.agro.notification.NotificationService;
 import uz.app.agro.settings.Setting;
 import uz.app.agro.settings.SettingsService;
 
-import java.time.format.DateTimeFormatter;
-
 /**
  * Do'st faollashdi → (tahlil tranzaksiyasi commit bo'lgach) mukofot hisobi YANGI tranzaksiyada; fermerga xabar —
  * shu tranzaksiyada outbox'ga (mukofot va xabar birga commit). Tahlil natijasi mukofot xatosiga bog'liq emas.
@@ -29,8 +27,6 @@ import java.time.format.DateTimeFormatter;
 @Component
 @RequiredArgsConstructor
 class ReferralRewarder {
-
-    private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("dd.MM.yyyy");
 
     private final FarmerRepository farmerRepository;
     private final ReferralRewardRepository rewardRepository;
@@ -82,9 +78,9 @@ class ReferralRewarder {
                 auditService.event(AuditEvent.REFERRAL_REWARDED).target("FARMER", referrerId)
                         .detail("subscriptionId", g.subscriptionId()).detail("plan", plan)
                         .detail("validUntil", g.validUntil().toString()).record();
-                // Raqamlar String — MessageFormat 30 ni "30" qoldirsin, sanani o'zimiz formatlaymiz
+                // Raqamlar String — MessageFormat 30 ni "30" qoldirsin; sana LocalDate — NotificationService fermer tilida yozadi
                 notifications.enqueueMessage(referrerId, NotificationCategory.REFERRAL, "ref.rewarded",
-                        g.planName(), String.valueOf(days), g.validUntil().format(DAY));
+                        g.planName(), String.valueOf(days), g.validUntil());
                 rewards++;
                 free -= required;
             }

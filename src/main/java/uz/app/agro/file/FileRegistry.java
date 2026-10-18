@@ -48,13 +48,25 @@ public class FileRegistry {
     /** Fayl va metadata — tranzaksiyadan tashqarida ishlatish uchun (masalan Telegram'ga yuborish) */
     public record Content(FileResponse info, byte[] bytes) {}
 
+    /** Rasm (JPG/PNG) yoki PDF — fermer fayllari, xodim yuklashi, tizim rasmlari. MP4 — faqat storeVideo */
     public FileResponse store(byte[] input, String originalName, Uploader by) {
+        return store(input, originalName, by, false);
+    }
+
+    /** Faqat MP4 (yo'riqnoma videosi) — boshqa yo'llarda video qabul qilinmaydi */
+    public FileResponse storeVideo(byte[] input, String originalName, Uploader by) {
+        return store(input, originalName, by, true);
+    }
+
+    private FileResponse store(byte[] input, String originalName, Uploader by, boolean video) {
         if (input == null || input.length == 0) throw new BadRequestException("Fayl bo'sh");
         if (input.length > props.maxSize().toBytes()) {
             throw new BadRequestException("Fayl juda katta — ko'pi bilan " + props.maxSize().toMegabytes() + " MB");
         }
         FileTypes type = FileTypes.detect(input)
-                .orElseThrow(() -> new BadRequestException("Faqat JPG, PNG rasm yoki PDF hujjat yuklash mumkin"));
+                .filter(t -> video == (t == FileTypes.MP4))
+                .orElseThrow(() -> new BadRequestException(video ? "Faqat MP4 video yuklash mumkin"
+                        : "Faqat JPG, PNG rasm yoki PDF hujjat yuklash mumkin"));
         byte[] bytes = input;
         Integer width = null, height = null;
         if (type.image) {

@@ -10,6 +10,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import uz.app.agro.billing.dto.*;
 import uz.app.agro.common.PageResponse;
@@ -27,6 +28,7 @@ public class BillingController {
     private static final Set<String> SORTABLE = Set.of("validUntil", "paidAt", "createdDate", "id");
 
     private final BillingService billingService;
+    private final DiscountService discountService;
 
     @Operation(summary = "Tariflar", description = "Huquq: `billing:read`. FREE — to'lov yo'q bo'lganda qo'llanadi")
     @GetMapping("/plans")
@@ -46,6 +48,37 @@ public class BillingController {
     @PutMapping("/plans/{id}")
     public PlanResponse updatePlan(@PathVariable Long id, @Valid @RequestBody PlanRequest body) {
         return billingService.updatePlan(id, body);
+    }
+
+    @Operation(summary = "Chegirmalar", description = "Huquq: `billing:read`")
+    @GetMapping("/discounts")
+    public List<DiscountResponse> discounts() {
+        return discountService.list();
+    }
+
+    @Operation(summary = "Chegirma yaratish", description = "Huquq: `billing:manage`. Foiz 1–90; audiences — FREE/TRIAL/PAID/EXPIRED")
+    @PostMapping("/discounts")
+    @ResponseStatus(HttpStatus.CREATED)
+    public DiscountResponse createDiscount(@Valid @RequestBody DiscountRequest body) {
+        return discountService.create(body);
+    }
+
+    @Operation(summary = "Chegirmani o'zgartirish / o'chirish (active=false)", description = "Huquq: `billing:manage`")
+    @PutMapping("/discounts/{id}")
+    public DiscountResponse updateDiscount(@PathVariable Long id, @Valid @RequestBody DiscountRequest body) {
+        return discountService.update(id, body);
+    }
+
+    @Operation(summary = "Fermer uchun mavsumiy obuna taklifi", description = "Huquq: `billing:read`. Yo'q bo'lsa — 204")
+    @GetMapping("/farmers/{id}/season-offer")
+    public ResponseEntity<SeasonOffer> seasonOffer(@PathVariable Long id) {
+        return discountService.seasonOfferFor(id).map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    @Operation(summary = "Fermer uchun tarif narxlari (chegirma bilan)", description = "Huquq: `billing:read`")
+    @GetMapping("/farmers/{id}/prices")
+    public List<PlanPrice> prices(@PathVariable Long id) {
+        return discountService.pricesFor(id);
     }
 
     @Operation(summary = "Fermerning bugungi tarifi va limitlari", description = "Huquq: `billing:read`")

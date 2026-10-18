@@ -14,9 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableEmpty, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
-import { billingApi, farmersApi, referralsApi } from '@/api'
+import { billingApi, farmersApi, problemsApi, referralsApi } from '@/api'
 import { errorMessage } from '@/api/http'
-import type { FarmerDetail, FarmerReferral, LeadStatus, Subscription } from '@/api/types'
+import type { FarmerDetail, FarmerReferral, LeadStatus, ProblemItem, Subscription } from '@/api/types'
 import { fmtDate, fmtDateTime, fmtMoney, fmtNum } from '@/lib/format'
 import { CROP, IRRIGATION, LANG, LEAD, P, PAYMENT, WATER } from '@/lib/labels'
 import { useAuth } from '@/stores/auth'
@@ -35,6 +35,9 @@ const savingLead = ref(false)
 
 const payOpen = ref(false)
 
+// Shu fermerning ochiq muammolari (xatolar) — oxirgi 5 tasi; to'liq ro'yxat — /problems?farmerId=
+const problems = ref<{ items: ProblemItem[]; total: number } | null>(null)
+
 const cancelTarget = ref<Subscription | null>(null)
 const cancelReason = ref('')
 
@@ -42,6 +45,10 @@ async function load() {
   try {
     farmer.value = await farmersApi.get(id)
     if (auth.can(P.REFERRAL_READ)) referralsApi.forFarmer(id).then((r) => (referral.value = r)).catch(() => {})
+    if (auth.can(P.PROBLEMS_READ)) {
+      problemsApi.list({ state: 'OPEN', farmerId: id, size: 5 })
+        .then((p) => (problems.value = { items: p.content, total: p.totalElements })).catch(() => {})
+    }
     lead.status = farmer.value.leadStatus
     lead.note = farmer.value.leadNote ?? ''
     if (auth.can(P.BILLING_READ)) {
@@ -126,7 +133,7 @@ onMounted(load)
             <StatusBadge :tone="farmer.plan.paid ? 'green' : 'gray'" :label="farmer.plan.paid ? 'Pullik' : 'Bepul'" />
           </div>
           <div class="text-muted-foreground grid grid-cols-2 gap-1">
-            <span>Maks. maydon</span><span class="text-foreground text-right">{{ fmtNum(farmer.plan.maxFieldHa) }} ga</span>
+            <span>Jami maydon</span><span class="text-foreground text-right">{{ farmer.plan.maxTotalHa != null ? `${fmtNum(farmer.plan.maxTotalHa)} ga` : "cheksiz" }}</span>
             <span>Dalalar</span><span class="text-foreground text-right">{{ farmer.fields.length }} / {{ farmer.plan.maxFields ?? '∞' }}</span>
             <span>Tahlillar</span><span class="text-foreground text-right">{{ farmer.plan.usedAnalyses }} / {{ farmer.plan.maxAnalyses ?? '∞' }}</span>
           </div>
@@ -163,6 +170,23 @@ onMounted(load)
               <TableEmpty v-if="!farmer.fields.length" :colspan="4">Dala yoʻq</TableEmpty>
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+
+      <Card v-if="problems && problems.total" class="lg:col-span-3 border-red-200 dark:border-red-900">
+        <CardHeader>
+          <CardTitle class="text-base">Muammolar ({{ problems.total }})</CardTitle>
+          <CardDescription>Shu fermerda chiqqan, hali hal qilinmagan xatolar</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ul class="divide-y rounded-lg border text-sm">
+            <li v-for="p in problems.items" :key="p.id" class="flex items-center gap-3 px-3 py-2">
+              <span :class="['size-2 shrink-0 rounded-full', p.level === 'ERROR' ? 'bg-red-500' : 'bg-amber-400']" />
+              <span class="min-w-0 flex-1 truncate" :title="p.message">{{ p.message }}</span>
+              <span class="text-muted-foreground shrink-0 text-xs">{{ p.occurrences }}× · {{ fmtDateTime(p.lastSeen) }}</span>
+            </li>
+          </ul>
+          <RouterLink :to="`/problems?farmerId=${id}`" class="text-primary mt-2 inline-block text-sm hover:underline">Hammasini koʻrish →</RouterLink>
         </CardContent>
       </Card>
 

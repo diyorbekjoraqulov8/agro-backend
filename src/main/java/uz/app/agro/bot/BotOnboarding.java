@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+import uz.app.agro.billing.TrialService;
 import uz.app.agro.farmer.FarmerRegistrationService;
 import uz.app.agro.farmer.FarmerSnapshot;
 import uz.app.agro.farmer.IrrigationType;
@@ -16,6 +17,7 @@ import uz.app.agro.onboarding.OnboardingStepEntity;
 import uz.app.agro.onboarding.OnboardingService.Step;
 import uz.app.agro.onboarding.dto.StepOption;
 
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +48,8 @@ public class BotOnboarding {
     private final BotMenu menu;
     private final FarmerRegistrationService farmers;
     private final FieldBotService fields;
+    private final BotTutorial tutorial;
+    private final TrialService trials;
 
     static boolean isLegacy(BotStep step) {
         return LEGACY_STEP.containsKey(step);
@@ -61,42 +65,47 @@ public class BotOnboarding {
                 if (flow.get(i).question() && !onboarding.answered(flow.get(i), f, answers)) { from = i; break; }
             }
         }
-        run(tg, chatId, lang, name, START, flow, from);
+        run(tg, chatId, lang, name, START, flow, from, f.created());
     }
 
     /** ⚙️ → 📝 Ma'lumotlarim: barcha savollar qaytadan (eski javoblar menyu bosilsa saqlanib qoladi) */
     public void beginProfile(long tg, long chatId, String lang) {
         sender.send(chatId, messages.text(lang, "profile.edit"), null);
-        run(tg, chatId, lang, "", PROFILE, onboarding.flow(), firstQuestion(onboarding.flow()));
+        run(tg, chatId, lang, "", PROFILE, onboarding.flow(), firstQuestion(onboarding.flow()), false);
     }
 
     /**
      * Ketma-ket: xabarlar yuboriladi, birinchi so'raladigan savolda to'xtaydi (javobni kutadi).
      * start: javob berilgan savollar o'tkaziladi; profile: xabarlar o'tkaziladi, barcha savollar so'raladi.
+     * @param video — yangi fermer: salomlashish xabaridan keyin yo'riqnoma videosi (birinchi savoldan oldin)
      */
-    private void run(long tg, long chatId, String lang, String name, String mode, List<Step> flow, int from) {
+    private void run(long tg, long chatId, String lang, String name, String mode, List<Step> flow, int from, boolean video) {
         FarmerSnapshot f = farmers.find(tg).orElse(null);
         if (f == null) return;
+        boolean videoPending = video;
         Map<String, String> answers = onboarding.answers(tg);
         for (int i = Math.max(0, from); i < flow.size(); i++) {
             Step s = flow.get(i);
             if (!s.question()) {
                 if (PROFILE.equals(mode)) continue;
                 if (OnboardingStepEntity.FINISH.equals(s.code())) {
-                    finish(tg, chatId, lang, name, s);
+                    if (videoPending) tutorial.send(chatId, lang);
+                    finish(tg, chatId, lang, name, s, true);
                     return;
                 }
                 sender.send(chatId, render(s.text(lang), name), null);
+                if (videoPending) { tutorial.send(chatId, lang); videoPending = false; }
                 continue;
             }
             if (START.equals(mode) && onboarding.answered(s, f, answers)) continue;
+            if (videoPending) { tutorial.send(chatId, lang); videoPending = false; }
             states.enterOnboarding(tg, s.code(), mode);
             ask(chatId, lang, s, flow);
             return;
         }
         // Savollar tugadi (FINISH yo'q yoki profile rejimi)
         if (PROFILE.equals(mode)) stop(tg, chatId, lang, true);
-        else finish(tg, chatId, lang, name, null);
+        else finish(tg, chatId, lang, name, null, true);
     }
 
     private void ask(long chatId, String lang, Step s, List<Step> flow) {
@@ -114,7 +123,7 @@ public class BotOnboarding {
         List<Step> flow = onboarding.flow();
         Optional<Step> s = flow.stream().filter(x -> x.code().equals(code) && x.question()).findFirst();
         if (s.isEmpty()) {                            // admin o'chirgan savol — keyingisidan davom
-            run(tg, chatId, lang, "", mode, flow, firstQuestion(flow));
+            run(tg, chatId, lang, "", mode, flow, firstQuestion(flow), false);
             return;
         }
         states.enterOnboarding(tg, code, mode);
@@ -153,25 +162,39 @@ public class BotOnboarding {
         List<Step> flow = onboarding.flow();
         int i = 0;
         while (i < flow.size() && !flow.get(i).code().equals(code)) i++;
-        run(tg, chatId, lang, "", mode, flow, i + 1);
+        run(tg, chatId, lang, "", mode, flow, i + 1, false);
     }
 
     /**
      * Yakun: "dalani belgilang" + inline 🗺 (Mini App → HTTP). Inline sozlanmagan bo'lsa — matn ostida pastki menyu
-     * (🗺 Yangi dala tugmasi). Ikkala holatda ham fermer keyingi qadamni ko'radi — oqim to'xtab qolmaydi.
+     * (🛰 Dalani tekshirish tugmasi). Ikkala holatda ham fermer keyingi qadamni ko'radi — oqim to'xtab qolmaydi.
+     * @param registration true — ro'yxatdan o'tish tugadi (Pro sinovi shu yerda); false — 📝 Ma'lumotlarim tahriri
      */
-    private void finish(long tg, long chatId, String lang, String name, Step finishStep) {
+    private void finish(long tg, long chatId, String lang, String name, Step finishStep, boolean registration) {
         boolean hasFields = !fields.list(tg).isEmpty();
         states.moveTo(tg, hasFields ? BotStep.REPORTED : BotStep.WAIT_POLYGON);
         String text = finishStep != null ? render(finishStep.text(lang), name) : messages.text(lang, "ask.polygon");
         InlineKeyboardMarkup inline = menu.mapInline(chatId, lang);
+        menu.syncChatButton(chatId, lang);
         if (inline != null) {
             sender.send(chatId, text, inline);
             sender.send(chatId, messages.text(lang, "onboarding.menuHint"), menu.keyboard(chatId, lang));
         } else {
             sender.send(chatId, text + "\n\n" + messages.text(lang, "onboarding.useMenuButton"), menu.keyboard(chatId, lang));
         }
+        if (registration) offerTrial(tg, chatId, lang);
         log.info("onboarding tugadi (tg {}), inline={}", tg, inline != null);
+    }
+
+    /** Yangi fermerga Pro sinovi (admin yoqqan bo'lsa) — xato bo'lsa ham ro'yxatdan o'tish buzilmasin */
+    private void offerTrial(long tg, long chatId, String lang) {
+        try {
+            farmers.find(tg).flatMap(f -> trials.grantIfEligible(f.id())).ifPresent(g -> sender.send(chatId,
+                    messages.text(lang, "trial.started", String.valueOf(ChronoUnit.DAYS.between(g.validFrom(), g.validUntil()) + 1),
+                            g.planName(), BotMessages.date(lang, g.validUntil())), null));
+        } catch (RuntimeException e) {
+            log.error("Pro sinovi berilmadi (tg {})", tg, e);
+        }
     }
 
     /** Tahrir to'xtadi (menyu bosildi yoki savollar tugadi) — dalasi bor: menyu, yo'q: dala chizish */
@@ -180,7 +203,7 @@ public class BotOnboarding {
         states.moveTo(tg, hasFields ? BotStep.REPORTED : BotStep.WAIT_POLYGON);
         if (!announce) return;
         if (hasFields) sender.send(chatId, messages.text(lang, "profile.saved"), menu.keyboard(chatId, lang));
-        else finish(tg, chatId, lang, "", null);
+        else finish(tg, chatId, lang, "", null, false);
     }
 
     private List<String> labels(String lang, Step s) {

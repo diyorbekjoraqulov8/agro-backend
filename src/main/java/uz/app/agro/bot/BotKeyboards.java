@@ -30,7 +30,7 @@ public class BotKeyboards {
     // Dalalar va hisobot: f* — dala id, r* — tahlil (job) id. Egalik service'da tekshiriladi
     static final String FIELDS = "fl", FIELD_VIEW = "fv:", FIELD_REPORT = "fp:", FIELD_REANALYZE = "fr:",
             FIELD_EDIT = "fe:", FIELD_DELETE = "fd:", FIELD_DELETE_YES = "fy:", REPORT_PDF = "rp:", REPORT_CSV = "rc:",
-            FIELD_CROP = "fc:", FIELD_CROP_SET = "fk:";
+            FIELD_CROP = "fc:", FIELD_CROP_SET = "fk:", FIELD_SNAPSHOT = "fn:", FIELD_GO_WEAK = "fg:";
     // Murojaat: tur "fb:PROBLEM"; suhbat — fw:<id> (javob yozish), fx:<id> (yakunlash), fs:<id>:<1-5> (baho)
     static final String FEEDBACK = "fb:", FEEDBACK_WRITE = "fw:", FEEDBACK_END = "fx:", FEEDBACK_RATE = "fs:";
     // Onboarding javobi: "ob:CROP:COTTON"
@@ -38,36 +38,60 @@ public class BotKeyboards {
     // AI maslahat: dala tanlash "av:<fieldId>" (0 — dalasiz)
     static final String ADVISOR = "av:";
 
+    /**
+     * Mini App URL'ining umumiy chegarasi (encode qilingan): boshqa dalalar qolgan joyga sig'gancha qo'shiladi.
+     * Telegram web_app URL limitini hujjatlamagan — 4 KB ehtiyotkor qiymat (tahrirdagi 200 nuqtali poly ~2 KB)
+     */
+    private static final int URL_MAX_CHARS = 4000;
+
     private final BotMessages messages;
     private final TelegramProperties props;
+    private final MiniAppToken tokens;
 
     public boolean miniAppConfigured() {
         return props.miniappUrl() != null && !props.miniappUrl().isEmpty();
     }
 
     /**
-     * Asosiy menyu — DOIMIY reply keyboard: "🗺 Yangi dala" (Mini App) va "📋 Dalalarim".
-     * Xizmat bir martalik emas — tahlildan keyin ham yangi dala qo'shish/boshqarish mumkin.
+     * Asosiy menyu — DOIMIY reply keyboard: admin yoqib qo'ygan bo'limlar. "🛰 Dalani tekshirish" (Mini App) — yolg'iz,
+     * eng tepada butun qator (birinchi kirgan fermer nima bosishni darhol ko'rsin), qolgani tartib bilan ikkitadan.
      */
-    public ReplyKeyboardMarkup mainMenu(String lang, BigDecimal maxHa, Crop defaultCrop) {
-        KeyboardButton newField = new KeyboardButton(messages.text(lang, "menu.newField"));
-        // crop — Mini App'dagi ekin tanlovining boshlang'ich qiymati (fermerning asosiy ekini)
-        if (miniAppConfigured()) newField.webAppInfo(new WebAppInfo(miniAppUrl(lang, maxHa,
-                defaultCrop != null ? "&crop=" + defaultCrop.name() : null)));
-        // Bo'limlar: dalalar · sug'orish va ob-havo · AI maslahat va yordam · do'stlar va tariflar · sozlamalar va qo'llanma.
-        // Keyingi faza (C5) — dala daftari
-        return new ReplyKeyboardMarkup(
-                new KeyboardButton[]{newField, button(lang, "menu.myFields")},
-                new KeyboardButton[]{button(lang, "menu.irrigation"), button(lang, "menu.weather")},
-                new KeyboardButton[]{button(lang, "menu.advisor"), button(lang, "menu.feedback")},
-                new KeyboardButton[]{button(lang, "menu.friends"), button(lang, "menu.plans")},
-                new KeyboardButton[]{button(lang, "menu.settings"), button(lang, "menu.help")})
+    ReplyKeyboardMarkup mainMenu(long tg, String lang, BigDecimal maxHa, Crop defaultCrop, List<BotSection> sections,
+                                 List<List<List<Number>>> otherFields) {
+        List<KeyboardButton[]> rows = new ArrayList<>();
+        KeyboardButton pending = null;
+        for (BotSection section : sections) {
+            KeyboardButton b = button(lang, section.label);
+            // crop — Mini App'dagi ekin tanlovining boshlang'ich qiymati (fermerning asosiy ekini)
+            if (section == BotSection.NEW_FIELD && miniAppConfigured()) b.webAppInfo(new WebAppInfo(withOthers(
+                    miniAppUrl(lang, maxHa, (defaultCrop != null ? "&crop=" + defaultCrop.name() : "") + apiParams(tg)), otherFields)));
+            if (section == BotSection.NEW_FIELD) {
+                rows.add(new KeyboardButton[]{b});
+            } else if (pending == null) {
+                pending = b;
+            } else {
+                rows.add(new KeyboardButton[]{pending, b});
+                pending = null;
+            }
+        }
+        if (pending != null) rows.add(new KeyboardButton[]{pending});
+        return new ReplyKeyboardMarkup(rows.toArray(KeyboardButton[][]::new))
                 .resizeKeyboard(true)
                 .isPersistent(true);
     }
 
     private KeyboardButton button(String lang, String key) {
         return new KeyboardButton(messages.text(lang, key));
+    }
+
+    /**
+     * Chat yonidagi "🛰 Tahlil qilish" (MenuButtonWebApp) uchun Mini App URL'i. Bu yo'ldan ochilgan Mini App'da initData BOR —
+     * tarif limiti, ekin va boshqa dalalarni o'zi so'raydi (POST /miniapp/context), dalani HTTP bilan yuboradi.
+     * Shuning uchun URL'da faqat til va API manzili (dalalar o'zgarsa tugmani qayta o'rnatish shart emas). Sozlanmagan — null
+     */
+    String menuButtonUrl(String lang) {
+        if (!props.inlineMapEnabled()) return null;
+        return miniAppUrl(lang, null, "&api=" + URLEncoder.encode(props.publicApiUrl(), StandardCharsets.UTF_8));
     }
 
     /** Onboarding: inline "🗺 Dalani xaritada belgilash" (Mini App → HTTP, initData imzosi). Sozlanmagan — null */
@@ -138,22 +162,40 @@ public class BotKeyboards {
     public InlineKeyboardMarkup feedbackKinds(String lang) {
         InlineKeyboardMarkup kb = new InlineKeyboardMarkup();
         for (FeedbackKind k : FeedbackKind.values()) {
+            if (!k.farmerSelectable()) continue;
             kb.addRow(new InlineKeyboardButton(messages.text(lang, "btn.fb." + k.name())).callbackData(FEEDBACK + k.name()));
         }
         return kb;
     }
 
     /** Tahrirlash: Mini App eski chegara bilan ochiladi (sendData uchun yana REPLY tugma). */
-    public ReplyKeyboardMarkup editMap(String lang, BigDecimal maxHa, long fieldId, String name, Crop crop, List<List<Number>> ring) {
-        String extra = "&fieldId=" + fieldId + "&name=" + URLEncoder.encode(name, StandardCharsets.UTF_8)
+    public ReplyKeyboardMarkup editMap(long tg, String lang, BigDecimal maxHa, long fieldId, String name, Crop crop, List<List<Number>> ring,
+                                       List<List<List<Number>>> otherFields) {
+        String extra = apiParams(tg) + "&fieldId=" + fieldId + "&name=" + URLEncoder.encode(name, StandardCharsets.UTF_8)
                 + "&crop=" + crop.name()
                 + "&poly=" + URLEncoder.encode(Polyline.encode(ring), StandardCharsets.UTF_8);
         return new ReplyKeyboardMarkup(
                 new KeyboardButton[]{new KeyboardButton(messages.text(lang, "field.editButton", name))
-                        .webAppInfo(new WebAppInfo(miniAppUrl(lang, maxHa, extra)))},
+                        .webAppInfo(new WebAppInfo(withOthers(miniAppUrl(lang, maxHa, extra), otherFields)))},
                 new KeyboardButton[]{new KeyboardButton(messages.text(lang, "menu.cancel"))})
                 .resizeKeyboard(true)
                 .isPersistent(true);
+    }
+
+    /**
+     * Pastki menyu tugmasidan ochilgan Mini App'da initData yo'q: "🪄 bosib belgilash" uchun API manzili va imzolangan token.
+     * PUBLIC_API_URL (https) bo'lmasa — bo'sh (🪄 tugmasi ko'rinmaydi)
+     */
+    private String apiParams(long tg) {
+        if (!props.inlineMapEnabled()) return "";
+        return "&api=" + URLEncoder.encode(props.publicApiUrl(), StandardCharsets.UTF_8) + "&tk=" + tokens.sign(tg);
+    }
+
+    /** Fermerning boshqa dalalari — Mini App kulrang chizadi (takror chizilmasin, ustma-ust tushsa ogohlantiradi) */
+    private static String withOthers(String url, List<List<List<Number>>> rings) {
+        if (rings == null || rings.isEmpty()) return url;
+        String all = Polyline.encodeAll(rings, URL_MAX_CHARS - url.length() - "&others=".length());
+        return all.isEmpty() ? url : url + "&others=" + URLEncoder.encode(all, StandardCharsets.UTF_8);
     }
 
     private String miniAppUrl(String lang, BigDecimal maxHa, String extra) {
@@ -179,6 +221,7 @@ public class BotKeyboards {
         } else {
             kb.addRow(new InlineKeyboardButton(messages.text(lang, "btn.reanalyze")).callbackData(FIELD_REANALYZE + f.id()));
         }
+        kb.addRow(new InlineKeyboardButton(messages.text(lang, "btn.snapshot")).callbackData(FIELD_SNAPSHOT + f.id()));
         kb.addRow(new InlineKeyboardButton(messages.text(lang, "btn.edit")).callbackData(FIELD_EDIT + f.id()),
                 new InlineKeyboardButton(messages.text(lang, "btn.changeCrop")).callbackData(FIELD_CROP + f.id()));
         kb.addRow(new InlineKeyboardButton(messages.text(lang, "btn.delete")).callbackData(FIELD_DELETE + f.id()));

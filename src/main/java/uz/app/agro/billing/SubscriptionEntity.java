@@ -60,6 +60,10 @@ public class SubscriptionEntity {
     @Column(columnDefinition = "text")
     private String note;
 
+    /** Qaysi chegirma bilan (V38); null — chegirmasiz */
+    @Column(name = "discount_id")
+    private Long discountId;
+
     @Column(name = "recorded_by_id")
     private Long recordedById;
 

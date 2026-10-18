@@ -1,0 +1,19 @@
+# Image'ga sir va keraksiz narsa tushmasin
+.git
+.gradle
+.idea
+build
+storage
+.env
+.env.*
+**/keys
+admin/node_modules
+admin/dist
+satellite-service/.venv
+satellite-service/test
+miniapp
+docs
+brand
+deploy/.env.prod
+deploy/secrets
+deploy/backups

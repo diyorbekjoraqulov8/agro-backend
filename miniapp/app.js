@@ -16,22 +16,40 @@ const MIN_DRAW_ZOOM = 13;                   // undan uzoqda bosish — tasodif (
 const BRAND = '#137d41';                    // admin panel asosiy rangi
 // Tarif limiti — bot URL'ga qo'shadi (?maxHa=20). Faqat UX: haqiqiy tekshiruv serverda
 const params0 = new URLSearchParams(location.search);
-const MAX_HA = Math.min(500, Math.max(MIN_HA, Number(params0.get('maxHa')) || 500));
+// 0 — tarifdagi jami maydon to'lgan ("full" xabari; || 500 bo'lsa 0 "cheksiz"ga aylanardi); yo'q/noto'g'ri — 500
+// (faqat UX — server baribir tekshiradi)
+const clampHa = (v) => {
+  const n = v == null || v === '' ? NaN : Number(v);
+  if (Number.isFinite(n) && n < MIN_HA) return 0;
+  return Math.min(500, Number.isFinite(n) ? n : 500);
+};
+let MAX_HA = clampHa(params0.get('maxHa'));   // chat tugmasidan ochilsa — /miniapp/context dan keladi
 const MAX_BYTES = 4000;
 
 const T = {
   uz: { name: 'Dala nomi', defaultName: 'Mening dalam', locating: 'Hudud aniqlanmoqda…',
         crops: { COTTON: 'Paxta', WHEAT: 'Bugʻdoy', CORN: 'Makkajoʻxori', RICE: 'Sholi', ALFALFA: 'Beda', VEGETABLES: 'Sabzavot / poliz', ORCHARD: 'Bogʻ', OTHER: 'Boshqa' },
-        send: 'Yuborish', area: 'Maydon: {0} ga', points: '{0} ta nuqta', needMore: 'Kamida 3 ta nuqta qoʻying',
-        small: 'Juda kichik: kamida {0} ga', large: 'Juda katta: koʻpi bilan {0} ga', cross: 'Chegara chiziqlari kesishmasin',
+        send: 'Yuborish', area: 'Maydon: {0} gektar', points: '{0} ta nuqta', needMore: 'Kamida 3 ta nuqta qoʻying',
+        small: 'Dala juda kichik: kamida {0} gektar', large: 'Dala juda katta: tarifingiz boʻyicha bu dala koʻpi bilan {0} gektar boʻla oladi', full: 'Tarifingizdagi jami maydon toʻlgan — yangi dala uchun tarifni oshiring yoki keraksiz dalani oʻchiring', cross: 'Chegara chiziqlari kesishmasin',
         tooMany: 'Nuqtalar koʻp (≤ {0})', bytes: 'Chegara juda murakkab — kamroq nuqta bilan chizing',
         browser: 'Brauzerda sinov rejimi (Telegram tashqarisida)',
         steps: ['1 · Joyni toping', '2 · Burchaklar', '3 · Yuborish'],
         hintFind: '<b>1-qadam:</b> dalangiz joylashgan qishloq yoki mahallani toping — 🔍 qidiruv yoki ◎ joylashuvim.',
         hintZoom: '<b>Kattalashtiring</b> — ikki barmoq bilan yaqinlashtiring, dalangiz aniq koʻrinsin.',
-        hintDraw: '<b>2-qadam:</b> dala burchaklarini ketma-ket bosing. Nuqtani surib toʻgʻrilash mumkin.',
+        hintDraw: '<b>2-qadam:</b> dala burchaklarini ketma-ket bosing. Nuqtani surib toʻgʻrilang, <b>＋</b> — oraga nuqta qoʻshish, nuqtani bosib 🗑 — oʻchirish.',
+        hintSel: '<b>Nuqta tanlandi:</b> 🗑 — oʻchirish. Xaritaning boshqa joyini bossangiz — bekor.',
+        overlap: '⚠️ Bu chegara boshqa dalangiz ustiga tushyapti. Bitta dalani ikki marta qoʻshmang — eskisini «📋 Dalalarim» dan tahrirlang.',
+        wandHint: ' Tezroq: <b>🪄</b> ni bosing va dala ichiga bir marta teging.',
+        wandOn: '<b>🪄 Bosib belgilash:</b> dalangiz ichiga bir marta teging — chegarani sunʼiy yoʻldosh suratidan topaman.',
+        wandBusy: '🛰 Chegara aniqlanmoqda… 10–20 soniya', wandOk: '✅ Chegara topildi: {0} gektar. Tekshiring, kerak boʻlsa nuqtalarni suring',
+        wandLow: '⚠️ Chegara taxminiy — diqqat bilan tekshirib, nuqtalarni toʻgʻrilang',
+        wandErr: { NO_SCENES: 'Bu joy uchun yangi surat yoʻq — burchaklarni qoʻlda bosing', NO_CLEAR_SCENE: 'Soʻnggi suratlarda bulut — burchaklarni qoʻlda bosing',
+          POINT_NOT_CLEAR: 'Bu nuqtada surat aniq emas — dalaning oʻrtasiga bosing', POINT_IS_WATER: 'Bu yer suv (koʻl, kanal) — dalangiz ichiga bosing', AREA_TOO_SMALL: 'Dala juda kichik — qoʻlda chizing',
+          AREA_TOO_LARGE: 'Juda katta hudud chiqdi — qoʻlda chizing', NOT_FOUND: 'Chegara topilmadi — qoʻlda chizing',
+          RATE_LIMIT: 'Urinishlar koʻp — birozdan keyin yoki qoʻlda chizing', NOT_REGISTERED: 'Avval botda /start bosing', UNAVAILABLE: 'Server band — bir daqiqadan keyin yoki qoʻlda chizing', BUSY: 'Server band — bir daqiqadan keyin urinib koʻring',
+          AUTH: 'Sessiya eskirgan — botga qaytib, tugmani qayta bosing', _: 'Aniqlab boʻlmadi — burchaklarni qoʻlda bosing' },
         hintReady: '<b>3-qadam:</b> tayyor boʻlsa pastdagi «Yuborish» tugmasini bosing.',
-        hintEdit: 'Nuqtalarni surib chegarani toʻgʻrilang. ↶ — oxirgi nuqtani olib tashlash, ✕ — boshidan chizish.',
+        hintEdit: 'Nuqtalarni surib chegarani toʻgʻrilang. <b>＋</b> — oraga nuqta qoʻshish, nuqtani bosib 🗑 — oʻchirish, ↶ — oxirgisini olib tashlash, ✕ — boshidan chizish.',
         bar: 'Dalangiz qayerda? Qishloq, mahalla, tuman…', barNear: 'Shu atrofdan: koʻcha, maktab, masjid…',
         sheetTitle: 'Dalangiz qayerda?', sheetSub: 'Joylashuvingizni aniqlaymiz yoki qishloq / mahalla nomini yozing',
         q: 'Qishloq, mahalla, tuman, shahar…', qNear: 'Koʻcha, maktab, masjid, joy nomi…',
@@ -44,19 +62,30 @@ const T = {
         geoSettings: 'Sozlamalarni ochish',
         here: 'Siz turgan joy', accuracy: 'Aniqlik ~{0} m', zoomFirst: 'Avval kattalashtiring — dalangiz aniq koʻrinsin',
         foundNear: 'Dalangiz shu atrofdami? Kattalashtirib, dala burchaklarini bosing.',
-        sending: 'Yuborilmoqda…', sendFail: 'Yuborib boʻlmadi. Internetni tekshirib, qayta urinib koʻring.', authFail: 'Sessiya eskirgan. Botga qaytib, tugmani qayta bosing.', outcome: { INVALID: 'Chegara yaroqsiz — qayta chizing', AREA_LIMIT: 'Dala tarif limitidan katta — kichikroq chizing (sababi chatda)', FIELD_LIMIT: 'Dalalar soni tarif limitiga yetgan (batafsil — chatda)', BUSY: 'Bu dala hozir tahlil qilinmoqda', NOT_FOUND: 'Dala topilmadi', NOT_REGISTERED: 'Avval botda /start bosing' }, },
+        sending: 'Yuborilmoqda…', sendFail: 'Yuborib boʻlmadi. Internetni tekshirib, qayta urinib koʻring.', authFail: 'Sessiya eskirgan. Botga qaytib, tugmani qayta bosing.', outcome: { INVALID: 'Chegara yaroqsiz — qayta chizing', AREA_LIMIT: 'Dala tarif limitidan katta — kichikroq chizing (sababi chatda)', TOTAL_LIMIT: 'Tarifingizdagi jami maydon toʻldi — batafsil chatda', FIELD_LIMIT: 'Dalalar soni tarif limitiga yetgan (batafsil — chatda)', BUSY: 'Bu dala hozir tahlil qilinmoqda', NOT_FOUND: 'Dala topilmadi', NOT_REGISTERED: 'Avval botda /start bosing' }, },
   ru: { name: 'Название поля', defaultName: 'Моё поле', locating: 'Определяю место…',
         crops: { COTTON: 'Хлопок', WHEAT: 'Пшеница', CORN: 'Кукуруза', RICE: 'Рис', ALFALFA: 'Люцерна', VEGETABLES: 'Овощи / бахча', ORCHARD: 'Сад', OTHER: 'Другое' },
         send: 'Отправить', area: 'Площадь: {0} га', points: 'точек: {0}', needMore: 'Поставьте минимум 3 точки',
-        small: 'Слишком маленькое: минимум {0} га', large: 'Слишком большое: максимум {0} га', cross: 'Линии границы не должны пересекаться',
+        small: 'Поле слишком маленькое: минимум {0} га', large: 'Поле слишком большое: по вашему тарифу это поле может быть не больше {0} га', full: 'Общая площадь по тарифу исчерпана — повысьте тариф или удалите ненужное поле', cross: 'Линии границы не должны пересекаться',
         tooMany: 'Слишком много точек (≤ {0})', bytes: 'Граница слишком сложная — меньше точек',
         browser: 'Тестовый режим в браузере (вне Telegram)',
         steps: ['1 · Найти место', '2 · Углы', '3 · Отправить'],
         hintFind: '<b>Шаг 1:</b> найдите село или махаллю, где ваше поле — 🔍 поиск или ◎ моё местоположение.',
         hintZoom: '<b>Приблизьте карту</b> двумя пальцами, чтобы поле было хорошо видно.',
-        hintDraw: '<b>Шаг 2:</b> нажимайте на углы поля по очереди. Точку можно перетащить.',
+        hintDraw: '<b>Шаг 2:</b> нажимайте на углы поля по очереди. Точку можно перетащить, <b>＋</b> — добавить точку между, нажмите на точку и 🗑 — удалить.',
+        hintSel: '<b>Точка выбрана:</b> 🗑 — удалить. Нажмите в другом месте карты — отмена.',
+        overlap: '⚠️ Граница заходит на другое ваше поле. Не добавляйте одно поле дважды — исправьте старое в «📋 Мои поля».',
+        wandHint: ' Быстрее: нажмите <b>🪄</b> и один раз коснитесь поля.',
+        wandOn: '<b>🪄 Выделение касанием:</b> один раз коснитесь внутри поля — границу найду по спутниковому снимку.',
+        wandBusy: '🛰 Определяю границу… 10–20 секунд', wandOk: '✅ Граница найдена: {0} га. Проверьте, при необходимости передвиньте точки',
+        wandLow: '⚠️ Граница приблизительная — внимательно проверьте и поправьте точки',
+        wandErr: { NO_SCENES: 'Для этого места нет свежих снимков — отметьте углы вручную', NO_CLEAR_SCENE: 'На последних снимках облака — отметьте углы вручную',
+          POINT_NOT_CLEAR: 'В этой точке снимок нечёткий — нажмите в середину поля', POINT_IS_WATER: 'Здесь вода (водоём, канал) — нажмите внутри поля', AREA_TOO_SMALL: 'Поле слишком маленькое — нарисуйте вручную',
+          AREA_TOO_LARGE: 'Получилась слишком большая область — нарисуйте вручную', NOT_FOUND: 'Граница не найдена — нарисуйте вручную',
+          RATE_LIMIT: 'Слишком много попыток — позже или вручную', NOT_REGISTERED: 'Сначала нажмите /start в боте', UNAVAILABLE: 'Сервер занят — через минуту или вручную', BUSY: 'Сервер занят — попробуйте через минуту',
+          AUTH: 'Сессия устарела — вернитесь в бот и нажмите кнопку снова', _: 'Не удалось определить — отметьте углы вручную' },
         hintReady: '<b>Шаг 3:</b> если всё верно — нажмите «Отправить» внизу.',
-        hintEdit: 'Перетаскивайте точки, чтобы исправить границу. ↶ — убрать последнюю точку, ✕ — нарисовать заново.',
+        hintEdit: 'Перетаскивайте точки, чтобы исправить границу. <b>＋</b> — добавить точку между, нажмите на точку и 🗑 — удалить, ↶ — убрать последнюю, ✕ — нарисовать заново.',
         bar: 'Где ваше поле? Село, махалля, район…', barNear: 'Рядом: улица, школа, мечеть…',
         sheetTitle: 'Где ваше поле?', sheetSub: 'Определим ваше местоположение или введите название села / махалли',
         q: 'Село, махалля, район, город…', qNear: 'Улица, школа, мечеть, название места…',
@@ -69,19 +98,30 @@ const T = {
         geoSettings: 'Открыть настройки',
         here: 'Вы здесь', accuracy: 'Точность ~{0} м', zoomFirst: 'Сначала приблизьте карту — чтобы поле было видно',
         foundNear: 'Поле где-то рядом? Приблизьте и отметьте углы поля.',
-        sending: 'Отправка…', sendFail: 'Не удалось отправить. Проверьте интернет и попробуйте снова.', authFail: 'Сессия устарела. Вернитесь в бот и нажмите кнопку снова.', outcome: { INVALID: 'Граница некорректна — нарисуйте заново', AREA_LIMIT: 'Поле больше лимита тарифа — нарисуйте меньше (подробнее в чате)', FIELD_LIMIT: 'Достигнут лимит полей тарифа (подробнее в чате)', BUSY: 'Это поле сейчас анализируется', NOT_FOUND: 'Поле не найдено', NOT_REGISTERED: 'Сначала нажмите /start в боте' }, },
+        sending: 'Отправка…', sendFail: 'Не удалось отправить. Проверьте интернет и попробуйте снова.', authFail: 'Сессия устарела. Вернитесь в бот и нажмите кнопку снова.', outcome: { INVALID: 'Граница некорректна — нарисуйте заново', AREA_LIMIT: 'Поле больше лимита тарифа — нарисуйте меньше (подробнее в чате)', TOTAL_LIMIT: 'Общая площадь по тарифу исчерпана — подробнее в чате', FIELD_LIMIT: 'Достигнут лимит полей тарифа (подробнее в чате)', BUSY: 'Это поле сейчас анализируется', NOT_FOUND: 'Поле не найдено', NOT_REGISTERED: 'Сначала нажмите /start в боте' }, },
   en: { name: 'Field name', defaultName: 'My field', locating: 'Finding location…',
         crops: { COTTON: 'Cotton', WHEAT: 'Wheat', CORN: 'Corn', RICE: 'Rice', ALFALFA: 'Alfalfa', VEGETABLES: 'Vegetables / melons', ORCHARD: 'Orchard', OTHER: 'Other' },
-        send: 'Send', area: 'Area: {0} ha', points: '{0} points', needMore: 'Place at least 3 points',
-        small: 'Too small: at least {0} ha', large: 'Too large: at most {0} ha', cross: 'Boundary lines must not cross',
+        send: 'Send', area: 'Area: {0} hectares', points: '{0} points', needMore: 'Place at least 3 points',
+        small: 'Field too small: at least {0} hectares', large: 'Field too large: on your plan this field can be up to {0} hectares', full: 'Your plan’s total area is used up — upgrade or delete a field you don’t need', cross: 'Boundary lines must not cross',
         tooMany: 'Too many points (≤ {0})', bytes: 'Boundary too complex — use fewer points',
         browser: 'Browser test mode (outside Telegram)',
         steps: ['1 · Find place', '2 · Corners', '3 · Send'],
         hintFind: '<b>Step 1:</b> find the village or neighbourhood of your field — 🔍 search or ◎ my location.',
         hintZoom: '<b>Zoom in</b> with two fingers so your field is clearly visible.',
-        hintDraw: '<b>Step 2:</b> tap the corners of your field in order. Drag a point to adjust it.',
+        hintDraw: '<b>Step 2:</b> tap the corners of your field in order. Drag a point to adjust it, <b>＋</b> — add a point in between, tap a point then 🗑 — delete it.',
+        hintSel: '<b>Point selected:</b> 🗑 — delete. Tap elsewhere on the map to cancel.',
+        overlap: '⚠️ This boundary overlaps another of your fields. Do not add the same field twice — edit the old one in “📋 My fields”.',
+        wandHint: ' Faster: tap <b>🪄</b>, then tap once inside your field.',
+        wandOn: '<b>🪄 Tap to detect:</b> tap once inside your field — I will find the boundary from satellite imagery.',
+        wandBusy: '🛰 Detecting the boundary… 10–20 seconds', wandOk: '✅ Boundary found: {0} ha. Check it and drag points if needed',
+        wandLow: '⚠️ The boundary is approximate — check carefully and adjust the points',
+        wandErr: { NO_SCENES: 'No recent imagery here — tap the corners manually', NO_CLEAR_SCENE: 'Recent images are cloudy — tap the corners manually',
+          POINT_NOT_CLEAR: 'The image is unclear at this point — tap the middle of the field', POINT_IS_WATER: 'This is water (lake, canal) — tap inside your field', AREA_TOO_SMALL: 'Field too small — draw it manually',
+          AREA_TOO_LARGE: 'The detected area is too large — draw it manually', NOT_FOUND: 'Boundary not found — draw it manually',
+          RATE_LIMIT: 'Too many attempts — try later or draw manually', NOT_REGISTERED: 'Press /start in the bot first', UNAVAILABLE: 'Server is busy — try in a minute or draw manually', BUSY: 'Server is busy — try again in a minute',
+          AUTH: 'Session expired — go back to the bot and tap the button again', _: 'Could not detect — tap the corners manually' },
         hintReady: '<b>Step 3:</b> if it looks right, tap “Send” below.',
-        hintEdit: 'Drag the points to fix the boundary. ↶ — remove the last point, ✕ — draw again.',
+        hintEdit: 'Drag the points to fix the boundary. <b>＋</b> — add a point in between, tap a point then 🗑 — delete it, ↶ — remove the last one, ✕ — draw again.',
         bar: 'Where is your field? Village, district…', barNear: 'Nearby: street, school, mosque…',
         sheetTitle: 'Where is your field?', sheetSub: 'We will detect your location, or type a village / district name',
         q: 'Village, neighbourhood, district, city…', qNear: 'Street, school, mosque, place name…',
@@ -94,7 +134,7 @@ const T = {
         geoSettings: 'Open settings',
         here: 'You are here', accuracy: 'Accuracy ~{0} m', zoomFirst: 'Zoom in first so your field is visible',
         foundNear: 'Is your field nearby? Zoom in and tap its corners.',
-        sending: 'Sending…', sendFail: 'Could not send. Check your connection and try again.', authFail: 'Session expired. Go back to the bot and tap the button again.', outcome: { INVALID: 'Invalid boundary — draw again', AREA_LIMIT: 'Field exceeds your plan limit — draw a smaller one (details in chat)', FIELD_LIMIT: 'Field limit of your plan reached (details in chat)', BUSY: 'This field is being analysed now', NOT_FOUND: 'Field not found', NOT_REGISTERED: 'Press /start in the bot first' }, },
+        sending: 'Sending…', sendFail: 'Could not send. Check your connection and try again.', authFail: 'Session expired. Go back to the bot and tap the button again.', outcome: { INVALID: 'Invalid boundary — draw again', AREA_LIMIT: 'Field exceeds your plan limit — draw a smaller one (details in chat)', TOTAL_LIMIT: 'Your plan’s total area is used up — details in chat', FIELD_LIMIT: 'Field limit of your plan reached (details in chat)', BUSY: 'This field is being analysed now', NOT_FOUND: 'Field not found', NOT_REGISTERED: 'Press /start in the bot first' }, },
 };
 
 const tg = window.Telegram && window.Telegram.WebApp;
@@ -130,7 +170,8 @@ const last = store.get('view', null);
 const NATIVE_ZOOM = 17, MAX_ZOOM = 20;
 const map = L.map('map', { zoomControl: false, attributionControl: true, maxZoom: MAX_ZOOM })
   .setView(last ? [last.lat, last.lng] : START[0], last ? Math.min(last.z, 14) : START[1]);
-L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+const IMAGERY = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+L.tileLayer(IMAGERY, {
   maxZoom: MAX_ZOOM, maxNativeZoom: NATIVE_ZOOM, attribution: 'Imagery © Esri, Maxar, Earthstar Geographics',
 }).addTo(map);
 // Yo'l va aholi punktlari nomlari — fermer o'z dalasini topishi oson bo'lsin
@@ -140,12 +181,32 @@ L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/Worl
 map.attributionControl.setPrefix(false);
 
 const vertices = [];                       // L.Marker[]
+const mids = [];                           // L.Marker[]: mids[i] — vertices[i] va vertices[i+1] o'rtasida («＋»)
+let selected = null;                       // bosib tanlangan nuqta (🗑 bilan o'chiriladi)
+const LABEL_MAX = 30;                      // tomon uzunligi yozuvi — nuqtalar shundan kam bo'lsa (ko'p bo'lsa — chalkash)
 const shape = L.polygon([], { color: '#ffd23f', weight: 3, fillOpacity: 0.15 }).addTo(map);
+
+// Fermerning boshqa dalalari (bot ?others= bilan beradi, vergul bilan ajratilgan polyline) — kulrang, bosilmaydi.
+// Takror chizilmasin: yangi chegara ulardan birining ustiga tushsa ogohlantiramiz (to'xtatmaymiz)
+const others = [];                        // { pts, bounds } — bounds bir marta (har surish kadrida emas)
+function addOthers(list) {
+  list.filter((x) => typeof x === 'string' && x).slice(0, 60).forEach((enc) => {
+    let pts;
+    try { pts = decodePolyline(enc).slice(0, MAX_VERTICES); } catch { return; }
+    if (pts.length < 3 || pts.some((p) => !(Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180))) return;
+    others.push({ pts, bounds: L.latLngBounds(pts) });
+    L.polygon(pts, { color: '#ffffff', weight: 2, dashArray: '6 6', fillColor: '#ffffff', fillOpacity: 0.12, interactive: false }).addTo(map);
+  });
+}
+addOthers((params.get('others') || '').split(','));
 let outline = null;                        // tanlangan hudud (tuman/mahalla) chegarasi
 let meMarker = null, meCircle = null;      // "siz shu yerdasiz"
 let placeChosen = !!EDIT_ID;
+let wandMode = false, wandBusy = false, wandAvailable = false;   // 🪄 (pastda) — renderGuide undan oldin ham chaqiriladi
 
 map.on('click', (e) => {
+  if (selected) { select(null); return; }
+  if (wandMode) { if (map.getZoom() < MIN_DRAW_ZOOM) toast(t('zoomFirst')); else wandDetect(e.latlng); return; }
   if (vertices.length >= MAX_VERTICES) return;
   if (map.getZoom() < MIN_DRAW_ZOOM) { toast(t('zoomFirst')); return; }
   placeChosen = true;
@@ -156,17 +217,147 @@ map.on('moveend zoomend', () => {
   if (map.getZoom() >= MIN_DRAW_ZOOM) placeChosen = true;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => { const c = map.getCenter(); store.set('view', { lat: c.lat, lng: c.lng, z: map.getZoom() }); }, 800);
+  syncMids();                                // yozuvlar zoom'ga bog'liq
   renderGuide();
 });
 
-function addVertex(latlng) {
+function addVertex(latlng, bulk = false) {
   const m = L.marker(latlng, {
     draggable: true,
-    icon: L.divIcon({ className: 'vertex' + (vertices.length === 0 ? ' first' : ''), iconSize: [28, 28] }),
+    icon: L.divIcon({ className: 'vertex', iconSize: [28, 28] }),
   }).addTo(map);
-  m.on('drag', render);
+  wireVertex(m);
   vertices.push(m);
+  if (bulk) return;                          // tahrirni ochish: oxirida bitta render (har nuqtada emas)
+  refreshVertices();
   render();
+}
+
+let dragging = false;                       // surish paytida ustma-ust tekshiruvi kutadi (dragend'da)
+
+function wireVertex(m) {
+  m.on('dragstart', () => { dragging = true; select(null); });
+  m.on('drag', () => { render(); loupeAt(m.getLatLng()); });
+  m.on('dragend', () => { dragging = false; loupeHide(); render(); });
+  m.on('click', () => select(selected === m ? null : m));
+}
+
+/** Klasslar to'g'ridan-to'g'ri element'da: setIcon surish paytida drag'ni uzib qo'yadi */
+function refreshVertices() {
+  vertices.forEach((v, i) => {
+    const el = v.getElement();
+    if (!el) return;
+    el.classList.toggle('first', i === 0);
+    el.classList.toggle('sel', v === selected);
+  });
+}
+
+function select(m) {
+  selected = m;
+  refreshVertices();
+  delBtn.hidden = !m;
+  renderGuide();
+}
+
+// ── «＋» — ikki nuqta o'rtasi: bosilsa yoki surilsa o'sha joyga yangi nuqta ─────────
+function edgeCount() {
+  const n = vertices.length;
+  return n < 2 ? 0 : n === 2 ? 1 : n;
+}
+
+function makeMid() {
+  const m = L.marker([0, 0], {
+    draggable: true, zIndexOffset: -100,
+    icon: L.divIcon({ className: 'mid', html: '<b>＋</b><span class="len"></span>', iconSize: [24, 24] }),
+  }).addTo(map);
+  const promote = () => {
+    const i = mids.indexOf(m);
+    if (i < 0 || vertices.length >= MAX_VERTICES) return false;
+    mids.splice(i, 1);
+    m.off('click', promote).off('dragstart', promote);     // endi oddiy nuqta
+    // Faqat klass: ichki «＋» ni DOM'dan olsak mobilda surish uziladi (touchmove boshlang'ich target'ga boradi).
+    // ⚠️ options.icon hali «mid» — setIcon chaqirilmasin (CSS .vertex b/.len ni yashiradi)
+    const el = m.getElement();
+    el.classList.remove('mid');
+    el.classList.add('vertex');
+    m.setZIndexOffset(0);
+    wireVertex(m);
+    vertices.splice(i + 1, 0, m);
+    select(null);
+    render();
+    return true;
+  };
+  m.on('click', promote);
+  m.on('dragstart', () => { if (promote()) dragging = true; });   // surish davom etadi — wireVertex'ning drag/dragend'i ushlaydi
+  return m;
+}
+
+function syncMids() {
+  const n = vertices.length;
+  const want = vertices.length >= MAX_VERTICES ? 0 : edgeCount();
+  while (mids.length > want) map.removeLayer(mids.pop());
+  while (mids.length < want) mids.push(makeMid());
+  const labels = n <= LABEL_MAX && map.getZoom() >= 15;
+  mids.forEach((m, i) => {
+    const a = vertices[i].getLatLng(), b = vertices[(i + 1) % n].getLatLng();
+    m.setLatLng(L.latLng((a.lat + b.lat) / 2, (a.lng + b.lng) / 2));
+    const len = m.getElement() && m.getElement().querySelector('.len');
+    if (len) len.textContent = labels ? fmtLen(map.distance(a, b)) : '';
+  });
+}
+
+function fmtLen(m) {
+  return m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(m < 10000 ? 2 : 1) + ' km';
+}
+
+// ── Lupa: surayotganda barmoq ostidagi joy kattalashtirib ko'rsatiladi ───────────────
+const loupeEl = $('loupe');
+let loupe = null, loupeShape = null;
+
+let loupeBox = null;                       // lupa joyi/o'lchami — ko'rsatilganda bir marta o'qiladi (har kadrda layout emas)
+
+function loupeAt(latlng) {
+  const opening = loupeEl.hidden;
+  if (opening) loupeEl.hidden = false;
+  if (!loupe) {
+    loupe = L.map('loupeMap', { zoomControl: false, attributionControl: false, dragging: false, touchZoom: false,
+      scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, tap: false,
+      zoomAnimation: false, fadeAnimation: false, maxZoom: MAX_ZOOM });
+    L.tileLayer(IMAGERY, { maxZoom: MAX_ZOOM, maxNativeZoom: NATIVE_ZOOM }).addTo(loupe);
+    loupeShape = L.polygon([], { color: '#ffd23f', weight: 2, fillOpacity: 0.1, interactive: false }).addTo(loupe);
+  }
+  // Nuqta lupa ostida qolsa — lupa narigi tomonga o'tadi
+  if (opening) {
+    loupeEl.classList.remove('right');
+    loupeBox = { w: loupeEl.offsetWidth, bottom: loupeEl.offsetTop + loupeEl.offsetHeight };
+    loupe.invalidateSize(false);
+  }
+  const pt = map.latLngToContainerPoint(latlng);
+  loupeEl.classList.toggle('right', pt.x < loupeBox.w + 40 && pt.y < loupeBox.bottom + 40);
+  loupe.setView(latlng, Math.min(map.getZoom() + 2, MAX_ZOOM), { animate: false });
+  loupeShape.setLatLngs(vertices.map((v) => v.getLatLng()));
+}
+
+function loupeHide() { loupeEl.hidden = true; }
+
+// ── Boshqa dala bilan ustma-ust: takror chizilganini ushlash (chegaradagi bir necha metr — emas) ──
+function inside(p, poly) {
+  let c = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i], b = poly[j];
+    if ((a.lat > p.lat) !== (b.lat > p.lat) && p.lng < (b.lng - a.lng) * (p.lat - a.lat) / (b.lat - a.lat) + a.lng) c = !c;
+  }
+  return c;
+}
+
+function centroid(ll) {
+  return L.latLng(ll.reduce((s, p) => s + p.lat, 0) / ll.length, ll.reduce((s, p) => s + p.lng, 0) / ll.length);
+}
+
+function overlapsOther(ll) {
+  const b = L.latLngBounds(ll);
+  return others.some(({ pts, bounds }) => b.intersects(bounds)
+    && (inside(centroid(ll), pts) || inside(centroid(pts), ll) || ll.filter((p) => inside(p, pts)).length * 2 > ll.length));
 }
 
 // ── Hisob ──────────────────────────────────────────────────────────────
@@ -232,6 +423,8 @@ const errorEl = $('error');
 const fallbackBtn = $('fallback');
 const undoBtn = $('undo');
 const clearBtn = $('clear');
+const delBtn = $('del');
+const warnEl = $('warn');
 const hintEl = $('hint');
 
 nameInput.placeholder = t('name');
@@ -275,6 +468,7 @@ let current = null;                          // yuborishga tayyor payload yoki n
 function render() {
   const ll = vertices.map((m) => m.getLatLng());
   shape.setLatLngs(ll);
+  syncMids();
   undoBtn.disabled = clearBtn.disabled = ll.length === 0;
 
   const ha = areaHa(ll);
@@ -285,6 +479,7 @@ function render() {
   else if (ll.length > MAX_VERTICES) err = t('tooMany', MAX_VERTICES);
   else if (selfIntersects(ll)) err = t('cross');
   else if (ha < MIN_HA) err = t('small', MIN_HA);
+  else if (MAX_HA <= 0) err = t('full');
   else if (ha > MAX_HA) err = t('large', MAX_HA);
 
   if (!err && ll.length >= 3) suggestName(ll);
@@ -296,6 +491,10 @@ function render() {
   }
   errorEl.hidden = !err;
   errorEl.textContent = err || '';
+  if (!dragging) {
+    warnEl.hidden = !(ll.length >= 3 && others.length && overlapsOther(ll));
+    if (!warnEl.hidden) warnEl.textContent = L10N.overlap;
+  }
   shape.setStyle({ color: err && ll.length >= 3 ? '#ff6b6b' : '#ffd23f' });
   setSendEnabled(!!current);
   renderGuide();
@@ -313,17 +512,32 @@ function renderGuide() {
     return el;
   }));
   let h;
-  if (EDIT_ID) h = L10N.hintEdit;
+  if (wandMode) h = L10N.wandOn;
+  else if (selected) h = L10N.hintSel;
+  else if (EDIT_ID) h = L10N.hintEdit;
   else if (step === 3) h = L10N.hintReady;
-  else if (step === 2) h = L10N.hintDraw;
+  else if (step === 2) h = L10N.hintDraw + (wandAvailable && !vertices.length ? L10N.wandHint : '');
   else if (placeChosen && map.getZoom() < MIN_DRAW_ZOOM) h = L10N.hintZoom;
   else h = L10N.hintFind;
   hintEl.innerHTML = h;                       // matn — o'zimizniki (T), foydalanuvchi kiritmasi emas
   $('searchBarText').textContent = placeChosen ? L10N.barNear : L10N.bar;
 }
 
-undoBtn.onclick = () => { const m = vertices.pop(); if (m) map.removeLayer(m); render(); };
-clearBtn.onclick = () => { while (vertices.length) map.removeLayer(vertices.pop()); render(); };
+undoBtn.onclick = () => {
+  const m = vertices.pop();
+  if (m) map.removeLayer(m);
+  if (m === selected) select(null);
+  refreshVertices();
+  render();
+};
+clearBtn.onclick = () => { select(null); while (vertices.length) map.removeLayer(vertices.pop()); render(); };
+delBtn.onclick = () => {
+  const i = vertices.indexOf(selected);
+  if (i < 0) return;
+  map.removeLayer(vertices.splice(i, 1)[0]);
+  select(null);
+  render();
+};
 nameInput.addEventListener('input', render);
 
 let toastTimer = null;
@@ -690,6 +904,59 @@ $('manual').textContent = L10N.manual;
 // api — bot URL'ga qo'shadi; faqat https (initData boshqa joyga ketmasin)
 const API = /^https:\/\/[^\s]+$/.test(params.get('api') || '') ? params.get('api').replace(/\/+$/, '') : null;
 const viaApi = !!(inTelegram && API && tg.initData);
+
+// ── 🪄 Bosib belgilash (R2): nuqta → server → Python Sentinel-2 dan chegara taklifi ─────────────
+// Pastki menyu tugmasidan ochilganda initData yo'q — bot URL'ga imzolangan token (tk) qo'shadi
+const TK = /^[\w.-]{10,200}$/.test(params.get('tk') || '') ? params.get('tk') : null;
+wandAvailable = !!(inTelegram && API && (tg.initData || TK));
+const wandBtn = $('wand');
+wandBtn.hidden = !wandAvailable;
+wandBtn.onclick = () => {
+  if (wandBusy) return;
+  wandMode = !wandMode;
+  wandBtn.classList.toggle('on', wandMode);
+  if (wandMode) select(null);
+  renderGuide();
+};
+
+async function wandDetect(latlng) {
+  if (wandBusy) return;
+  wandBusy = true;
+  wandBtn.classList.add('busy');
+  const ping = L.circleMarker(latlng, { radius: 10, color: '#ffd23f', weight: 3, fillOpacity: 0.3, interactive: false }).addTo(map);
+  toast(L10N.wandBusy, 30000);
+  try {
+    const r = await fetch(API + '/api/v1/miniapp/boundary', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData: tg.initData || null, token: tg.initData ? null : TK, lat: latlng.lat, lon: latlng.lng }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok || !Array.isArray(j.coordinates)) {
+      toast(L10N.wandErr[r.status === 401 ? 'AUTH' : j.outcome] || L10N.wandErr._, 5000);
+      return;
+    }
+    // Eski chizilgan nuqtalar almashtiriladi; yopuvchi (oxirgi = birinchi) nuqta tashlanadi
+    select(null);
+    while (vertices.length) map.removeLayer(vertices.pop());
+    const ring = j.coordinates.slice(0, MAX_VERTICES + 1);
+    if (ring.length > 1 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1]) ring.pop();
+    ring.forEach(([lon, lat]) => addVertex(L.latLng(lat, lon), true));
+    refreshVertices();
+    placeChosen = true;
+    wandMode = false;
+    wandBtn.classList.remove('on');
+    render();
+    if (vertices.length) map.fitBounds(L.latLngBounds(vertices.map((v) => v.getLatLng())), { padding: [60, 60], maxZoom: NATIVE_ZOOM });
+    toast(j.confidence === 'LOW' ? L10N.wandLow : t('wandOk', Number(j.areaHa).toFixed(1)), 5000);
+  } catch {
+    toast(L10N.wandErr._, 5000);
+  } finally {
+    wandBusy = false;
+    wandBtn.classList.remove('busy');
+    map.removeLayer(ping);
+    renderGuide();
+  }
+}
 let sending = false;
 
 async function sendViaApi() {
@@ -756,15 +1023,43 @@ if (inTelegram) {
   fallbackBtn.onclick = send;
 }
 
-if (EDIT_ID && params.get('poly')) {
-  let pts = [];
-  try { pts = decodePolyline(params.get('poly')).slice(0, MAX_VERTICES); } catch (e) { pts = []; }
-  pts.forEach(addVertex);
-  if (params.get('name')) { nameInput.value = params.get('name').slice(0, 60); nameEdited = true; }
-  if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [60, 60], maxZoom: NATIVE_ZOOM });
-  render();
-} else {
-  render();
-  openSheet();                               // birinchi qadam — joyni topish
-  locate(true);                              // avtomatik: topilsa oyna yopilib, xarita shu joyga boradi
+/** Chat tugmasidan ochilgan (initData bor, URL'da dalalar yo'q): tarif limiti, ekin va dalalar serverdan */
+async function loadContext() {
+  if (!viaApi || params.get('others') || EDIT_ID) return;
+  try {
+    const r = await fetch(API + '/api/v1/miniapp/context', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }),
+      signal: AbortSignal.timeout(4000),           // server sekin bo'lsa ham xarita ochilsin (kontekstsiz)
+    });
+    if (!r.ok) return;
+    const c = await r.json();
+    if (c.maxHa != null) MAX_HA = clampHa(c.maxHa);
+    if (!params.get('crop') && c.crop && L10N.crops[c.crop]) cropSelect.value = c.crop;
+    addOthers(Array.isArray(c.others) ? c.others : []);
+  } catch { /* kontekstsiz ham chizish ishlaydi — faqat limit/dalalar ko'rinmaydi */ }
 }
+
+async function init() {
+  if (EDIT_ID && params.get('poly')) {
+    let pts = [];
+    try { pts = decodePolyline(params.get('poly')).slice(0, MAX_VERTICES); } catch (e) { pts = []; }
+    pts.forEach((p) => addVertex(p, true));
+    refreshVertices();
+    if (params.get('name')) { nameInput.value = params.get('name').slice(0, 60); nameEdited = true; }
+    if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [60, 60], maxZoom: NATIVE_ZOOM });
+    render();
+    return;
+  }
+  await loadContext();
+  if (others.length) {
+    // Yangi dala ko'pincha eskilari yonida: xarita ularni ko'rsatib ochiladi (qidiruv 🔍 baribir bor)
+    placeChosen = true;
+    map.fitBounds(others.reduce((b, o) => b.extend(o.bounds), L.latLngBounds(others[0].pts)), { padding: [60, 60], maxZoom: 16 });
+    render();
+  } else {
+    render();
+    openSheet();                               // birinchi qadam — joyni topish
+    locate(true);                              // avtomatik: topilsa oyna yopilib, xarita shu joyga boradi
+  }
+}
+init();

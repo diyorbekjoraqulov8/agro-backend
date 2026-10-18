@@ -55,6 +55,33 @@ public class BotStateService {
                 .map(v -> ((Number) v).longValue()).filter(v -> v > 0);
     }
 
+    private static final String BUSINESS = "biz";
+
+    /** Agro Biznes arizasi: vaqtinchalik rejim (chiqqanda oldingi bosqich qaytadi); form — javoblar */
+    @Transactional
+    public void enterBusiness(long telegramUserId, Map<String, Object> form) {
+        enter(telegramUserId, BotStep.BUSINESS_FORM, BUSINESS, form);
+    }
+
+    @SuppressWarnings("unchecked")
+    public Optional<Map<String, Object>> businessForm(long telegramUserId) {
+        return repository.findById(telegramUserId)
+                .filter(s -> s.getStep() == BotStep.BUSINESS_FORM)
+                .map(s -> s.getData().get(BUSINESS))
+                .filter(Map.class::isInstance)
+                .map(v -> new HashMap<>((Map<String, Object>) v));
+    }
+
+    @Transactional
+    public void saveBusinessForm(long telegramUserId, Map<String, Object> form) {
+        repository.findById(telegramUserId).filter(s -> s.getStep() == BotStep.BUSINESS_FORM).ifPresent(s -> {
+            Map<String, Object> data = new HashMap<>(s.getData());       // yangi Map — dirty checking sezsin
+            data.put(BUSINESS, form);
+            s.setData(data);
+            s.setUpdatedAt(LocalDateTime.now());
+        });
+    }
+
     /** Operator bilan suhbat rejimi: keyingi xabarlar shu suhbatga */
     @Transactional
     public void enterChat(long telegramUserId, long feedbackId) {
@@ -127,7 +154,8 @@ public class BotStateService {
 
     /** Vaqtinchalik rejimlar — oldingi bosqich data.prevStep da saqlanadi, chiqqanda qaytariladi */
     private static boolean isFeedback(BotStep step) {
-        return step == BotStep.FEEDBACK_TEXT || step == BotStep.FEEDBACK_CHAT || step == BotStep.ADVISOR_PHOTO;
+        return step == BotStep.FEEDBACK_TEXT || step == BotStep.FEEDBACK_CHAT || step == BotStep.ADVISOR_PHOTO
+                || step == BotStep.BUSINESS_FORM;
     }
 
     public Optional<String> feedbackKind(long telegramUserId) {
@@ -145,6 +173,7 @@ public class BotStateService {
         data.remove(FEEDBACK_KIND);
         data.remove(FEEDBACK_ID);
         data.remove(ADVISOR_FIELD);
+        data.remove(BUSINESS);
         BotStep step;
         try {
             step = prev == null ? BotStep.REPORTED : BotStep.valueOf(prev.toString());

@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import java.util.List;
@@ -15,6 +16,15 @@ public interface FieldRepository extends JpaRepository<FieldEntity, Long>,
     List<FieldEntity> findByFarmerIdOrderByIdDesc(Long farmerId);
 
     long countByFarmerId(Long farmerId);
+
+    /**
+     * Tarif limiti uchun band maydon: fermerning boshqa dalalari (exceptId — tahrirlanayotgan dala, yo'q bo'lsa -1).
+     * area_ha — chizilganda taxminiy, tahlildan keyin aniq; V34 dan oldingi tahlilsiz dalalar — 0
+     */
+    @Query("SELECT coalesce(sum(f.areaHa), 0) FROM FieldEntity f WHERE f.farmer.id = :farmerId AND f.id <> :exceptId")
+    BigDecimal sumAreaHa(@Param("farmerId") Long farmerId, @Param("exceptId") Long exceptId);
+
+    boolean existsByFarmerTelegramUserId(Long telegramUserId);
 
     List<FieldEntity> findByFarmerTelegramUserIdOrderByIdDesc(Long telegramUserId);
 

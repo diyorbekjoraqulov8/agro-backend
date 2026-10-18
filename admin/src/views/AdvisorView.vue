@@ -81,11 +81,13 @@ watch(page, load)
 onMounted(async () => {
   load()
   try { stats.value = await advisorApi.stats() } catch { /* statistika ixtiyoriy — ro'yxat baribir ishlaydi */ }
-  const id = Number(route.query.id)
-  if (id) {
-    try { open.value = await advisorApi.get(id) } catch (e) { toast.error(errorMessage(e)) }
-  }
 })
+// ?id=12 — sahifa ochiq turganda ham (Fayllar sahifasidan havola)
+watch(() => route.query.id, async (v) => {
+  const id = Number(v)
+  if (!id) return
+  try { open.value = await advisorApi.get(id) } catch (e) { toast.error(errorMessage(e)) }
+}, { immediate: true })
 
 function close(v: boolean) {
   if (v) return

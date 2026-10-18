@@ -7,6 +7,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import uz.app.agro.problem.ProblemRecorder;
+import uz.app.agro.problem.ProblemSource;
 import uz.app.agro.settings.Setting;
 import uz.app.agro.settings.SettingsService;
 
@@ -39,6 +41,7 @@ class WeatherAlertJob {
     private final WeatherStore store;
     private final SettingsService settings;
     private final WeatherProperties props;
+    private final ProblemRecorder problems;
 
     @Scheduled(cron = "${weather.cron:0 20 * * * *}")
     public void tick() {
@@ -47,6 +50,7 @@ class WeatherAlertJob {
             run();
         } catch (RuntimeException e) {
             log.error("ob-havo job'i to'xtadi", e);
+            problems.error(ProblemSource.WEATHER, "Ob-havo job'i to'xtadi: " + e).cause(e).record();
         } finally {
             MDC.clear();
         }
@@ -85,6 +89,7 @@ class WeatherAlertJob {
                         log.debug("ob-havo ogohlantirishi allaqachon bor: farmer {} {}", farmer.getKey(), r);
                     } catch (RuntimeException e) {
                         log.warn("ob-havo ogohlantirishi yozilmadi: farmer {} {}: {}", farmer.getKey(), r, e.toString());
+                        problems.error(ProblemSource.WEATHER, "Ob-havo ogohlantirishi yozilmadi: " + e).farmer(farmer.getKey()).cause(e).record();
                     }
                 }
             }

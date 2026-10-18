@@ -1,0 +1,71 @@
+# Bitta domen (ADR #25): /        — admin panel (SPA)
+#                        /api/    — backend (admin ham, Mini App ham — Mini App uchun CORS backend'da)
+# Sertifikat — certbot (deploy/README.md, 3-qadam). Birinchi ishga tushishda sertifikat yo'q bo'lsa nginx
+# yiqiladi — README dagi "init-cert" qadami avval bajariladi.
+
+limit_req_zone $binary_remote_addr zone=auth:10m rate=10r/m;   # login/refresh — IP bo'yicha (ADR #21)
+limit_req_zone $binary_remote_addr zone=api:10m  rate=20r/s;   # CGNAT: bitta IP ortida ko'p fermer bo'lishi mumkin — kuzating
+limit_req_status 429;                                          # default 503 "server yiqildi"ga o'xshaydi
+
+server {
+    listen 80;
+    server_name ${DOMAIN};
+    location /.well-known/acme-challenge/ { root /var/www/certbot; }
+    location / { return 301 https://$host$request_uri; }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${DOMAIN};
+
+    ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:SSL:10m;
+
+    server_tokens off;
+
+    # Docker DNS: backend qayta yaratilsa (yangi IP) — nginx restart'siz topadi
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    set $backend http://backend:8081;
+
+    # Admin SPA uchun xavfsizlik header'lari (API javoblarida backend o'zi qo'yadi).
+    # ⚠️ Ichki location'da add_header bo'lsa — bular meros bo'lmaydi, u yerda takrorlanadi
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    add_header Content-Security-Policy "default-src 'self'; img-src 'self' data: blob: https://*.arcgisonline.com https://*.tile.openstreetmap.org; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+    client_max_body_size 12m;          # app.files.max-size 10MB + multipart
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+
+    location = /api/v1/auth/login   { limit_req zone=auth burst=5 nodelay; proxy_pass $backend; include /etc/nginx/conf.d/proxy.inc; }
+    location = /api/v1/auth/refresh { limit_req zone=auth burst=10 nodelay; proxy_pass $backend; include /etc/nginx/conf.d/proxy.inc; }
+
+    location /api/ {
+        limit_req zone=api burst=40 nodelay;
+        proxy_pass $backend;
+        include /etc/nginx/conf.d/proxy.inc;
+        proxy_read_timeout 120s;       # PDF hisobot, katta ro'yxatlar
+    }
+
+    # Swagger/actuator — tashqariga yopiq (prod'da springdoc o'chiq; health — faqat ichki tarmoq)
+    location /actuator/ { return 404; }
+
+    location / {
+        root /usr/share/nginx/admin;
+        try_files $uri $uri/ /index.html;
+        # index.html keshlanmasin — deploy'dan keyin eski asset nomlarini so'ramasin
+        add_header Cache-Control "no-cache" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header Content-Security-Policy "default-src 'self'; img-src 'self' data: blob: https://*.arcgisonline.com https://*.tile.openstreetmap.org; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+        location /assets/ {
+            expires 30d;
+            add_header Cache-Control "public, immutable";
+            add_header X-Content-Type-Options nosniff always;
+        }
+    }
+}

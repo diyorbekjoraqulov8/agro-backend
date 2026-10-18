@@ -34,10 +34,15 @@ public class FieldIntakeService {
     private final AuditService auditService;
     private final PlanService planService;
 
-    public enum Outcome { QUEUED, QUOTA_USED, FIELD_LIMIT, AREA_LIMIT, NOT_FOUND, BUSY }
+    /** AREA_LIMIT — bitta dala chegarasi; TOTAL_LIMIT — tarifdagi jami maydon (usedHa — boshqa dalalar) */
+    public enum Outcome { QUEUED, QUOTA_USED, FIELD_LIMIT, AREA_LIMIT, TOTAL_LIMIT, NOT_FOUND, BUSY }
 
     /** areaHa — Java'dagi taxminiy (sferik) maydon; aniq maydonni tahlildan keyin Python beradi */
-    public record Result(Outcome outcome, Long fieldId, Long jobId, EffectivePlan plan, double areaHa) {}
+    public record Result(Outcome outcome, Long fieldId, Long jobId, EffectivePlan plan, double areaHa, double usedHa) {
+        public Result(Outcome outcome, Long fieldId, Long jobId, EffectivePlan plan, double areaHa) {
+            this(outcome, fieldId, jobId, plan, areaHa, 0);
+        }
+    }
 
     private static final List<AnalysisJob.Status> ACTIVE = List.of(AnalysisJob.Status.PENDING, AnalysisJob.Status.RUNNING);
 
@@ -48,6 +53,8 @@ public class FieldIntakeService {
     @Transactional
     public Result submit(long telegramUserId, String name, List<double[]> ring, Long editFieldId, Crop crop) {
         FarmerEntity farmer = requireFarmer(telegramUserId);
+        // Qulf: bir vaqtda yuborilgan ikki dala dalalar soni / jami maydon limitini birga oshirib yubormasin
+        farmerRepository.findLockedById(farmer.getId());
         // Limitlar — fermerning BUGUNGI tarifidan (to'lov yo'q — FREE)
         EffectivePlan plan = planService.effective(farmer.getId(), LocalDate.now());
         double areaHa = areaHa(ring);
@@ -66,21 +73,25 @@ public class FieldIntakeService {
             field.setFarmer(farmer);
             field.setCrop(farmer.getMainCrop() != null ? farmer.getMainCrop() : Crop.OTHER);
         }
-        // Ekin — har DALANIKI (bitta xo'jalikda g'alla, paxta, poliz): Mini App'da tanlangan
-        if (crop != null) {
-            field.setCrop(crop);
-        }
         // Mini App ham tekshiradi, lekin uni chetlab o'tish mumkin — qaror server tomonda
         if (areaHa > plan.maxFieldHa().doubleValue()) {
             return new Result(Outcome.AREA_LIMIT, field.getId(), null, plan, areaHa);
         }
+        Result total = totalLimit(farmer, plan, field.getId(), areaHa);
+        if (total != null) return total;
         if (editFieldId != null && jobRepository.existsByFieldIdAndStatusIn(field.getId(), ACTIVE)) {
             return new Result(Outcome.BUSY, field.getId(), null, plan, areaHa);   // eski chegara bilan tahlil ketyapti
         }
 
+        // Ekin — har DALANIKI (bitta xo'jalikda g'alla, paxta, poliz): Mini App'da tanlangan. Tekshiruvlardan KEYIN —
+        // rad etilgan tahrirning yarmi (managed entity) commit bo'lib qolmasin
+        if (crop != null) {
+            field.setCrop(crop);
+        }
         field.setName(name);
         field.setBoundaryGeojson(geojson(ring));
-        field.setAreaHa(null);                       // aniq maydon — keyingi tahlildan (Python, UTM)
+        // Taxminiy maydon — jami limit hisobi uchun darhol; aniq maydonni keyingi tahlil yozadi (Python, UTM)
+        field.setAreaHa(BigDecimal.valueOf(areaHa).setScale(2, RoundingMode.HALF_UP));
         // Taxminiy markaz (uchlar o'rtachasi) — ro'yxat/xarita uchun
         double lon = 0, lat = 0;
         int n = ring.size() - 1;                     // oxirgi nuqta = birinchi
@@ -116,7 +127,24 @@ public class FieldIntakeService {
         if (areaHa > plan.maxFieldHa().doubleValue()) {
             return new Result(Outcome.AREA_LIMIT, fieldId, null, plan, areaHa);
         }
+        // Katta tarifdan tushgan (Agro Biznes → Pro): jami limitdan oshgan xo'jalik qayta tahlil qila olmaydi
+        Result total = totalLimit(farmer, plan, fieldId, areaHa);
+        if (total != null) return total;
         return queue(field, plan, areaHa);
+    }
+
+    /**
+     * Jami maydon limiti (null — cheksiz). submit fermer qatorini qulflaydi — bir vaqtda yuborilgan ikki dala ikkalasi
+     * ham "sig'adi" deb o'tib ketmasin; reanalyze maydon qo'shmaydi (qulf shart emas). @return oshsa — natija, aks holda null
+     */
+    private Result totalLimit(FarmerEntity farmer, EffectivePlan plan, Long fieldId, double areaHa) {
+        if (plan.maxTotalHa() == null) return null;
+        double used = fieldRepository.sumAreaHa(farmer.getId(), fieldId != null ? fieldId : -1L).doubleValue();
+        // 0.01 — taxminiy maydon yaxlitlanadi (2 kasr); chegaradagi dala yaxlitlash tufayli rad etilmasin
+        if (used + areaHa > plan.maxTotalHa().doubleValue() + 0.01) {
+            return new Result(Outcome.TOTAL_LIMIT, fieldId, null, plan, areaHa, used);
+        }
+        return null;
     }
 
     // Tahlil kvotasi: FREE — umrbod, pullik — obuna davrida (FAILED hisoblanmaydi)

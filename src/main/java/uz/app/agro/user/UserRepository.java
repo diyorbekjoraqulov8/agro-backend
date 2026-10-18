@@ -26,6 +26,12 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
     @EntityGraph(attributePaths = {"roles", "roles.permissions"})
     Optional<UserEntity> findWithPermissionsByEmail(String email);
 
+    /** Support guruhidagi xodim — huquqlari bilan (javob shu xodim nomidan, @PreAuthorize tekshiradi) */
+    @EntityGraph(attributePaths = {"roles", "roles.permissions"})
+    Optional<UserEntity> findWithPermissionsByTelegramUserId(Long telegramUserId);
+
+    boolean existsByTelegramUserIdAndIdNot(Long telegramUserId, Long id);
+
     boolean existsByEmail(String email);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)

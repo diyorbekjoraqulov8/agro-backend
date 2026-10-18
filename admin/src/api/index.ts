@@ -9,6 +9,9 @@ export const authApi = {
   me: () => http.get<T.Me>('/auth/me'),
   sessions: () => http.get<T.SessionInfo[]>('/auth/sessions'),
   revokeSession: (id: string) => http.del<void>(`/auth/sessions/${id}`),
+  myTelegram: () => http.get<{ telegramUserId: number | null }>('/auth/me/telegram'),
+  unlinkTelegram: () => http.del<void>('/auth/me/telegram'),
+  telegramLink: () => http.post<{ url: string; expiresAt: string }>('/support/telegram-link'),
 }
 
 export const usersApi = {
@@ -66,6 +69,12 @@ export const billingApi = {
   recordPayment: (farmerId: number, body: T.PaymentRequest) => http.post<T.Subscription>(`/farmers/${farmerId}/subscriptions`, body),
   cancel: (id: number, reason: string) => http.post<T.Subscription>(`/subscriptions/${id}/cancel`, { reason }),
   subscriptions: (q: Q) => http.get<T.Page<T.Subscription>>('/subscriptions', q),
+  discounts: () => http.get<T.Discount[]>('/discounts'),
+  createDiscount: (body: T.DiscountRequest) => http.post<T.Discount>('/discounts', body),
+  updateDiscount: (id: number, body: T.DiscountRequest) => http.put<T.Discount>(`/discounts/${id}`, body),
+  prices: (farmerId: number) => http.get<T.PlanPrice[]>(`/farmers/${farmerId}/prices`),
+  // 204 — taklif yo'q (sozlama o'chiq yoki sotuv davri emas)
+  seasonOffer: (farmerId: number) => http.get<T.SeasonOffer | undefined>(`/farmers/${farmerId}/season-offer`),
 }
 
 export const feedbackApi = {
@@ -109,12 +118,28 @@ export const onboardingApi = {
   update: (id: number, body: T.StepRequest) => http.put<T.OnboardingStep>(`/onboarding/steps/${id}`, body),
   move: (id: number, direction: 'up' | 'down') => http.post<T.OnboardingStep[]>(`/onboarding/steps/${id}/move?direction=${direction}`),
   remove: (id: number) => http.del<void>(`/onboarding/steps/${id}`),
+  videos: () => http.get<T.TutorialVideo[]>('/onboarding/videos'),
+  uploadVideo: (lang: string, file: File) => {
+    const f = new FormData()
+    f.append('file', file)
+    return http.put<T.TutorialVideo>(`/onboarding/videos/${lang}`, f)
+  },
+  removeVideo: (lang: string) => http.del<void>(`/onboarding/videos/${lang}`),
 }
 
 export const advisorApi = {
   list: (q: Q) => http.get<T.Page<T.AdvisorItem>>('/advisor/requests', q),
   get: (id: number) => http.get<T.AdvisorItem>(`/advisor/requests/${id}`),
   stats: () => http.get<T.AdvisorStats>('/advisor/stats'),
+}
+
+export const problemsApi = {
+  list: (q: Q) => http.get<T.Page<T.ProblemItem>>('/problems', q),
+  get: (id: number) => http.get<T.ProblemItem>(`/problems/${id}`),
+  summary: () => http.get<T.ProblemSummary>('/problems/summary'),
+  count: () => http.get<{ errors: number }>('/problems/count'),
+  resolve: (id: number) => http.post<T.ProblemItem>(`/problems/${id}/resolve`),
+  resolveAll: (source: T.ProblemSource) => http.post<{ resolved: number }>(`/problems/resolve-all?source=${source}`),
 }
 
 export const notificationsApi = {

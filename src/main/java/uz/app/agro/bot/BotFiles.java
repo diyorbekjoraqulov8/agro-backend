@@ -28,7 +28,8 @@ public class BotFiles {
             }
             return Optional.ofNullable(bot.getFileContent(r.file()));
         } catch (IOException | RuntimeException e) {
-            log.warn("telegram fayl yuklanmadi: {}", e.getMessage());
+            // e.getMessage() — fayl URL'i, ichida TOKEN: faqat exception turi log'ga
+            log.warn("telegram fayl yuklanmadi ({})", e.getClass().getSimpleName());
             return Optional.empty();
         }
     }

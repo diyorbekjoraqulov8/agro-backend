@@ -29,7 +29,6 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class BotReportFormatter {
 
-    private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("dd.MM");
     private static final DateTimeFormatter DAY_YEAR = DateTimeFormatter.ofPattern("dd.MM.yyyy");
     private static final Set<String> SIDES = Set.of("N", "NE", "E", "SE", "S", "SW", "W", "NW", "CENTER");
     // So (emoji, ✅, 🟢...) + variation selector / ZWJ — PDF shriftida yo'q
@@ -132,8 +131,8 @@ public class BotReportFormatter {
                 ? m.text(lang, "report.zone.weakWhere", pct(z.weakPct()), m.text(lang, "side." + z.weakSide()))
                 : m.text(lang, "report.zone.weak", pct(z.weakPct())));
         if (r.growingSeason() != null) {
-            lines.add(m.text(lang, "report.season", day(r.growingSeason().from()), day(r.growingSeason().to())));
-            lines.add(m.text(lang, "report.best", day(r.peakDate())));
+            lines.add(m.text(lang, "report.season", day(lang, r.growingSeason().from()), day(lang, r.growingSeason().to())));
+            lines.add(m.text(lang, "report.best", day(lang, r.peakDate())));
         }
         if (r.prevYearPeakNdvi() != null && r.prevYearPeakNdvi() > 0) {
             long diff = Math.round((r.peakNdvi() / r.prevYearPeakNdvi() - 1) * 100);
@@ -156,7 +155,7 @@ public class BotReportFormatter {
 
     private String footer(String lang, EffectivePlan plan) {
         return plan != null && plan.paid()
-                ? m.text(lang, "report.footer.paid", plan.planName(), plan.validUntil() == null ? "—" : plan.validUntil().format(DAY_YEAR))
+                ? m.text(lang, "report.footer.paid", plan.planName(), plan.validUntil() == null ? "—" : BotMessages.date(lang, plan.validUntil()))
                 : m.text(lang, "report.footer.free");
     }
 
@@ -178,7 +177,7 @@ public class BotReportFormatter {
         try {
             return switch (rec.code()) {
                 case "WATER_STRESS" -> m.text(lang, "rec.WATER_STRESS",
-                        day(LocalDate.parse(String.valueOf(p.get("from")))), day(LocalDate.parse(String.valueOf(p.get("to")))));
+                        day(lang, LocalDate.parse(String.valueOf(p.get("from")))), day(lang, LocalDate.parse(String.valueOf(p.get("to")))));
                 case "WEAK_ZONE" -> {
                     String side = String.valueOf(p.get("side"));
                     yield m.text(lang, "rec.WEAK_ZONE", pct(((Number) p.get("weak_pct")).doubleValue()),
@@ -241,8 +240,8 @@ public class BotReportFormatter {
         sb.append("\r\n");
     }
 
-    private static String day(LocalDate d) {
-        return d == null ? "?" : (d.getYear() == LocalDate.now().getYear() ? d.format(DAY) : d.format(DAY_YEAR));
+    private static String day(String lang, LocalDate d) {
+        return d == null ? "?" : BotMessages.date(lang, d);
     }
 
     private static String pct(double v) {

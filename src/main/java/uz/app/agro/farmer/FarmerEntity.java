@@ -35,6 +35,13 @@ public class FarmerEntity extends BaseEntity {
     @Column(length = 20)
     private String phone;
 
+    /** Support guruhidagi mavzu (message_thread_id) va o'sha guruh — V37; null — hali yozmagan yoki support bot yo'q */
+    @Column(name = "support_chat_id")
+    private Long supportChatId;
+
+    @Column(name = "support_topic_id")
+    private Long supportTopicId;
+
     @Column(nullable = false, length = 5)
     private String language = "uz";
 

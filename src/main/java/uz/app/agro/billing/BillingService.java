@@ -14,10 +14,16 @@ import uz.app.agro.common.exception.ConflictException;
 import uz.app.agro.common.exception.NotFoundException;
 import uz.app.agro.farmer.FarmerEntity;
 import uz.app.agro.farmer.FarmerRepository;
+import uz.app.agro.notification.NotificationCategory;
+import uz.app.agro.notification.NotificationService;
 import uz.app.agro.rbac.Permissions;
 import uz.app.agro.security.CurrentActor;
+import uz.app.agro.settings.Setting;
+import uz.app.agro.settings.SettingsService;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -32,12 +38,15 @@ public class BillingService {
     private final PlanService planService;
     private final BillingMapper mapper;
     private final AuditService auditService;
+    private final NotificationService notifications;
+    private final SettingsService settings;
+    private final DiscountPricing pricing;
 
     // ── Tariflar ───────────────────────────────────────────────────────────
 
     @PreAuthorize(Permissions.CAN_READ_BILLING)
     public List<PlanResponse> plans() {
-        return planRepository.findAllByOrderBySystemPlanDescPriceAsc().stream().map(mapper::toResponse).toList();
+        return planRepository.findAllByOrderBySystemPlanDescContactSalesAscPriceAsc().stream().map(mapper::toResponse).toList();
     }
 
     @PreAuthorize(Permissions.CAN_MANAGE_BILLING)
@@ -77,6 +86,7 @@ public class BillingService {
         p.setName(r.name().strip());
         p.setDescription(r.description());
         p.setMaxFieldHa(r.maxFieldHa());
+        p.setMaxTotalHa(r.maxTotalHa());
         p.setMaxFields(r.maxFields());
         p.setMaxAnalyses(r.maxAnalyses());
         if (p.isSystemPlan()) {
@@ -88,6 +98,7 @@ public class BillingService {
         p.setCurrency(r.currency());
         p.setDurationDays(r.durationDays());
         p.setActive(r.active());
+        p.setContactSales(r.contactSales());
     }
 
     // ── To'lovlar ──────────────────────────────────────────────────────────
@@ -123,16 +134,22 @@ public class BillingService {
         PlanEntity plan = planRepository.findById(req.planId()).orElseThrow(() -> new NotFoundException("Tarif", req.planId()));
         if (plan.isSystemPlan()) throw new BadRequestException("Tizim tarifiga (" + plan.getCode() + ") to'lov qilinmaydi");
         if (!plan.isActive()) throw new BadRequestException("Tarif faol emas: " + plan.getCode());
-        // REFERRAL — faqat tizim beradi (taklif mukofoti); xodim qo'lda yozsa statistika buziladi
-        if (req.paymentMethod() == PaymentMethod.REFERRAL) throw new BadRequestException("REFERRAL usulini faqat tizim beradi");
+        // REFERRAL / TRIAL — faqat tizim beradi; xodim qo'lda yozsa statistika buziladi
+        if (req.paymentMethod().systemOnly()) throw new BadRequestException(req.paymentMethod() + " usulini faqat tizim beradi");
+        // Agro Biznes: narx kelishiladi — rejadagi 0 yozilib qolmasin
+        if (plan.isContactSales() && (req.amount() == null || req.amount().signum() <= 0)) {
+            throw new BadRequestException("Bu tarif narxi kelishiladi — kelishilgan summani kiriting");
+        }
 
         LocalDate today = LocalDate.now();
+        LocalDate last = subscriptionRepository.lastActiveUntil(farmerId, today);
         LocalDate from = req.validFrom();
-        if (from == null) {
-            LocalDate last = subscriptionRepository.lastActiveUntil(farmerId, today);
-            from = last != null ? last.plusDays(1) : today;
-        }
-        LocalDate until = req.validUntil() != null ? req.validUntil() : from.plusDays(plan.getDurationDays() - 1L);
+        if (from == null) from = last != null ? last.plusDays(1) : today;
+        // Muddat qo'lda berilsa — summa uchun davrlar soni o'shandan (masalan 90 kun = 3 × 30); aks holda periods (bo'sh — 1)
+        int periods = req.periods() != null ? req.periods()
+                : req.validUntil() != null ? (int) Math.max(1, Math.round(
+                        (ChronoUnit.DAYS.between(from, req.validUntil()) + 1) / (double) plan.getDurationDays())) : 1;
+        LocalDate until = req.validUntil() != null ? req.validUntil() : from.plusDays((long) plan.getDurationDays() * periods - 1L);
         if (until.isBefore(from)) throw new BadRequestException("validUntil validFrom dan oldin bo'lmasin");
         // Allaqachon tugagan obuna — deyarli har doim xato (Swagger validUntil'ga bugungi sanani qo'yadi va h.k.)
         if (until.isBefore(today)) throw new BadRequestException("Tugash sanasi o'tib ketgan: " + until);
@@ -143,7 +160,19 @@ public class BillingService {
         s.setPlan(plan);
         s.setValidFrom(from);
         s.setValidUntil(until);
-        s.setAmount((req.amount() != null ? req.amount() : plan.getPrice()).setScale(2, java.math.RoundingMode.HALF_UP));
+        // Summa bo'sh — fermerga mos eng foydali chegirma bilan (narx × davr); auditoriya obuna yozilishidan OLDIN aniqlanadi
+        PlanPrice price = pricing.price(farmerId, mapper.toResponse(plan), today);
+        BigDecimal amount = req.amount();
+        Long discountId;
+        if (amount == null) {
+            amount = price.finalPrice().multiply(BigDecimal.valueOf(periods));
+            discountId = price.discountId();
+        } else {
+            // Qo'lda summa: chegirma faqat shu fermerga hozir haqiqatan qo'llanadigani bo'lsa yoziladi (statistika shishmasin)
+            discountId = req.discountId() != null && req.discountId().equals(price.discountId()) ? req.discountId() : null;
+        }
+        s.setAmount(amount.setScale(2, java.math.RoundingMode.HALF_UP));
+        s.setDiscountId(discountId);
         s.setCurrency(req.currency() != null ? req.currency() : plan.getCurrency());
         s.setPaidAt(req.paidAt() != null ? req.paidAt() : LocalDateTime.now());
         s.setPaymentMethod(req.paymentMethod());
@@ -160,8 +189,22 @@ public class BillingService {
                 .detail("amount", s.getAmount() + " " + s.getCurrency())
                 .detail("validFrom", from.toString())
                 .detail("validUntil", until.toString())
+                .detail("discountId", discountId)
                 .record();
+        notifyActivated(farmerId, plan, until, last != null);
         return mapper.toResponse(s, today);
+    }
+
+    /**
+     * Fermerga "✅ Pro faollashdi" (outbox — shu tranzaksiyada, rollback bo'lsa xabar ham yo'q). Faol obunasi bor
+     * edi — "uzaytirildi". Taklif dasturi yoqilgan bo'lsa — keyingi oyni bepul olish yo'li.
+     */
+    private void notifyActivated(long farmerId, PlanEntity plan, LocalDate until, boolean extended) {
+        boolean friends = settings.getBool(Setting.REFERRAL_ENABLED);
+        String key = (extended ? "plan.extended" : "plan.activated") + (friends ? ".friends" : "");
+        notifications.enqueueMessage(farmerId, NotificationCategory.SYSTEM, key, plan.getName(), until,
+                String.valueOf(settings.getInt(Setting.REFERRAL_REQUIRED)),
+                String.valueOf(settings.getInt(Setting.REFERRAL_REWARD_DAYS)));
     }
 
     @PreAuthorize(Permissions.CAN_MANAGE_BILLING)

@@ -9,6 +9,9 @@ import org.springframework.web.bind.annotation.*;
 import uz.app.agro.common.exception.BadRequestException;
 import uz.app.agro.onboarding.dto.StepRequest;
 import uz.app.agro.onboarding.dto.StepResponse;
+import uz.app.agro.onboarding.dto.TutorialVideoResponse;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -19,6 +22,27 @@ import java.util.List;
 public class OnboardingController {
 
     private final OnboardingAdminService service;
+    private final TutorialVideoService videos;
+
+    @Operation(summary = "Yo'riqnoma videolari (uz, ru, en)", description = "Huquq: `onboarding:read`. fileHashId null — yuklanmagan")
+    @GetMapping("/videos")
+    public List<TutorialVideoResponse> videos() {
+        return videos.list();
+    }
+
+    @Operation(summary = "Yo'riqnoma videosini yuklash/almashtirish",
+               description = "Huquq: `onboarding:manage`. multipart `file`, faqat MP4, ≤ 10 MB. Bot salomlashishdan keyin va ❓ Qo'llanma'da yuboradi")
+    @PutMapping(path = "/videos/{lang}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public TutorialVideoResponse uploadVideo(@PathVariable String lang, @RequestPart("file") MultipartFile file) {
+        return videos.upload(lang, file);
+    }
+
+    @Operation(summary = "Yo'riqnoma videosini o'chirish", description = "Huquq: `onboarding:manage`")
+    @DeleteMapping("/videos/{lang}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteVideo(@PathVariable String lang) {
+        videos.delete(lang);
+    }
 
     @Operation(summary = "Qadamlar (bot tartibida)", description = "Huquq: `onboarding:read`. answers — nechta fermer javob bergan")
     @GetMapping("/steps")

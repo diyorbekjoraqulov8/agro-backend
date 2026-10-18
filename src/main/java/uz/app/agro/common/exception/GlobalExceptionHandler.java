@@ -1,5 +1,7 @@
 package uz.app.agro.common.exception;
 
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.core.PropertyReferenceException;
@@ -12,6 +14,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import uz.app.agro.problem.ProblemRecorder;
+import uz.app.agro.problem.ProblemSource;
 
 import java.sql.SQLException;
 import java.time.Instant;
@@ -20,7 +24,10 @@ import java.util.Map;
 
 @Slf4j
 @RestControllerAdvice
+@RequiredArgsConstructor
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+
+    private final ProblemRecorder problems;
 
     @ExceptionHandler(AppException.class)
     public ProblemDetail handleApp(AppException ex) {
@@ -33,8 +40,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ProblemDetail handleUnexpected(Exception ex) {
+    public ProblemDetail handleUnexpected(Exception ex, HttpServletRequest request) {
         log.error("Kutilmagan xato", ex);
+        // Yo'l — so'rovdan, lekin faqat xavfsiz belgilar (log forging, CWE-117)
+        String path = request.getMethod() + " " + request.getRequestURI().replaceAll("[^A-Za-z0-9/_.-]", "?");
+        // Mijoz uzib qo'ydi (PDF yuklash to'xtatildi) — xato emas; DB ulanishi yo'q — muammoni yozib ham bo'lmaydi (+3 s)
+        if (!(ex instanceof org.springframework.web.context.request.async.AsyncRequestNotUsableException)
+                && !ex.getClass().getSimpleName().equals("ClientAbortException")
+                && !(ex instanceof org.springframework.transaction.CannotCreateTransactionException)) {
+            problems.error(ProblemSource.API, "500 " + path + ": " + ex.getClass().getSimpleName()).cause(ex).record();
+        }
         return build(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "INTERNAL_ERROR",

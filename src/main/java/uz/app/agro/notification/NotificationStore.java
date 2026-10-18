@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import uz.app.agro.problem.ProblemRecorder;
+import uz.app.agro.problem.ProblemSource;
 import uz.app.agro.farmer.FarmerEntity;
 import uz.app.agro.farmer.FarmerRepository;
 import uz.app.agro.notification.NotificationChannel.Delivery;
@@ -36,6 +38,7 @@ class NotificationStore {
     private final FarmerRepository farmerRepository;
     private final SettingsService settings;
     private final ApplicationEventPublisher events;
+    private final ProblemRecorder problems;
 
     /** Yuborishga tayyor xabar — tranzaksiyadan tashqarida ishlatiladi */
     record Job(long id, ChannelType channel, String template, Map<String, Object> params, Recipient to) {}
@@ -100,6 +103,13 @@ class NotificationStore {
         n.setStatus(status);
         n.setLastError(cut(error));
         published(n, false);
+        // Yetmadi: FAILED — xato; SKIPPED (botni bloklagan, fermer yo'q) — fermer tomoni, ogohlantirish.
+        // Kampaniyaning SKIPPED'lari yozilmaydi — bloklaganlar ro'yxati kampaniya hisobotida bor (sahifani to'ldirmasin)
+        if (status == NotificationStatus.SKIPPED && n.getCampaignId() != null) return;
+        var p = status == NotificationStatus.FAILED
+                ? problems.error(ProblemSource.NOTIFICATION, "Xabar yetkazilmadi (" + n.getTemplate() + "): " + error)
+                : problems.warn(ProblemSource.NOTIFICATION, "Xabar yuborilmadi (" + n.getTemplate() + "): " + error);
+        p.farmer(n.getFarmerId()).ref("NOTIFICATION", n.getId()).record();
     }
 
     /** Ref egasi (masalan chat xabari) commit'dan keyin "yetkazildi/yetmadi" belgisini qo'yadi */

@@ -36,7 +36,7 @@ public interface AdvisorRequestRepository extends JpaRepository<AdvisorRequestEn
     /** AI xulosasi turlari (kasallik, zararkunanda…) — qaysi muammolar ko'p */
     @Query(value = """
             SELECT ai_result ->> 'category' AS key, count(*) AS count FROM advisor_requests
-             WHERE status = 'ANSWERED' AND created_date >= :since GROUP BY 1
+             WHERE status = 'ANSWERED' AND ai_result ->> 'category' IS NOT NULL AND created_date >= :since GROUP BY 1
             """, nativeQuery = true)
     List<StatusCount> categoryCounts(@Param("since") LocalDateTime since);
 

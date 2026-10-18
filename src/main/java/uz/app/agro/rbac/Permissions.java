@@ -42,6 +42,8 @@ public final class Permissions {
     public static final String NOTIFICATION_READ = "notification:read";
     public static final String NOTIFICATION_SEND = "notification:send";
     public static final String ADVISOR_READ      = "advisor:read";
+    public static final String PROBLEMS_READ     = "problems:read";
+    public static final String PROBLEMS_MANAGE   = "problems:manage";
 
     public static final String CAN_READ_USER   = "hasAuthority('" + USER_READ + "')";
     public static final String CAN_CREATE_USER = "hasAuthority('" + USER_CREATE + "')";
@@ -83,6 +85,8 @@ public final class Permissions {
     public static final String CAN_READ_NOTIFICATION = "hasAuthority('" + NOTIFICATION_READ + "')";
     public static final String CAN_SEND_NOTIFICATION = "hasAuthority('" + NOTIFICATION_SEND + "')";
     public static final String CAN_READ_ADVISOR      = "hasAuthority('" + ADVISOR_READ + "')";
+    public static final String CAN_READ_PROBLEMS     = "hasAuthority('" + PROBLEMS_READ + "')";
+    public static final String CAN_MANAGE_PROBLEMS   = "hasAuthority('" + PROBLEMS_MANAGE + "')";
 
     private Permissions() {}
 }

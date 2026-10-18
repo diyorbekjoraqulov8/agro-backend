@@ -1,6 +1,7 @@
 package uz.app.agro.feedback;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import uz.app.agro.audit.AuditEvent;
@@ -36,6 +37,7 @@ class FeedbackStore {
     private final FeedbackMapper mapper;
     private final FileRegistry files;
     private final NotificationService notifications;
+    private final ApplicationEventPublisher events;
 
     /** Faqat OPEN suhbatga: egasi (operator) yoki feedback:manage */
     @Transactional
@@ -61,6 +63,7 @@ class FeedbackStore {
                 .param("feedbackId", id).param("text", text).param("fileHashId", fileHashId)
                 .ref(REF_MESSAGE, m.getId())
                 .preview("Murojaat №" + id + " javobi: " + (text != null ? text : "📎 fayl")));
+        events.publishEvent(FeedbackActivityEvent.staff(id, m.getId()));
         return mapper.toResponse(m, fileHashId == null ? Map.of() : files.infos(List.of(fileHashId)));
     }
 
@@ -94,6 +97,7 @@ class FeedbackStore {
         notifications.enqueue(Notification.template(f.getFarmer().getId(), NotificationCategory.FEEDBACK, Templates.FEEDBACK_CLOSED)
                 .param("feedbackId", id).param("askRating", f.getAssigneeId() != null)
                 .preview("Murojaat №" + id + " yakunlandi"));
+        events.publishEvent(FeedbackActivityEvent.closed(id));
     }
 
     /** DTO tranzaksiya ichida — farmer LAZY */

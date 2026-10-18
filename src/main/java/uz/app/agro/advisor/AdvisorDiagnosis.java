@@ -6,7 +6,7 @@ import java.util.List;
 
 /**
  * Claude javobi — structured output (SDK sxemani shu record'dan yasaydi, javob shu tipda keladi).
- * Matn maydonlari fermer tilida. Dori nomi va dozasi YO'Q — faqat agronom tasdig'idan keyin (system prompt).
+ * Matn maydonlari fermer tilida. Dori nomi va dozasi YO'Q — "agronom bilan maslahatlashing" (system prompt).
  * Jackson annotatsiyalari com.fasterxml.jackson.annotation — Jackson 2 (SDK) va 3 (loyiha) uchun umumiy paket.
  */
 public record AdvisorDiagnosis(

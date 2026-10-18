@@ -11,5 +11,6 @@ public enum BotStep {
     REPORTED,           // hisobot yuborildi (S8: qo'shimcha savollar shu yerdan)
     FEEDBACK_TEXT,      // "💬 Fikr va yordam": birinchi xabar kutilmoqda; oldingi bosqich data.prevStep da
     FEEDBACK_CHAT,      // operator bilan suhbat: har xabar data.feedbackId suhbatiga qo'shiladi
-    ADVISOR_PHOTO       // "🤖 AI maslahat": rasm kutilmoqda (data.advisorField — tanlangan dala, 0 — dalasiz)
+    ADVISOR_PHOTO,      // "🤖 AI maslahat": rasm kutilmoqda (data.advisorField — tanlangan dala, 0 — dalasiz)
+    BUSINESS_FORM       // "🏢 Agro Biznes" arizasi: maydon → ekinlar → hudud → telefon (data.biz — javoblar)
 }

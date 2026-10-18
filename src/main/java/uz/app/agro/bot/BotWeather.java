@@ -10,7 +10,6 @@ import uz.app.agro.weather.WeatherRisk;
 import uz.app.agro.weather.WeatherService;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,7 +25,6 @@ import java.util.Map;
 @ConditionalOnProperty(name = "telegram.enabled", havingValue = "true")
 public class BotWeather {
 
-    private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("dd.MM");
     private static final int MAX_NAMES = 4;
 
     private final BotSender sender;
@@ -88,7 +86,7 @@ public class BotWeather {
     /** "Pa 16.10" — hafta kuni fermer tilida (JDK CLDR: uz/ru/en) */
     private static String weekday(String lang, LocalDate d) {
         String w = d.getDayOfWeek().getDisplayName(TextStyle.SHORT, Locale.forLanguageTag(lang));
-        return Character.toUpperCase(w.charAt(0)) + w.substring(1) + " " + d.format(DAY);
+        return Character.toUpperCase(w.charAt(0)) + w.substring(1) + ", " + BotMessages.date(lang, d);
     }
 
     private static String temp(Double v) {

@@ -3,6 +3,7 @@ package uz.app.agro.monitoring;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import uz.app.agro.billing.PlanService;
 import uz.app.agro.field.FieldEntity;
 import uz.app.agro.field.FieldRepository;
 import uz.app.agro.notification.Notification;
@@ -31,12 +32,14 @@ class MonitoringStore {
 
     static final int MAX_BACKOFF = 7;
 
-    record Input(long fieldId, String fieldName, long farmerId, Map<String, Object> geometry, LocalDate since) {}
+    /** paid — fermerning bugun faol pullik obunasi bor (ogohlantirish va tezroq tekshiruv shunga bog'liq) */
+    record Input(long fieldId, String fieldName, long farmerId, Map<String, Object> geometry, LocalDate since, boolean paid) {}
 
     private final FieldMonitoringRepository queue;
     private final MonitoringEventRepository events;
     private final FieldRepository fields;
     private final NotificationService notifications;
+    private final PlanService plans;
 
     @Transactional
     public int enroll(boolean paidOnly) {
@@ -63,8 +66,9 @@ class MonitoringStore {
         FieldEntity f = fields.findById(fieldId).orElse(null);
         FieldMonitoringEntity m = queue.findById(fieldId).orElse(null);
         if (f == null || m == null) return Optional.empty();
-        return Optional.of(new Input(fieldId, f.getName(), f.getFarmer().getId(), new HashMap<>(f.getBoundaryGeojson()),
-                later(m.getLastSceneDate(), m.getLastSeenDate())));
+        long farmerId = f.getFarmer().getId();
+        return Optional.of(new Input(fieldId, f.getName(), farmerId, new HashMap<>(f.getBoundaryGeojson()),
+                later(m.getLastSceneDate(), m.getLastSeenDate()), plans.paidOn(farmerId, LocalDate.now())));
     }
 
     /** Yangi ochiq surat yo'q — keyingi tekshiruv; seen — metadata ko'rgan (bulutli) surat sanasi, keyingi `since` */
@@ -90,7 +94,7 @@ class MonitoringStore {
 
     /** @return true — fermerga xabar navbatga qo'yildi */
     @Transactional
-    public boolean record(Input in, MonitorResponse r, Verdict verdict, String mapHashId, LocalDateTime next) {
+    public boolean record(Input in, MonitorResponse r, Verdict verdict, String mapHashId, LocalDateTime next, boolean alert) {
         FieldMonitoringEntity m = queue.findById(in.fieldId()).orElseThrow();
         m.setLastSceneDate(r.sceneDate());
         m.setLastSeenDate(later(m.getLastSeenDate(), later(r.latestSeen(), r.sceneDate())));
@@ -113,7 +117,7 @@ class MonitoringStore {
         e.setMapFileHashId(mapHashId);
         e.setCreatedDate(LocalDateTime.now());
         events.save(e);
-        if (verdict != Verdict.DECLINE) return false;
+        if (verdict != Verdict.DECLINE || !alert) return false;           // bepul dala (paid-only): holat yoziladi, xabar yo'q
 
         Notification n = Notification.template(in.farmerId(), NotificationCategory.MONITORING, Templates.MONITORING_ALERT)
                 .param("fieldId", in.fieldId()).param("fieldName", in.fieldName())

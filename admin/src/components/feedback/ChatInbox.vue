@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton'
 import { feedbackApi } from '@/api'
 import { errorMessage } from '@/api/http'
-import type { Feedback, OperatorStats } from '@/api/types'
+import type { Feedback, FeedbackKind, OperatorStats } from '@/api/types'
 import { ago, avatarClass, initials, who } from '@/lib/feedback'
 import { FEEDBACK_KIND } from '@/lib/labels'
 import { useAuth } from '@/stores/auth'
@@ -18,8 +18,9 @@ import { useAuth } from '@/stores/auth'
 /**
  * Messenger ko'rinishi: chapda ochiq suhbatlar, o'ngda tanlangani.
  * scope=mine — menga biriktirilganlar; scope=all — barcha operatorlarniki (feedback:manage).
+ * kind — faqat shu turdagi yopilmagan suhbatlar, navbatdagilar ham (masalan "Obuna so'rovlari": SUBSCRIPTION)
  */
-const props = defineProps<{ scope: 'mine' | 'all' }>()
+const props = defineProps<{ scope: 'mine' | 'all'; kind?: FeedbackKind }>()
 const selected = defineModel<number | null>('selected', { default: null })
 const emit = defineEmits<{ toQueue: [] }>()
 
@@ -34,7 +35,7 @@ const now = ref(Date.now())
 async function load() {
   try {
     const page = await feedbackApi.search({
-      status: 'OPEN', mine: props.scope === 'mine' || undefined,
+      ...(props.kind ? { active: true, kind: props.kind } : { status: 'OPEN' }), mine: props.scope === 'mine' || undefined,
       assigneeId: props.scope === 'all' && operator.value !== ALL ? operator.value : undefined,
       q: q.value.trim() || undefined, size: 100, sort: 'lastMessageAt,desc',
     })

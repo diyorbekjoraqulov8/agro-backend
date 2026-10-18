@@ -18,6 +18,7 @@ import uz.app.agro.auth.dto.LoginRequest;
 import uz.app.agro.auth.dto.RegisterRequest;
 import uz.app.agro.auth.dto.SessionResponse;
 import uz.app.agro.common.exception.ConflictException;
+import uz.app.agro.common.exception.NotFoundException;
 import uz.app.agro.rbac.RoleNames;
 import uz.app.agro.rbac.RoleRepository;
 import uz.app.agro.rbac.Role;
@@ -59,8 +60,15 @@ public class AuthService {
     @Value("${jwt.refresh-token-ttl}")
     private Duration refreshTtl;
 
+    // Prod: o'chiq — admin panel ochiq ro'yxatdan o'tishsiz (xodimlarni admin "Xodimlar"dan qo'shadi, birinchisi — AdminBootstrap)
+    @Value("${app.registration-enabled}")
+    private boolean registrationEnabled;
+
     @Transactional
     public void register(RegisterRequest request) {
+        if (!registrationEnabled) {
+            throw new NotFoundException("Endpoint", "/auth/register");        // borligini ham oshkor qilmaymiz
+        }
         if (userRepository.existsByEmail(request.email())) {
             throw new ConflictException("Bu email allaqachon ro'yxatdan o'tgan");
         }
@@ -162,6 +170,20 @@ public class AuthService {
                 .target("SESSION", sessionId)
                 .record();
         sessionService.revoke(sessionId);
+    }
+
+    public Long myTelegram(AuthUser user) {
+        return userRepository.findById(user.id()).map(UserEntity::getTelegramUserId).orElse(null);
+    }
+
+    /** Support guruhidan javob berishni to'xtatish (bog'lash — SupportLinkService, egalik bot orqali isbotlanadi) */
+    @Transactional
+    public void unlinkTelegram(AuthUser user) {
+        UserEntity u = userRepository.findById(user.id()).orElseThrow(() -> new NotFoundException("Foydalanuvchi", user.id()));
+        if (u.getTelegramUserId() == null) return;
+        auditService.event(AuditEvent.USER_TELEGRAM_LINKED).target("USER", user.id())
+                .detail("old", u.getTelegramUserId()).detail("new", null).record();
+        u.setTelegramUserId(null);
     }
 
     public List<SessionResponse> mySessions(AuthUser user) {

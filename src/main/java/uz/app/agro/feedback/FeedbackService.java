@@ -48,13 +48,13 @@ public class FeedbackService {
 
     /** @param mine true — faqat menga biriktirilganlar (assigneeId e'tiborsiz) */
     @PreAuthorize(Permissions.CAN_READ_FEEDBACK)
-    public PageResponse<FeedbackResponse> search(FeedbackStatus status, FeedbackKind kind, Long farmerId, Long assigneeId,
-                                                 Short rating, boolean mine, String q, Pageable pageable) {
+    public PageResponse<FeedbackResponse> search(FeedbackStatus status, boolean active, FeedbackKind kind, Long farmerId,
+                                                 Long assigneeId, Short rating, boolean mine, String q, Pageable pageable) {
         AuthUser me = actor();
         Long visibleTo = manage(me) ? null : me.id();
         Long assignee = mine ? me.id() : assigneeId;
         return PageResponse.of(feedbackRepository.findAll(
-                FeedbackSpecs.filter(status, kind, farmerId, assignee, rating, q, visibleTo), pageable).map(mapper::toResponse));
+                FeedbackSpecs.filter(status, active, kind, farmerId, assignee, rating, q, visibleTo), pageable).map(mapper::toResponse));
     }
 
     @PreAuthorize(Permissions.CAN_READ_FEEDBACK)
@@ -85,6 +85,8 @@ public class FeedbackService {
         m.put("MINE", feedbackRepository.countByStatusAndAssigneeId(FeedbackStatus.OPEN, me.id()));
         m.put("MINE_UNREAD", feedbackRepository.unreadFor(me.id()));
         if (manage(me)) m.put("OPEN", feedbackRepository.countByStatus(FeedbackStatus.OPEN));
+        // Javob kutayotgan obuna so'rovlari (navbatdagi + oxirgi xabar fermerdan) — "💎 Obuna so'rovlari" nishoni
+        m.put("SALES", manage(me) ? feedbackRepository.countSalesWaiting() : feedbackRepository.countSalesWaitingFor(me.id()));
         return m;
     }
 

@@ -14,10 +14,16 @@ import uz.app.agro.rbac.Permissions;
 import uz.app.agro.security.CurrentActor;
 import uz.app.agro.settings.dto.SettingResponse;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -44,11 +50,33 @@ public class SettingsService {
     }
 
     public boolean getBool(Setting s) {
-        return Boolean.parseBoolean(raw(s));
+        return parseBool(raw(s));
     }
 
     public String getString(Setting s) {
         return raw(s);
+    }
+
+    public LocalDate getDate(Setting s) {
+        try {
+            return LocalDate.parse(raw(s));
+        } catch (DateTimeParseException e) {
+            return LocalDate.parse(s.defaultValue());          // DB'da qo'lda buzilgan — default
+        }
+    }
+
+    /** Bir nechta BOOL sozlamadan yoqilganlari — bitta SELECT (bot menyusi har xabarda yasaladi) */
+    public Set<Setting> enabled(Collection<Setting> flags) {
+        Map<String, String> saved = new HashMap<>();
+        for (var e : repository.findAllById(flags.stream().map(Setting::key).toList())) saved.put(e.getKey(), e.getValue());
+        Set<Setting> on = EnumSet.noneOf(Setting.class);
+        for (Setting f : flags) if (parseBool(saved.getOrDefault(f.key(), f.defaultValue()))) on.add(f);
+        return on;
+    }
+
+    /** getBool va enabled — bir xil qoida (menyu va tugma gate'i farqlanmasin) */
+    private static boolean parseBool(String raw) {
+        return Boolean.parseBoolean(raw);
     }
 
     private String raw(Setting s) {
@@ -120,7 +148,18 @@ public class SettingsService {
                 PlanEntity p = planRepository.findByCode(code)
                         .orElseThrow(() -> new BadRequestException("Tarif topilmadi: " + code));
                 if (p.isSystemPlan() || !p.isActive()) throw new BadRequestException("Tarif pullik va faol bo'lsin: " + code);
+                // "Narx kelishiladi" (Agro Biznes, maydon cheksiz) — mukofot yoki sinov sifatida bepul berilmaydi
+                if (p.isContactSales()) throw new BadRequestException("Narxi kelishiladigan tarifni bu yerda tanlab bo'lmaydi: " + code);
                 yield code;
+            }
+            case DATE -> {
+                try {
+                    LocalDate d = LocalDate.parse(v);
+                    if (d.getYear() < 2020 || d.getYear() > 2100) throw new BadRequestException(s.key() + ": yil 2020–2100");
+                    yield d.toString();
+                } catch (DateTimeParseException e) {
+                    throw new BadRequestException(s.key() + ": sana YYYY-MM-DD (masalan 2027-10-31)");
+                }
             }
             case STRING -> {
                 if (v.isEmpty()) throw new BadRequestException(s.key() + ": bo'sh bo'lmasin");
@@ -151,6 +190,7 @@ public class SettingsService {
 
     /** Saqlanganda to'g'ri edi, keyin buzilgan bo'lishi mumkin (masalan tarif nofaol qilindi) — admin ko'rsin */
     private String warning(Setting s, String value) {
+        if (s == Setting.SEASON_SALE_FROM || s == Setting.SEASON_END) return seasonWarning();
         if (s.type() != Setting.Type.PLAN) return null;
         // Optional.map ichidan null qaytarib bo'lmaydi (bo'sh Optional → "topilmadi") — oddiy if
         PlanEntity p = planRepository.findByCode(value).orElse(null);
@@ -158,6 +198,17 @@ public class SettingsService {
         if (p.isSystemPlan() || !p.isActive()) {
             return "«" + p.getName() + "» tarifi faol emas — bu xizmat ishlamaydi. Tariflar sahifasida faollashtiring yoki boshqa tarif tanlang";
         }
+        if (s == Setting.SEASON_PLAN && p.getPrice().signum() <= 0) {
+            return "«" + p.getName() + "» tarifining narxi 0 — mavsumiy taklif koʻrinmaydi";
+        }
+        return null;
+    }
+
+    /** Mavsum sanalari jimgina taklifni yashirib qo'ymasin — admin sababini ko'rsin */
+    private String seasonWarning() {
+        LocalDate from = getDate(Setting.SEASON_SALE_FROM), end = getDate(Setting.SEASON_END);
+        if (!from.isBefore(end)) return "Sotuv boshlanishi mavsum oxiridan oldin boʻlsin — hozir taklif koʻrinmaydi";
+        if (!end.isAfter(LocalDate.now())) return "Mavsum oxiri oʻtib ketgan — taklif koʻrinmaydi";
         return null;
     }
 }

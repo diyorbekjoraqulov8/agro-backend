@@ -56,4 +56,6 @@ public interface NotificationRepository extends JpaRepository<NotificationEntity
     @Query(value = "SELECT status, count(*) AS count FROM notifications WHERE created_date >= :since GROUP BY status", nativeQuery = true)
     List<StatusCount> countsSince(@Param("since") LocalDateTime since);
 
+
+    boolean existsByRefTypeAndRefId(String refType, Long refId);
 }

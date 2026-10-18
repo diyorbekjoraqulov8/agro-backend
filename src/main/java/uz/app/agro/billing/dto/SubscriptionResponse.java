@@ -12,5 +12,6 @@ public record SubscriptionResponse(
         SubscriptionEntity.Status status, boolean activeToday,
         LocalDate validFrom, LocalDate validUntil,
         BigDecimal amount, String currency, LocalDateTime paidAt, PaymentMethod paymentMethod, String note,
-        String recordedByEmail, LocalDateTime cancelledAt, String cancelReason, LocalDateTime createdDate
+        String recordedByEmail, LocalDateTime cancelledAt, String cancelReason, LocalDateTime createdDate,
+        Long discountId                 // qaysi chegirma bilan (null — chegirmasiz)
 ) {}

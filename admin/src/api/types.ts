@@ -45,7 +45,7 @@ export interface FieldSummary {
 }
 export interface EffectivePlan {
   planCode: string; planName: string; paid: boolean; subscriptionId: number | null; validUntil: string | null
-  maxFieldHa: number; maxFields: number | null; maxAnalyses: number | null; usedAnalyses: number
+  maxFieldHa: number; maxTotalHa: number | null; maxFields: number | null; maxAnalyses: number | null; usedAnalyses: number
 }
 export interface FarmerDetail extends FarmerListItem {
   telegramUserId: number; totalAreaHa: number | null; leadNote: string | null; updatedDate: string
@@ -83,25 +83,48 @@ export interface SourceFunnel { source: string; farmers: number; withField: numb
 export interface SourcesReport { from: string; to: string; sources: SourceFunnel[] }
 
 // ── To'lovlar ────────────────────────────────────────────────────────────
-export type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER' | 'OTHER' | 'REFERRAL'
+export type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER' | 'OTHER' | 'REFERRAL' | 'TRIAL'
 export interface Plan {
   id: number; code: string; name: string; description: string | null; price: number; currency: string
-  durationDays: number | null; maxFieldHa: number; maxFields: number | null; maxAnalyses: number | null
-  systemPlan: boolean; active: boolean; updatedDate: string | null
+  durationDays: number | null; maxFieldHa: number; maxTotalHa: number | null; maxFields: number | null; maxAnalyses: number | null
+  contactSales: boolean; systemPlan: boolean; active: boolean; updatedDate: string | null
 }
 export interface PlanRequest {
   code?: string; name: string; description?: string | null; price: number; currency: string
-  durationDays?: number | null; maxFieldHa: number; maxFields?: number | null; maxAnalyses?: number | null; active: boolean
+  durationDays?: number | null; maxFieldHa: number; maxTotalHa?: number | null; maxFields?: number | null; maxAnalyses?: number | null
+  active: boolean; contactSales: boolean
 }
 export interface Subscription {
   id: number; farmerId: number; planId: number; planCode: string; planName: string
   status: 'ACTIVE' | 'CANCELLED'; activeToday: boolean; validFrom: string; validUntil: string
   amount: number; currency: string; paidAt: string; paymentMethod: PaymentMethod; note: string | null
   recordedByEmail: string | null; cancelledAt: string | null; cancelReason: string | null; createdDate: string
+  discountId: number | null
 }
 export interface PaymentRequest {
   planId: number; paymentMethod: PaymentMethod; amount?: number | null; currency?: string | null
   paidAt?: string | null; validFrom?: string | null; validUntil?: string | null; note?: string | null
+  periods?: number | null; discountId?: number | null
+}
+export type DiscountKind = 'SEASONAL' | 'PROMO' | 'FIRST_PAYMENT' | 'LOYALTY'
+export type DiscountAudience = 'FREE' | 'TRIAL' | 'PAID' | 'EXPIRED'
+export type DiscountValueType = 'PERCENT' | 'FIXED'
+export interface Discount {
+  id: number; name: string; kind: DiscountKind; valueType: DiscountValueType; value: number
+  audiences: DiscountAudience[]; planIds: number[]; startsOn: string; endsOn: string | null; active: boolean
+  activeToday: boolean; usedCount: number; updatedDate: string | null; updatedByEmail: string | null
+}
+export interface DiscountRequest {
+  name: string; kind: DiscountKind; valueType: DiscountValueType; value: number; audiences: DiscountAudience[]
+  planIds: number[]; startsOn: string; endsOn: string | null; active: boolean
+}
+export interface SeasonOffer {
+  planId: number; planName: string; from: string; until: string; days: number; discountPct: number
+  basePrice: number; finalPrice: number; currency: string
+}
+export interface PlanPrice {
+  planId: number; basePrice: number; finalPrice: number; currency: string
+  discountId: number | null; discountName: string | null; discountLabel: string | null; discountEndsOn: string | null
 }
 
 // ── Sug'orish ────────────────────────────────────────────────────────────
@@ -114,7 +137,7 @@ export interface WaterView {
   events: { irrigatedOn: string; source: 'FARMER' | 'SETUP' | 'STAFF' }[]
 }
 
-export type FeedbackKind = 'PROBLEM' | 'SUGGESTION' | 'QUESTION'
+export type FeedbackKind = 'PROBLEM' | 'SUGGESTION' | 'QUESTION' | 'SUBSCRIPTION'
 export type FeedbackStatus = 'NEW' | 'OPEN' | 'CLOSED'
 export type FeedbackSender = 'FARMER' | 'STAFF' | 'SYSTEM'
 export interface Feedback {
@@ -139,12 +162,12 @@ export interface FeedbackMessage {
   id: number; sender: FeedbackSender; staffId: number | null; staffEmail: string | null
   text: string | null; file: FileInfo | null; photoPending: boolean; delivered: boolean | null; createdDate: string
 }
-export interface FeedbackCounts { NEW: number; MINE: number; MINE_UNREAD: number; OPEN?: number }
+export interface FeedbackCounts { NEW: number; MINE: number; MINE_UNREAD: number; OPEN?: number; SALES?: number }
 export interface OperatorStats { staffId: number; email: string; open: number; closed: number; rated: number; avgRating: number | null }
 
 // ── Sozlamalar ───────────────────────────────────────────────────────────
 export interface AppSetting {
-  key: string; group: string; description: string; type: 'BOOL' | 'INT' | 'STRING' | 'PLAN' | 'MODEL'
+  key: string; group: string; description: string; type: 'BOOL' | 'INT' | 'STRING' | 'PLAN' | 'MODEL' | 'DATE'
   value: string; defaultValue: string; min: number | null; max: number | null
   custom: boolean; updatedByEmail: string | null; updatedDate: string | null; warning: string | null
 }
@@ -226,4 +249,25 @@ export interface AdvisorItem {
 export interface AdvisorStats {
   byStatus: Partial<Record<AdvisorStatus, number>>; byCategory: Partial<Record<AdvisorCategory, number>>
   tokens: { model: string; inputTokens: number; outputTokens: number; requests: number }[]
+}
+
+// ── Muammolar (P2) ──────────────────────────────────────────────────────
+export type ProblemSource = 'BOT' | 'ANALYSIS' | 'MONITORING' | 'ADVISOR' | 'NOTIFICATION' | 'WEATHER' | 'IRRIGATION' | 'API' | 'SYSTEM'
+export type ProblemLevel = 'ERROR' | 'WARN'
+export interface ProblemItem {
+  id: number; source: ProblemSource; level: ProblemLevel
+  farmerId: number | null; farmerName: string | null; fieldId: number | null; fieldName: string | null
+  refType: string | null; refId: number | null; message: string; detail: string | null
+  occurrences: number; firstSeen: string; lastSeen: string; resolvedAt: string | null; resolvedByEmail: string | null
+}
+export type ServiceStatus = 'UP' | 'WARN' | 'DOWN' | 'OFF'
+export interface ProblemSummary {
+  services: { name: string; status: ServiceStatus; detail: string }[]
+  sources: { source: ProblemSource; open: number; recent: number; lastSeen: string | null }[]
+}
+
+// ── Yo'riqnoma videosi (P4) ─────────────────────────────────────────────
+export interface TutorialVideo {
+  language: 'uz' | 'ru' | 'en'; fileHashId: string | null; size: number | null; name: string | null
+  updatedDate: string | null; updatedByEmail: string | null
 }

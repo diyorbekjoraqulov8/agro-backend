@@ -3,6 +3,8 @@ package uz.app.agro.weather;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import uz.app.agro.problem.ProblemRecorder;
+import uz.app.agro.problem.ProblemSource;
 import uz.app.agro.settings.Setting;
 import uz.app.agro.settings.SettingsService;
 
@@ -28,6 +30,7 @@ public class WeatherService {
     private final OpenMeteoClient client;
     private final WeatherStore store;
     private final SettingsService settings;
+    private final ProblemRecorder problems;
 
     /**
      * Ko'p dalali hudud birinchi. Bot thread'i bitta (long polling) — barcha fermerlarni to'smaslik uchun faqat
@@ -68,6 +71,7 @@ public class WeatherService {
                 forecasts.findAllById(batch.stream().map(WeatherCell::key).toList()).forEach(f -> cached.put(f.getCellKey(), f));
             } catch (RuntimeException e) {         // WeatherUnavailable, buzuq JSON, DB — keyingi soatda qayta
                 log.warn("ob-havo prognozi olinmadi ({} katak): {}", batch.size(), e.getMessage());
+                problems.error(ProblemSource.WEATHER, "Ob-havo prognozi olinmadi (Open-Meteo): " + e.getMessage()).cause(e).record();
             }
         }
         return cached;

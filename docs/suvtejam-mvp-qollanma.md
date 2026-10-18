@@ -1205,7 +1205,7 @@ Reja (2026-10-12, loyiha egasi qarori: 1–7 + ovozli xabar; taklif — 3 do'st 
 | **C1** ✅ | 🎁 Do'stlarni taklif · ⚙️ Sozlamalar | Taklif havolasi, mukofot, "Mening tarifim", til | Sozlamalar, Takliflar, rollar matritsasi |
 | **C2** ✅ | 🌦 Ob-havo | 5 kunlik prognoz + sovuq/issiq/shamol/jala ogohlantirishi | Chegaralar, yuborilgan bildirishnomalar jurnali |
 | **C3** ✅ | 📋 Dalalarim → 🛰 Monitoring | Har yangi surat — avtomatik tekshiruv, o'sish pasaysa xabar | Chegaralar, tarif bo'yicha yoqish |
-| C4 | 🤖 AI maslahatchi | O'simlik rasmi → AI dastlabki xulosa → agronom tasdig'i | Ko'rib chiqish navbati, aniqlik statistikasi |
+| **C4** ✅ | 🤖 AI maslahatchi | O'simlik rasmi → AI tavsiyasi (yakuniy, "agronom bilan maslahatlashing") | Tarix, statistika, xarajat |
 | C5 | 📒 Dala daftari · 📊 Hisobotlar | Ishlar jurnali + PDF, suv tejash, tuman bilan taqqoslash | Daftar (dala sahifasi), me'yorlar |
 | C6 | 💬 Yordam | Ovozli xabar (operator tinglaydi) | — |
 
@@ -1228,6 +1228,129 @@ Reja (2026-10-12, loyiha egasi qarori: 1–7 + ovozli xabar; taklif — 3 do'st 
 - Admin Sozlamalari → Monitoring: yoqish, faqat pullik (default — ha, Pro'ning asosiy sababi), chegaralar.
   Dala sahifasida "Avtomatik monitoring" kartasi (tarix, xaritalar).
 - ⚠️ Python o'zgardi — `docker compose up -d --build satellite-service`.
+
+### C4 ✅ 2026-10-15 — AI maslahat (Claude vision)
+- Bot "🤖 AI maslahat": dala tanlash → rasm (+ izoh) → navbat (`advisor_requests`) → `AdvisorJob` (3 s, bittadan,
+  5 daq lease) → Claude (rasmiy Java SDK, structured output `AdvisorDiagnosis`) → fermerga **yakuniy** tavsiya
+  "⚠️ sunʼiy intellekt tavsiyasi — yakuniy qarorni agronom bilan maslahatlashib qabul qiling" bilan. Agronom tekshiruvi
+  YO'Q (loyiha egasi qarori). AI dori nomi va dozasini aytmaydi — mutaxassisga yo'naltiradi.
+- Limit: pullik — kuniga 10, bepul — umrbod 1; AI javob bermagani (FAILED) hisoblanmaydi. Model — Sozlamalarda
+  (default `claude-opus-5-5`, ~$0.03/rasm; `claude-haiku-5-5` ~$0.001).
+- ⚠️ `ANTHROPIC_API_KEY` — console.anthropic.com (Claude Pro obunasi API EMAS). Bo'sh — bo'lim o'chiq.
+- Admin "AI maslahat" — tarix, statistika, taxminiy xarajat (faqat ko'rish, `advisor:read`).
+- 2026-10-15: keyingi bosqichga qoldirildi — xizmat ishlaydi (`advisor.enabled` true), faqat tugma yashirin: `menu.advisor` default **false**.
+
+### P1–P4, R2, R4 — 2026-10-16
+- **P1 prod:** `Dockerfile` (JWT kalitlarisiz), `deploy/compose.prod.yaml` (db, satellite, backend, nginx, certbot, backup;
+  TZ=Asia/Tashkent, log aylanishi, mem_limit), `deploy/README.md` (VPS o'lchami: 1000+ fermer — 4 vCPU / 8 GB).
+  Prodda `/auth/register` o'chiq (`APP_REGISTRATION_ENABLED`), birinchi admin — `ADMIN_EMAIL`/`ADMIN_PASSWORD`.
+  Python o'chiq (ulanib bo'lmadi + /health ham javob bermadi) — tahlil urinishi sanalmaydi, 5 daq kutadi (12 soatgacha).
+  Pro tarif 500 gektargacha (V29).
+- **P2 Muammolar (V30):** `ProblemRecorder` (hech qachon throw qilmaydi, REQUIRES_NEW) — bot, tahlil, monitoring, AI,
+  bildirishnoma, ob-havo, sug'orish, admin API 500, SYSTEM (servis o'chiq, Telegram 409). Bir xil xato (raqamsiz matn izi)
+  bitta qatorda `occurrences++`. Admin → Muammolar (xizmatlar holati + ro'yxat), fermer sahifasida karta, menyuda nishon.
+- **P3:** chat yonidagi "🛰 Tahlil qilish" (MenuButtonWebApp) — faqat `PUBLIC_API_URL` (https) bo'lsa. Mini App kontekstni
+  `POST /miniapp/context` dan oladi.
+- **P4 (V31):** yo'riqnoma videosi har til uchun (Admin → Onboarding, MP4 ≤ 10 MB) — salomlashishdan keyin va ❓ Qo'llanma'da;
+  Telegram file_id keshlanadi. Til yo'q — uz, keyin en.
+- **R2 🪄:** Mini App'da dala ichiga bitta bosish → `POST /miniapp/boundary` → Python `/boundary/detect` (Sentinel-2, 3 ochiq
+  sana, region growing, to'rtburchaklik bo'yicha tanlash). Pastki menyu yo'lida initData yo'q — URL'da HMAC token (`tk`, 30 kun).
+  Cheklov: fermerga soatiga 20, bir vaqtda 3. ⚠️ Natija taklif (±10 m); to'rtburchaklik < 0.72 — "taxminiy".
+- **R4:** monitoring BARCHA dalalarni kuzatadi (paid-only — xabar va 3 kunlik tezlik faqat pullikka, bepul — haftada bir,
+  xabarsiz). Kartada "📊 Hozirgi holat" (darhol, keshdan), "📸 Bugungi rasm" (Python `/field/snapshot`, V32 kesh, alohida
+  thread pool) va "📍 Borib ko'rish" (eng sust joy — Telegram lokatsiyasi).
+
+### R1 ✅ 2026-10-15 — Dala chizishni qulaylashtirish (Mini App)
+- «＋» (tomon o'rtasi) — bosilsa/surilsa yangi nuqta; nuqtani bosish — tanlash, 🗑 — o'chirish; surishda lupa
+  (ikkinchi Leaflet xarita, zoom+2); tomon uzunligi (≤30 nuqta, zoom ≥ 15).
+- Fermerning boshqa dalalari: bot URL'ga `&others=` (vergul bilan polyline'lar) qo'shadi — kulrang punktir;
+  ustma-ust tushsa ogohlantirish (to'xtatmaydi). Dalasi bor fermerda xarita dalalari ustida ochiladi (qidiruvsiz).
+- URL umumiy chegarasi 4000 belgi (encode qilingan, `BotKeyboards.URL_MAX_CHARS`); sig'magan dala tashlanadi,
+  qolganlari sig'gancha. ⚠️ Telegram web_app URL limitini hujjatlamagan — real klientda sinash kerak.
+- ⚠️ Promote qilingan «＋» marker'ning `options.icon` — hali "mid"; `setIcon` chaqirilmasin (faqat classList).
+
+### Mavsumiy obuna (2026-10-18)
+- Sozlamalar → "Mavsumiy obuna": `season.enabled` (default o'chiq), `season.plan` (MONTHLY), `season.discount-pct` (20),
+  `season.sale-from`, `season.end` (yangi `Setting.Type.DATE`, admin'da sana maydoni).
+- `SeasonOffers.offer`: sotuv davrida (sale-from ≤ bugun < end) — davr bugundan (joriy obuna oxiridan keyin) mavsum oxirigacha,
+  narx = tarif narxi × ⌈kunlar / muddat⌉ × (100 − foiz)%. Chegirmalar bilan qo'shilmaydi.
+- Bot: tariflar ro'yxatida 🌱 blok + "🌱 Mavsumiy obuna olish" (`pl:season` → xodimlarga so'rov). Support guruhi: muddat
+  "🌱 Mavsum oxirigacha" (`sb:pm:<plan>:99`) — summa va davr tasdiqda qayta hisoblanadi. Admin: `GET /farmers/{id}/season-offer`
+  (204 — yo'q), "To'lov qildi"da bir bosishda to'ldirish.
+- Chegirma tuzatishlari: bekor qilingan to'lov hisoblanmaydi; qat'iy summa — faqat so'mdagi tarifga va narxdan kichik; 0 ga
+  tushiradigan chegirma qo'llanmaydi; qo'lda summada `discountId` faqat hozir qo'llanadigan bo'lsa; `usedCount` — GROUP BY (V39 index).
+
+### Chegirmalar (2026-10-18, V38)
+- Admin → Moliya → **Chegirmalar** (`/billing/discounts`): nomi, turi (Mavsumiy / Aksiya / Birinchi to'lov / Uzaytirish),
+  foiz (1–90) yoki qat'iy summa, kimlarga (FREE / TRIAL / PAID / EXPIRED — bir nechta), tariflar (bo'sh — barcha narxli),
+  boshlanish/tugash, faol. O'chirish yo'q — `active=false` (obunalar `discount_id` bilan bog'langan).
+- `DiscountPricing`: fermer holati (bugun) — faol to'lov/mukofot → PAID, faqat sinov → TRIAL, ilgari obuna bo'lgan → EXPIRED,
+  aks holda FREE. "Birinchi to'lov" — haqiqiy to'lovi (CASH/CARD/TRANSFER/OTHER) bo'lmaganga. Mos kelganlarning **eng arzon**
+  narx beradigani (qo'shilmaydi). Bepul, "narx kelishiladi" va 0 so'm tariflarga qo'llanmaydi.
+- Ko'rinadi: botdagi tariflar ("59 000 → 47 200 so'm" + 🏷 qator), tarif so'rovi (xodimlarga), support guruhidagi tarif berish
+  (narx × davr, tasdiqda 🏷), admin "To'lov qildi" (`GET /farmers/{id}/prices`). `recordPayment` summa bo'sh — chegirmali narx
+  × `periods` va `discount_id` serverda; summa qo'lda — `discountId` yuborilsa yoziladi.
+
+### Support bot — xodimlar guruhi mavzulari (2026-10-18, V37)
+- Alohida bot (`SUPPORT_BOT_TOKEN`), o'z getUpdates oqimi (asosiy bot bilan 409 yo'q). Guruh: Topics yoqilgan, bot **admin**
+  (Manage topics; privacy mode — admin bo'lmasa guruh xabarlarini olmaydi). `SUPPORT_GROUP_ID` — guruhda `/id@<bot>`.
+- `supportbot`: `SupportBridge` (FeedbackActivityEvent AFTER_COMMIT → bitta thread): fermerga bitta mavzu
+  (`farmers.support_topic_id`), nomi "💎/🏢/🆓 Ism · #id"; yangi suhbatda kartochka (tarif, dalalar, [✅ Yakunlash],
+  [🔗 Admin panelda] — `ADMIN_URL`); fermer xabari (rasm — asosiy botdan yuklab), admin javobi ("👤 email:") ko'zgu.
+- `SupportBotRunner`: mavzuga yozilgan xodim javobi → `FeedbackService.send` **shu xodim nomidan** (faqat NEW bo'lsa
+  avval `claim`; SecurityContext → @PreAuthorize ishlaydi). Rasm ham (xodim fayli). `//` bilan boshlangan — ichki izoh,
+  fermerga bormaydi. `/close` yoki tugma — yopish. Guruhdan yozilgan javob guruhga qaytmaydi (`FROM_TELEGRAM`). 👍 — saqlandi.
+- **Bog'lash egalik bilan:** Admin → Profil → "Telegram'da bog'lash" → `POST /support/telegram-link` bir martalik havola
+  (`t.me/<bot>?start=link_<kod>`, 10 daqiqa, xotirada) → botda Start → `users.telegram_user_id = from.id`. Qo'lda ID
+  kiritish yo'q (boshqa xodimning ID'sini egallab bo'lmasin). Uzish — `DELETE /auth/me/telegram`.
+- Mavzu `(support_chat_id, support_topic_id)` — guruh almashsa yangi mavzular ochiladi. Xodim mavzuni yopsa — qayta
+  ochiladi, o'chirsa — yangisi (kartochka bilan). 429 — `retry_after` kutib qayta.
+- Kartochkada fermer telefoni ham bor (xodimlar guruhi yopiq bo'lsin).
+- **Guruhdan tarif berish** (`SupportPlans`): kartochkadagi [💳 Tarif berish] yoki `/tarif` → tarif → 1/3/6/12 oy → usul →
+  (narx kelishiladi — summa matn bilan, fermerga bormaydi) → [✅ Tasdiqlash] → `BillingService.recordPayment` shu xodim
+  nomidan (`billing:manage`). Fermer — tugma turgan mavzudan; ikki marta bosish — bitta to'lov.
+- Guruh sozlangan bo'lsa eski `TELEGRAM_SUPPORT_CHAT_ID` "yangi murojaat" xabari yuborilmaydi (video prewarm qoladi).
+- Dev/sinov: ikkinchi instansda `SUPPORT_BOT_POLLING=false` yoki token bo'sh — bitta token bitta poller.
+
+### Obuna so'rovlari tabi + Pro sinovi (2026-10-18, V35–V36)
+- `FeedbackKind.SUBSCRIPTION` (V35): tarif so'rovi va Agro Biznes arizasi shu tur bilan ochiladi; ochiq suhbat bo'lsa unga
+  qo'shiladi va suhbat SUBSCRIPTION ga o'tadi, xodimlar chatiga har safar xabar. Fermer "Fikr va yordam" da bu turni
+  tanlay olmaydi. Admin → Murojaatlar → **💎 Obuna so'rovlari** (navbatdagi + suhbatdagi; nishon — javob kutayotganlar).
+  API: `GET /feedback?active=true&kind=SUBSCRIPTION`, `/feedback/counts` → `SALES`.
+- **Pro sinovi** — Sozlamalar → "Pro sinovi": `trial.enabled` (default o'chiq), `trial.days` (14), `trial.plan` (MONTHLY).
+  Onboarding tugaganda (`BotOnboarding.finish(registration=true)`) `TrialService.grantIfEligible`: bir fermerga bir marta,
+  faol obunasi bo'lsa — yo'q. Obuna `payment_method = TRIAL` (V36), summa 0, xodim qo'lda yoza olmaydi.
+- `TrialReminderJob` (9:50–19:50 har soat): tugashiga ≤ 2 kun — `trial.ending`, tugagach (3 kungacha) — `trial.ended`;
+  takror yo'q (`notifications.ref_type` TRIAL_ENDING/TRIAL_ENDED + obuna id). Keyin to'lagan fermerga yuborilmaydi.
+
+### Tariflar: jami maydon + Agro Biznes (2026-10-18, V34)
+- 3 tarif: **Bepul** (jami 20 ga), **Pro** (jami 200 ga, 59 000 so'm/30 kun — faqat boshlang'ich 30 000 bo'lsa),
+  **Agro Biznes** (`BUSINESS`, `contact_sales`: narx ko'rsatilmaydi, maydon cheksiz).
+- `plans.max_total_ha` — barcha dalalar JAMI (null — cheksiz); `max_field_ha` — bitta dala (Python texnik chegarasi 500).
+  Tekshiruv `FieldIntakeService.totalLimit` (fermer qatori qulflanadi) → `TOTAL_LIMIT`. Qayta tahlilda ham.
+- Dala chizilganda `area_ha` endi darhol taxminiy yoziladi (tahlil aniqlaydi). V34 dan oldingi tahlilsiz dalalar — 0.
+- Mini App limiti = min(bitta dala, jami qoldiq); tahrirlashda dalaning o'zi hisoblanmaydi.
+- Agro Biznes arizasi (`BotBusiness`, `BUSINESS_FORM`): maydon → ekinlar (bir nechta) → hudud → telefon (o'z kontakti
+  yoki yozilgan raqam) → murojaat (xodimlar chatiga "🏢 Agro Biznes arizasi").
+- To'lov yozilganda fermerga "✅ … faollashtirildi / uzaytirildi — 15-noyabrgacha" (+ do'stlarni taklif, dastur yoqilgan
+  bo'lsa). "Narx kelishiladi" tarifiga to'lovda summa majburiy.
+- Bildirishnomalarda sana — `HumanDates` ("15-noyabr"); `enqueueMessage` ga `LocalDate` beriladi.
+
+### Bot menyusi soddalashtirildi (2026-10-18)
+- Asosiy menyu: **[🛰 Dalani tekshirish]** (butun qator, eng tepada) / [📋 Dalalarim][💧 Sug'orish] / [🌦 Ob-havo][⚙️ Sozlamalar]
+  (+ 🤖 AI maslahat, agar yoqilgan bo'lsa). "🗺 Yangi dala" nomi birinchi kirgan fermerga tushunarsiz edi.
+- 💬 Fikr va yordam, ❓ Qo'llanma, 🎁 Do'stlarni taklif, tariflar — **⚙️ Sozlamalar** ichida (`st:support`, `st:help`,
+  `st:friends`). `menu.feedback|friends|plans|help` sozlamalari olib tashlandi (DB'da qolgan qatorlari zararsiz).
+- Pro tugmasi yo'q — taklif kontekstda: Sozlamalar tepasida "💎 Pro tarifiga o'tish" (bepulga), 📋 Dalalarim ostida bir
+  qatorli eslatma. 🎁 Do'stlarni taklif — tariflar ro'yxati va "Mening tarifim" ostida ham.
+- Telefonda qolgan eski klaviatura tugmalari (Yangi dala, Fikr, Do'stlar, Tariflar, Qo'llanma) baribir ishlaydi.
+
+### Bot menyusi — har bo'lim admindan yoqiladi (2026-10-15)
+- Sozlamalar → "Bot menyusi": `menu.new-field`, `menu.my-fields`, `menu.irrigation`, `menu.weather`,
+  `menu.advisor`, `menu.feedback`, `menu.friends`, `menu.plans`, `menu.help` (BOOL, migratsiya yo'q).
+  ⚙️ Sozlamalar doim bor. Yoqilganlar tartib bilan ikkitadan qatorga teriladi (`BotSection`, `BotMenu`).
+- Fermer telefonidagi reply keyboard keyingi menyu xabarigacha eski qoladi; o'chiq bo'lim tugmasi bosilsa —
+  "hozircha mavjud emas" + yangi menyu. Faqat menyu tugmasi yopiladi: `/support`, `/help`, inline tugmalar ishlayveradi.
 
 ### C1 ✅ 2026-10-12
 - Bot menyusi bo'limli: [Yangi dala][Dalalarim] / [🎁 Do'stlarni taklif][💬 Fikr va yordam] / [⚙️ Sozlamalar].

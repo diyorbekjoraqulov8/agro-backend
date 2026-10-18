@@ -32,5 +32,6 @@ public interface UserMapper {
     @Mapping(target = "active",      ignore = true)
     @Mapping(target = "failedAttempts",  ignore = true)
     @Mapping(target = "lockedUntil",     ignore = true)
+    @Mapping(target = "telegramUserId",  ignore = true)
     UserEntity toEntity(UserRequest request);
 }

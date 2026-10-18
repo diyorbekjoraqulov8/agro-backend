@@ -46,6 +46,14 @@ public class PlanEntity {
     @Column(name = "max_field_ha", nullable = false, precision = 8, scale = 2)
     private BigDecimal maxFieldHa;
 
+    /** Barcha dalalar jami maydoni (V34); null — cheksiz. maxFieldHa — bitta dala (tahlil xizmati chegarasi 500) */
+    @Column(name = "max_total_ha", precision = 10, scale = 2)
+    private BigDecimal maxTotalHa;
+
+    /** Narx ko'rsatilmaydi — botda "ariza qoldirish" (Agro Biznes); to'lov kelishilgan summa bilan yoziladi */
+    @Column(name = "contact_sales", nullable = false)
+    private boolean contactSales;
+
     @Column(name = "max_fields")
     private Integer maxFields;                       // null — cheksiz
 

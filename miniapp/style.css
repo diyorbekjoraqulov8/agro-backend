@@ -47,6 +47,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
   background: var(--bg); color: var(--text); box-shadow: var(--shadow); }
 .round svg { width: 22px; height: 22px; color: var(--brand); }
 .round:disabled { opacity: .4; }
+.round.danger { color: var(--danger); }
+/* 🪄 — yoqilganda brend rangi; aniqlanayotganda pulsatsiya */
+.round.wand.on { background: var(--brand); box-shadow: 0 0 0 3px rgba(19,125,65,.35), var(--shadow); }
+.round.wand.busy { animation: pulse 1s ease-in-out infinite; }
 .round.busy svg { animation: spin 1s linear infinite; }
 
 /* ── Pastki panel ──────────────────────────────────────────────────────── */
@@ -64,10 +68,20 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #area { margin-top: 8px; font-weight: 600; font-size: 16px; color: var(--brand); }
 #area:empty { display: none; }
 .error { color: var(--danger); margin-top: 4px; font-size: 14px; }
+.warn { color: #b45309; margin-top: 4px; font-size: 13px; }
 .primary { width: 100%; margin-top: 8px; padding: 12px; border: 0; border-radius: 12px;
   background: var(--brand); color: #fff; font-size: 16px; font-weight: 600; }
 .primary:disabled { opacity: .45; }
 #debug { white-space: pre-wrap; word-break: break-all; font-size: 11px; max-height: 120px; overflow: auto; }
+
+/* Lupa: yuqori chapda (nuqta ostida qolsa — o'ngda), o'rtada nishon */
+.loupe { position: absolute; top: 150px; left: 10px; width: 132px; height: 132px; z-index: 1050; border-radius: 50%;
+  overflow: hidden; border: 3px solid #fff; box-shadow: var(--shadow); pointer-events: none; background: #1d2a20; }
+.loupe.right { left: auto; right: 66px; }
+#loupeMap { width: 100%; height: 100%; }
+.loupe::before, .loupe::after { content: ""; position: absolute; left: 50%; top: 50%; z-index: 900; background: #ffd23f; }
+.loupe::before { width: 22px; height: 2px; margin: -1px 0 0 -11px; }
+.loupe::after { width: 2px; height: 22px; margin: -11px 0 0 -1px; }
 
 .toast { position: absolute; left: 50%; bottom: calc(150px + var(--safe-b)); transform: translateX(-50%); z-index: 1100;
   max-width: calc(100% - 32px); padding: 10px 14px; border-radius: 12px; background: rgba(24,24,27,.92); color: #fff;
@@ -121,6 +135,17 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .vertex { width: 28px !important; height: 28px !important; margin: -14px 0 0 -14px !important;
   border-radius: 50%; background: rgba(255,255,255,.35); border: 3px solid #fff; box-shadow: 0 0 0 2px var(--brand); }
 .vertex.first { background: var(--brand); }
+.vertex.sel { background: var(--danger); box-shadow: 0 0 0 3px var(--danger), 0 0 0 7px rgba(220,38,38,.35); }
+/* «＋» — tomon o'rtasi: bosilsa/surilsa yangi nuqta. Ostida tomon uzunligi */
+.mid { width: 24px !important; height: 24px !important; margin: -12px 0 0 -12px !important; border-radius: 50%;
+  background: rgba(255,255,255,.9); border: 0; box-shadow: 0 0 0 2px var(--brand); display: grid; place-items: center;
+  color: var(--brand); font-size: 15px; line-height: 1; }
+.mid .len { position: absolute; top: 27px; left: 50%; transform: translateX(-50%); white-space: nowrap; pointer-events: none;
+  padding: 1px 6px; border-radius: 6px; background: rgba(0,0,0,.62); color: #fff; font-size: 11px; font-weight: 600; }
+.mid .len:empty { display: none; }
+/* Glif bosilmasin — target doim marker elementi (mobil touchmove) */
+.mid b { pointer-events: none; }
+.vertex b, .vertex .len { display: none; }
 .me { width: 18px !important; height: 18px !important; margin: -9px 0 0 -9px !important; border-radius: 50%;
   background: #2563eb; border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(37,99,235,.25); }
 

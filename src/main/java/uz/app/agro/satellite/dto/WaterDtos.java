@@ -48,6 +48,21 @@ public final class WaterDtos {
                                   Double declinePct, String declineSide, Double improvePct, String mapPngBase64,
                                   LocalDate latestSeen) {}
 
+    /** R4 /field/snapshot: oxirgi ochiq surat — dala xaritasi (mutlaq NDVI) va eng sust joy */
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record SnapshotResponse(LocalDate sceneDate, double ndvi, double weakPct, Double weakLat, Double weakLon,
+                                   String mapPngBase64) {}
+
+    /** R2 /boundary/detect: fermer dala ichiga bosgan nuqta */
+    public record BoundaryRequest(double lat, double lon) {}
+
+    /** coordinates — [[lon, lat], ...] yopiq halqa; confidence HIGH | LOW (chetga tekkan, juda kichik) */
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record BoundaryResponse(List<List<Double>> coordinates, double areaHa, LocalDate sceneDate, String confidence,
+                                   boolean touchesEdge) {}
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record NdviResponse(double ndvi, LocalDate date, int scenes) {}
 }

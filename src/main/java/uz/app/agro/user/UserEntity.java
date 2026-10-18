@@ -37,6 +37,10 @@ public class UserEntity extends BaseEntity {
     @Column(nullable = false)
     private boolean active = true;
 
+    /** Support guruhida yozgan javobi shu xodim nomidan (V37; Profil sahifasida o'zi kiritadi) */
+    @Column(name = "telegram_user_id")
+    private Long telegramUserId;
+
     @Column(name = "failed_attempts", nullable = false)
     private int failedAttempts = 0;
 

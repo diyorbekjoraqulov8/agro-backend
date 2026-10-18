@@ -7,6 +7,19 @@ package uz.app.agro.settings;
  */
 public enum Setting {
 
+    // Bot asosiy menyusi: o'chirilgan bo'lim tugmasi menyuda ko'rinmaydi (eski klaviaturadan bosilsa — "hozircha o'chiq").
+    // ⚙️ Sozlamalar doim bor (tarif, til, yordam, qo'llanma, do'stlar — hammasi uning ichida). Fermer telefonidagi klaviatura menyu biriktirilgan keyingi javobda yangilanadi
+    MENU_NEW_FIELD("menu.new-field", Type.BOOL, "true", null, null,
+            "Bot menyusi", "🛰 Dalani tekshirish — eng tepadagi uzun tugma (o'chirilsa ham dalasi yo'q fermerga ko'rinadi)"),
+    MENU_MY_FIELDS("menu.my-fields", Type.BOOL, "true", null, null,
+            "Bot menyusi", "📋 Dalalarim"),
+    MENU_IRRIGATION("menu.irrigation", Type.BOOL, "true", null, null,
+            "Bot menyusi", "💧 Sug'orish"),
+    MENU_WEATHER("menu.weather", Type.BOOL, "true", null, null,
+            "Bot menyusi", "🌦 Ob-havo (o'chirilsa ham xavf ogohlantirishlari \"Ob-havo\" bo'limidagi sozlama bo'yicha boradi)"),
+    MENU_ADVISOR("menu.advisor", Type.BOOL, "false", null, null,
+            "Bot menyusi", "🤖 AI maslahat tugmasi (xizmatning o'zi — \"AI maslahat\" bo'limida; ANTHROPIC_API_KEY ham kerak)"),
+
     REFERRAL_ENABLED("referral.enabled", Type.BOOL, "true", null, null,
             "Takliflar", "Do'stlarni taklif qilish dasturi yoqilgan"),
     REFERRAL_REQUIRED("referral.required", Type.INT, "3", 1, 50,
@@ -16,13 +29,34 @@ public enum Setting {
     REFERRAL_REWARD_PLAN("referral.reward-plan", Type.PLAN, "MONTHLY", null, null,
             "Takliflar", "Mukofot qaysi tarif bo'yicha beriladi (tarif kodi, pullik va faol)"),
 
+    TRIAL_ENABLED("trial.enabled", Type.BOOL, "false", null, null,
+            "Pro sinovi", "Yangi fermer roʻyxatdan oʻtishni (savollarni) tugatganda Pro'ni bepul sinab koʻradi. Bir fermerga "
+                    + "bir marta; yoqilishidan oldin savollarni tugatib boʻlganlarga berilmaydi"),
+    TRIAL_DAYS("trial.days", Type.INT, "14", 3, 60,
+            "Pro sinovi", "Sinov necha kun (tugashidan 2 kun oldin va tugaganda fermerga xabar boradi)"),
+    TRIAL_PLAN("trial.plan", Type.PLAN, "MONTHLY", null, null,
+            "Pro sinovi", "Qaysi tarif sinovga beriladi (tarif kodi, pullik va faol; \"narx kelishiladi\" emas). Xush kelibsiz "
+                    + "matni \"avtomatik kuzatuv, cheksiz qayta tahlil\" deydi — tarif shunday boʻlsin"),
+
+    // Mavsumiy obuna: sotuv davrida fermer mavsum oxirigacha bir to'lov bilan oladi (oylar × narx − foiz). Chegirmalar bilan qo'shilmaydi
+    SEASON_ENABLED("season.enabled", Type.BOOL, "false", null, null,
+            "Mavsumiy obuna", "Mavsumiy obuna taklif qilinadi (botdagi tariflar, guruhdagi tarif berish, admin «Toʻlov qildi»)"),
+    SEASON_PLAN("season.plan", Type.PLAN, "MONTHLY", null, null,
+            "Mavsumiy obuna", "Qaysi tarif mavsumga sotiladi (narxli pullik tarif)"),
+    SEASON_DISCOUNT("season.discount-pct", Type.INT, "20", 0, 90,
+            "Mavsumiy obuna", "Chegirma foizi (oylik narx × qolgan oylar dan)"),
+    SEASON_SALE_FROM("season.sale-from", Type.DATE, "2027-03-01", null, null,
+            "Mavsumiy obuna", "Sotuv qachondan boshlanadi (shu kundan mavsum oxirigacha taklif koʻrinadi)"),
+    SEASON_END("season.end", Type.DATE, "2027-10-31", null, null,
+            "Mavsumiy obuna", "Mavsum oxiri — obuna shu kungacha amal qiladi (taklif shu kuni yopiladi; bir oydan kam qolsa — koʻrinmaydi)"),
+
     NOTIFICATION_RATE("notification.rate-per-second", Type.INT, "20", 1, 30,
             "Bildirishnomalar", "Sekundiga nechta xabar yuboriladi (Telegram limiti ~30/s; kampaniya ham shu tezlikda)"),
     NOTIFICATION_MAX_ATTEMPTS("notification.max-attempts", Type.INT, "4", 1, 10,
             "Bildirishnomalar", "Yetkazib bo'lmasa necha marta urinadi (oraliq: 1, 5, 30 daqiqa, keyin har soat)"),
 
     ADVISOR_ENABLED("advisor.enabled", Type.BOOL, "true", null, null,
-            "AI maslahat", "AI maslahatchi yoqilgan (ANTHROPIC_API_KEY bo'lmasa baribir ishlamaydi)"),
+            "AI maslahat", "AI maslahatchi yoqilgan (ANTHROPIC_API_KEY bo'lmasa baribir ishlamaydi). Menyuda ko'rinishi — \"Bot menyusi\""),
     ADVISOR_MODEL("advisor.model", Type.MODEL, "claude-opus-5-5", null, null,
             "AI maslahat", "Claude modeli: claude-opus-5-5 (eng aniq, ~$0.03/rasm) yoki claude-haiku-5-5 (arzon, ~$0.001)"),
     ADVISOR_PAID_DAILY("advisor.paid-daily", Type.INT, "10", 1, 100,
@@ -33,7 +67,7 @@ public enum Setting {
     MONITORING_ENABLED("monitoring.enabled", Type.BOOL, "true", null, null,
             "Monitoring", "Avtomatik monitoring: har yangi sun'iy yo'ldosh suratida dala o'zi tekshiriladi"),
     MONITORING_PAID_ONLY("monitoring.paid-only", Type.BOOL, "true", null, null,
-            "Monitoring", "Faqat pullik tarifdagi fermerlar dalalari (o'chirilsa — hamma; Python yuki oshadi)"),
+            "Monitoring", "Ogohlantirish xabari faqat pullik fermerlarga (bepul dalalar holati haftada bir yangilanadi — kartada ko'rinadi). O'chirilsa — hammaga xabar"),
     MONITORING_DROP("monitoring.drop", Type.INT, "10", 5, 30,
             "Monitoring", "Piksel \"sustlashdi\": NDVI shuncha yuzdan bir birlikka kamaydi (10 → ΔNDVI ≤ −0.10)"),
     MONITORING_DECLINE_PCT("monitoring.decline-pct", Type.INT, "15", 5, 80,
@@ -51,7 +85,7 @@ public enum Setting {
     WEATHER_RAIN_MM("weather.rain-mm", Type.INT, "20", 5, 200,
             "Ob-havo", "Jala: sutkalik yog'in shundan ko'p yoki teng (mm); 2 barobar — xavfli. Do'l/momaqaldiroq — har doim");
 
-    public enum Type { BOOL, INT, STRING, PLAN, MODEL }
+    public enum Type { BOOL, INT, STRING, PLAN, MODEL, DATE }
 
     private final String key;
     private final Type type;

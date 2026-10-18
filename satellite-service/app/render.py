@@ -59,6 +59,28 @@ def change_map(d: np.ndarray, x: np.ndarray, y: np.ndarray, poly_utm: Polygon, d
     return _png(fig)
 
 
+def ndvi_map(nd: np.ndarray, x: np.ndarray, y: np.ndarray, poly_utm: Polygon, weak_lonlat, epsg: int) -> str:
+    """R4 bugungi holat: mutlaq NDVI (0 — yalang'och yer, 0.8+ — quyuq yashil), PRGn (rang-ko'rga ham ajraladi).
+    Sust joy markazi — qizil doira (fermer "📍" lokatsiyasi bilan bir xil nuqta)."""
+    from matplotlib import colormaps
+    from pyproj import Transformer
+    fig = Figure(figsize=(8, 8.6))
+    ax = fig.add_subplot()
+    im = ax.imshow(nd, cmap=colormaps["PRGn"], vmin=0.0, vmax=0.9, interpolation="nearest",
+                   extent=(x.min() - 5, x.max() + 5, y.min() - 5, y.max() + 5))
+    bx, by = poly_utm.exterior.xy
+    ax.plot(bx, by, color="#222222", linewidth=2)
+    if weak_lonlat is not None:
+        px, py = Transformer.from_crs(4326, epsg, always_xy=True).transform(*weak_lonlat)
+        ax.plot([px], [py], marker="o", markersize=22, markerfacecolor="none", markeredgecolor="#e53935", markeredgewidth=4)
+    _scale_bar(ax, poly_utm)
+    ax.set_aspect("equal")
+    ax.axis("off")
+    cb = fig.colorbar(im, ax=ax, orientation="horizontal", fraction=0.04, pad=0.02, ticks=[0, 0.3, 0.6, 0.9])
+    cb.ax.tick_params(labelsize=11)
+    return _png(fig)
+
+
 def _scale_bar(ax, poly: Polygon) -> None:
     minx, miny, maxx, _ = poly.bounds
     width = maxx - minx
