@@ -30,7 +30,7 @@ export interface AuditLog {
 
 // ── Fermer / dala ────────────────────────────────────────────────────────
 export type Crop = 'COTTON' | 'WHEAT' | 'CORN' | 'RICE' | 'ALFALFA' | 'VEGETABLES' | 'ORCHARD' | 'OTHER'
-export type IrrigationType = 'FURROW' | 'DRIP' | 'SPRINKLER' | 'OTHER'
+export type IrrigationType = 'FURROW' | 'DRIP' | 'SPRINKLER' | 'RAINFED' | 'OTHER'
 export type WaterSource = 'CANAL' | 'OWN_PUMP' | 'WELL' | 'OTHER'
 export type LeadStatus = 'NONE' | 'REQUESTED' | 'CONTACTED' | 'PILOT' | 'REJECTED'
 
@@ -52,7 +52,11 @@ export interface FarmerDetail extends FarmerListItem {
   fields: FieldSummary[]; plan: EffectivePlan
 }
 export interface GeoPolygon { type: 'Polygon'; coordinates: number[][][] }
-export interface FieldResponse extends FieldSummary { farmerName: string | null; boundaryGeojson: GeoPolygon }
+export type Sowing = 'UNANSWERED' | 'SOWN' | 'NOT_SOWN' | 'UNKNOWN'
+export interface FieldSeason { crop: Crop; sowing: Sowing; sownOn: string | null; sownOnApprox: boolean }
+export interface FieldResponse extends FieldSummary {
+  farmerName: string | null; boundaryGeojson: GeoPolygon; irrigationMethod: IrrigationType | null; season: FieldSeason | null
+}
 
 // ── Tahlil ───────────────────────────────────────────────────────────────
 export type JobStatus = 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED'

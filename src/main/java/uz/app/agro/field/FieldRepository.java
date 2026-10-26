@@ -1,7 +1,9 @@
 package uz.app.agro.field;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -9,9 +11,18 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface FieldRepository extends JpaRepository<FieldEntity, Long>,
                                          JpaSpecificationExecutor<FieldEntity> {
+
+    /**
+     * Mavsum o'zgarishlari (FieldSeasonService) bir dala uchun ketma-ket. Mavsum qatorini emas, dalani qulflaymiz:
+     * READ COMMITTED'da kutgan tranzaksiya qulf bo'shagach YANGI statement bilan yangi ACTIVE mavsumni ko'radi
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT f FROM FieldEntity f WHERE f.id = :id")
+    Optional<FieldEntity> findLockedById(@Param("id") Long id);
 
     List<FieldEntity> findByFarmerIdOrderByIdDesc(Long farmerId);
 

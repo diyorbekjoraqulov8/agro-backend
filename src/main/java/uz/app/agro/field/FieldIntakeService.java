@@ -33,14 +33,25 @@ public class FieldIntakeService {
     private final AnalysisJobRepository jobRepository;
     private final AuditService auditService;
     private final PlanService planService;
+    private final FieldSeasonService seasonService;
 
     /** AREA_LIMIT — bitta dala chegarasi; TOTAL_LIMIT — tarifdagi jami maydon (usedHa — boshqa dalalar) */
     public enum Outcome { QUEUED, QUOTA_USED, FIELD_LIMIT, AREA_LIMIT, TOTAL_LIMIT, NOT_FOUND, BUSY }
 
     /** areaHa — Java'dagi taxminiy (sferik) maydon; aniq maydonni tahlildan keyin Python beradi */
-    public record Result(Outcome outcome, Long fieldId, Long jobId, EffectivePlan plan, double areaHa, double usedHa) {
+    /** askSowing — tahrirda ekin almashdi va mavsum yangilandi: bot ekish sanasini qayta so'raydi */
+    public record Result(Outcome outcome, Long fieldId, Long jobId, EffectivePlan plan, double areaHa, double usedHa,
+                         boolean askSowing) {
+        public Result(Outcome outcome, Long fieldId, Long jobId, EffectivePlan plan, double areaHa, double usedHa) {
+            this(outcome, fieldId, jobId, plan, areaHa, usedHa, false);
+        }
+
         public Result(Outcome outcome, Long fieldId, Long jobId, EffectivePlan plan, double areaHa) {
             this(outcome, fieldId, jobId, plan, areaHa, 0);
+        }
+
+        Result askingSowing() {
+            return new Result(outcome, fieldId, jobId, plan, areaHa, usedHa, true);
         }
     }
 
@@ -72,6 +83,7 @@ public class FieldIntakeService {
             field = new FieldEntity();
             field.setFarmer(farmer);
             field.setCrop(farmer.getMainCrop() != null ? farmer.getMainCrop() : Crop.OTHER);
+            field.setIrrigationMethod(farmer.getIrrigationType());
         }
         // Mini App ham tekshiradi, lekin uni chetlab o'tish mumkin — qaror server tomonda
         if (areaHa > plan.maxFieldHa().doubleValue()) {
@@ -85,6 +97,7 @@ public class FieldIntakeService {
 
         // Ekin — har DALANIKI (bitta xo'jalikda g'alla, paxta, poliz): Mini App'da tanlangan. Tekshiruvlardan KEYIN —
         // rad etilgan tahrirning yarmi (managed entity) commit bo'lib qolmasin
+        Crop oldCrop = field.getCrop();
         if (crop != null) {
             field.setCrop(crop);
         }
@@ -98,7 +111,11 @@ public class FieldIntakeService {
         for (int i = 0; i < n; i++) { lon += ring.get(i)[0]; lat += ring.get(i)[1]; }
         field.setCentroidLon(BigDecimal.valueOf(lon / n).setScale(6, RoundingMode.HALF_UP));
         field.setCentroidLat(BigDecimal.valueOf(lat / n).setScale(6, RoundingMode.HALF_UP));
+        boolean created = field.getId() == null;
         fieldRepository.save(field);
+        if (created) seasonService.start(field.getId(), field.getCrop());   // ekish sanasini bot keyin so'raydi
+        // Tahrirda Mini App ekinni ham almashtira oladi — mavsum FieldBotService.setCrop dagi qoida bilan
+        boolean askSowing = !created && field.getCrop() != oldCrop && seasonService.cropChanged(field.getId(), field.getCrop());
 
         auditService.event(editFieldId != null ? AuditEvent.FIELD_UPDATED : AuditEvent.FIELD_CREATED)
                 .target("FIELD", field.getId())
@@ -108,7 +125,8 @@ public class FieldIntakeService {
                 .detail("plan", plan.planCode())
                 .record();
 
-        return queue(field, plan, areaHa);
+        Result r = queue(field, plan, areaHa);
+        return askSowing ? r.askingSowing() : r;
     }
 
     /** "🔄 Qayta tahlil" — mavjud dala, kvota va "bitta faol tahlil" qoidasi bilan. */

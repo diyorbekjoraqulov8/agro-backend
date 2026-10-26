@@ -1,6 +1,7 @@
 package uz.app.agro.common;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
@@ -24,6 +25,16 @@ public final class HumanDates {
             case "uz" -> (otherYear ? d.getYear() + "-yil " : "") + d.getDayOfMonth() + "-" + UZ_MONTHS[d.getMonthValue() - 1];
             case "ru" -> d.format(DateTimeFormatter.ofPattern(otherYear ? "d MMMM yyyy" : "d MMMM", Locale.forLanguageTag("ru")));
             default -> d.format(DateTimeFormatter.ofPattern(otherYear ? "d MMMM yyyy" : "d MMMM", Locale.ENGLISH));
+        };
+    }
+
+    /** Oy (sana tanlash tugmalari): "oktabr" / "октябрь" / "October"; boshqa yil — yili bilan ("2025-yil oktabr") */
+    public static String month(String lang, YearMonth m) {
+        boolean otherYear = m.getYear() != LocalDate.now().getYear();
+        return switch (lang) {
+            case "uz" -> (otherYear ? m.getYear() + "-yil " : "") + UZ_MONTHS[m.getMonthValue() - 1];
+            case "ru" -> m.format(DateTimeFormatter.ofPattern(otherYear ? "LLLL yyyy" : "LLLL", Locale.forLanguageTag("ru")));
+            default -> m.format(DateTimeFormatter.ofPattern(otherYear ? "MMMM yyyy" : "MMMM", Locale.ENGLISH));
         };
     }
 }

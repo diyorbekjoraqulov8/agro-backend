@@ -1,11 +1,14 @@
-import type { Crop, DiscountAudience, DiscountKind, FeedbackKind, FeedbackStatus, IrrigationType, JobKind, JobStatus, LeadStatus, PaymentMethod, WaterSource } from '@/api/types'
+import type { Crop, DiscountAudience, DiscountKind, FeedbackKind, FeedbackStatus, IrrigationType, JobKind, JobStatus, LeadStatus, PaymentMethod, Sowing, WaterSource } from '@/api/types'
 
 export const CROP: Record<Crop, string> = {
   COTTON: 'Paxta', WHEAT: 'Bugʻdoy', CORN: 'Makkajoʻxori', RICE: 'Sholi',
   ALFALFA: 'Beda', VEGETABLES: 'Sabzavot', ORCHARD: 'Bogʻ', OTHER: 'Boshqa',
 }
 export const IRRIGATION: Record<IrrigationType, string> = {
-  FURROW: 'Egat', DRIP: 'Tomchilatib', SPRINKLER: 'Yomgʻirlatib', OTHER: 'Boshqa',
+  FURROW: 'Egat', DRIP: 'Tomchilatib', SPRINKLER: 'Yomgʻirlatib', RAINFED: 'Lalmi', OTHER: 'Boshqa',
+}
+export const SOWING: Record<Sowing, string> = {
+  UNANSWERED: 'Soʻralmagan', SOWN: 'Ekilgan', NOT_SOWN: 'Hali ekilmagan', UNKNOWN: 'Fermer bilmaydi',
 }
 export const WATER: Record<WaterSource, string> = {
   CANAL: 'Kanal / ariq', OWN_PUMP: 'Oʻz nasosi', WELL: 'Quduq', OTHER: 'Boshqa',

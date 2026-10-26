@@ -17,7 +17,14 @@ public interface FieldMapper {
 
     List<FieldSummary> toSummaryList(List<FieldEntity> entities);
 
-    @Mapping(target = "farmerId", source = "farmer.id")
-    @Mapping(target = "farmerName", source = "farmer.fullName")
-    FieldResponse toResponse(FieldEntity entity);
+    // Ikki manbada bir xil nomli (id, crop, createdDate) — dala'dan
+    @Mapping(target = "id", source = "entity.id")
+    @Mapping(target = "crop", source = "entity.crop")
+    @Mapping(target = "createdDate", source = "entity.createdDate")
+    @Mapping(target = "farmerId", source = "entity.farmer.id")
+    @Mapping(target = "farmerName", source = "entity.farmer.fullName")
+    @Mapping(target = "season", source = "season")
+    FieldResponse toResponse(FieldEntity entity, FieldSeasonEntity season);
+
+    FieldResponse.Season toSeason(FieldSeasonEntity season);
 }

@@ -9,6 +9,7 @@ import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.type.SqlTypes;
 import uz.app.agro.common.BaseEntity;
 import uz.app.agro.farmer.FarmerEntity;
+import uz.app.agro.farmer.IrrigationType;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -45,4 +46,9 @@ public class FieldEntity extends BaseEntity {
 
     @Column(name = "centroid_lon", precision = 9, scale = 6)
     private BigDecimal centroidLon;
+
+    // Har dalaniki (boshlang'ich qiymat — fermerning onboarding javobi); null — so'ralmagan
+    @Enumerated(EnumType.STRING)
+    @Column(name = "irrigation_method", length = 32)
+    private IrrigationType irrigationMethod;
 }

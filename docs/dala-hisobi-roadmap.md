@@ -35,8 +35,8 @@
 
 | Faza | Nima | Holat |
 |---|---|---|
-| H0 | Tayyorgarlik: ochiq ishlarni yopish | ⏳ |
-| H1 | Ekin mavsumi: ekish sanasi | ⏳ |
+| H0 | Tayyorgarlik: ochiq ishlarni yopish | ✅ 2026-10-26 (`bc0310b`) |
+| H1 | Ekin mavsumi: ekish sanasi | ✅ 2026-10-26: review + sinov (11/11, parallel 5/5) |
 | H2 | Ekin kalendari (agrotexnika shabloni) | ⏳ |
 | H3 | Dala vazifalari + "Bajardim" | ⏳ |
 | H4 | **Dala hisobi** ekrani (bot + Mini App + admin) | ⏳ |
@@ -74,8 +74,9 @@ bo'ladi: bug'doydan keyin takroriy ekin).
 |---|---|
 | `field_id` | FK |
 | `crop` | `Crop` (STRING) |
-| `sown_on` | ekish sanasi |
-| `sown_on_source` | `FARMER` / `ESTIMATED` (NDVI o'sishidan taxmin — keyinroq) |
+| `sowing` | `UNANSWERED` / `SOWN` / `NOT_SOWN` / `UNKNOWN` |
+| `sown_on` | ekish sanasi (faqat `SOWN`) |
+| `sown_on_approx` | tez tugmadan — taxminiy (NDVI'dan taxmin — keyinroq) |
 | `status` | `ACTIVE` / `FINISHED` |
 | `finished_on` | hosil yig'ilgan sana |
 
@@ -87,6 +88,17 @@ bo'ladi: bug'doydan keyin takroriy ekin).
 Hosil yig'ilganda "🌾 Hosilni yig'dim" → mavsum yopiladi, yangisini so'raydi.
 
 **Natija:** `psql` — har faol dalada bitta `ACTIVE` mavsum; ikkinchi `ACTIVE` qo'shish → xato.
+
+**Qilingani (2026-10-26, V40):**
+- `field_seasons.sowing`: `UNANSWERED` / `SOWN` / `NOT_SOWN` ("hali ekilmagan" — egasi so'radi) / `UNKNOWN`;
+  `sown_on` faqat `SOWN` da (CHECK), `sown_on_approx` — tez tugmadan. `fields.irrigation_method` + `IrrigationType.RAINFED` (lalmi).
+- Sana kiritish — **faqat tugmalar** (tez javob yoki oy → kun), matn rejimi yo'q. Kelajak va 400 kundan eski sana rad.
+- Mavjud fermerlarga bir martalik so'rov **qilinmadi** — real fermerlar yo'q (egasi); dala kartasidagi `📅 Ekish sanasi`.
+- Ekin o'zgarsa: ekilgan mavsum yopiladi + yangisi; ekilmagan — faqat ekini. `🌾 Hosilni yig'dim` — faqat `SOWN` da.
+- Callback'lar: `sw:` / `si:` / `sh:` / `sy:` (`BotSeason`). Admin: dala sahifasida ekish sanasi va sug'orish usuli.
+- Mini App tahririda ekin almashsa — mavsum ham (`FieldIntakeService` → `cropChanged`), sana qayta so'raladi.
+- ⏭ **Keyinga (H4):** sug'orish eslatmasi (`irrigation`) hali `fields.irrigation_method` ni o'qimaydi — lalmi (`RAINFED`)
+  dalada ham "sug'orishni sozlash" taklif qilinadi. Dala hisobi yig'ilganda lalmi dalada sug'orish qatori chiqmasin.
 
 ---
 

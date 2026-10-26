@@ -19,7 +19,7 @@ import { analysesApi, fieldsApi } from '@/api'
 import { errorMessage } from '@/api/http'
 import type { AnalysisListItem, FieldResponse, WaterView } from '@/api/types'
 import { fmtDate, fmtDateTime, fmtNum } from '@/lib/format'
-import { CROP, IRRIGATION_SOURCE, JOB_KIND, JOB_STATUS, P, REMINDER, SOIL } from '@/lib/labels'
+import { CROP, IRRIGATION, IRRIGATION_SOURCE, JOB_KIND, JOB_STATUS, P, REMINDER, SOIL, SOWING } from '@/lib/labels'
 import { useAuth } from '@/stores/auth'
 
 const route = useRoute()
@@ -83,6 +83,9 @@ onMounted(load)
             <div><dt class="text-muted-foreground">Markaz</dt><dd class="tabular-nums">{{ field.centroidLat ?? '—' }}, {{ field.centroidLon ?? '—' }}</dd></div>
             <div><dt class="text-muted-foreground">Nuqtalar</dt><dd>{{ (field.boundaryGeojson.coordinates[0]?.length ?? 1) - 1 }}</dd></div>
             <div><dt class="text-muted-foreground">Qoʻshilgan</dt><dd>{{ fmtDateTime(field.createdDate) }}</dd></div>
+            <div><dt class="text-muted-foreground">Ekish sanasi</dt>
+              <dd>{{ !field.season ? '—' : field.season.sowing === 'SOWN' ? `${fmtDate(field.season.sownOn)}${field.season.sownOnApprox ? ' (taxminan)' : ''}` : SOWING[field.season.sowing] }}</dd></div>
+            <div><dt class="text-muted-foreground">Sugʻorish usuli</dt><dd>{{ field.irrigationMethod ? IRRIGATION[field.irrigationMethod] : '—' }}</dd></div>
           </dl>
         </CardContent>
       </Card>

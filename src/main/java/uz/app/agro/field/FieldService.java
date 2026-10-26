@@ -18,6 +18,7 @@ public class FieldService {
 
     private final FieldRepository fieldRepository;
     private final FieldMapper fieldMapper;
+    private final FieldSeasonRepository seasonRepository;
 
     @PreAuthorize(Permissions.CAN_READ_FIELD)
     public PageResponse<FieldSummary> search(Long farmerId, Crop crop, String country, Pageable pageable) {
@@ -29,7 +30,8 @@ public class FieldService {
     @PreAuthorize(Permissions.CAN_READ_FIELD)
     public FieldResponse get(Long id) {
         return fieldRepository.findById(id)
-                .map(fieldMapper::toResponse)
+                .map(f -> fieldMapper.toResponse(f,
+                        seasonRepository.findByFieldIdAndStatus(id, FieldSeasonEntity.Status.ACTIVE).orElse(null)))
                 .orElseThrow(() -> new NotFoundException("Dala", id));
     }
 }

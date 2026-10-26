@@ -6,6 +6,7 @@ import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.model.message.MaybeInaccessibleMessage;
+import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
@@ -82,6 +83,7 @@ public class BotUpdateHandler {
     private final BotMenu botMenu;
     private final FileRegistry fileRegistry;
     private final FileProperties fileProps;
+    private final BotSeason seasonSection;
 
 
     public void handle(Update update) {
@@ -418,6 +420,10 @@ public class BotUpdateHandler {
             case BUSY -> sender.send(chatId, messages.text(lang, "field.busy"), menu(chatId, lang));
             case NOT_FOUND -> sender.send(chatId, messages.text(lang, "field.notFound"), menu(chatId, lang));
         }
+        // Yangi dala saqlandi (tahlil navbatda yoki kvota tugagan) — ekish sanasi va sug'orish usuli
+        // Tahrirda ekin almashgan bo'lsa ham (askSowing) — mavsum yangilandi
+        boolean saved = r.outcome() == FieldIntakeService.Outcome.QUEUED || r.outcome() == FieldIntakeService.Outcome.QUOTA_USED;
+        if (saved && r.fieldId() != null && (!edit || r.askSowing())) seasonSection.ask(chatId, lang, r.fieldId(), p.name());
         return r.outcome().name();
     }
 
@@ -829,6 +835,8 @@ public class BotUpdateHandler {
             // suhbat: fw/fx/fs
         } else if (irrigation.onCallback(cb.id(), from.id(), chatId, msg.messageId(), lang, data)) {
             // sug'orish: wp/ws/wl/wi/wo
+        } else if (seasonSection.onCallback(cb.id(), from.id(), chatId, msg.messageId(), lang, data)) {
+            // ekin mavsumi: sw/si/sh/sy
         } else if (!onFieldCallback(cb, from.id(), chatId, msg.messageId(), lang, data)) {
             sender.answer(cb.id(), null);
         }
@@ -903,9 +911,10 @@ public class BotUpdateHandler {
                 return true;
             }
             if (crop == null) return true;
-            fields.setCrop(tg, fieldId, crop).ifPresentOrElse(
-                    name -> sender.edit(chatId, messageId, messages.text(lang, "field.cropChanged", name, messages.label(lang, crop)), null),
-                    () -> sender.edit(chatId, messageId, messages.text(lang, "field.notFound"), null));
+            fields.setCrop(tg, fieldId, crop).ifPresentOrElse(c -> {
+                sender.edit(chatId, messageId, messages.text(lang, "field.cropChanged", c.fieldName(), messages.label(lang, crop)), null);
+                if (c.askSowing()) seasonSection.ask(chatId, lang, fieldId, c.fieldName());
+            }, () -> sender.edit(chatId, messageId, messages.text(lang, "field.notFound"), null));
             return true;
         }
         int colon = data.indexOf(':');
@@ -921,12 +930,15 @@ public class BotUpdateHandler {
             case BotKeyboards.FIELD_VIEW -> {
                 sender.answer(cb.id(), null);
                 fields.card(tg, id).ifPresentOrElse(f -> {
+                    BotSeason.Card season = seasonSection.card(lang, tg, id);
                     String water = irrigation.cardLine(lang, tg, id);
                     String monitor = monitoringSection.cardLine(lang, tg, id);
                     var kb = keyboards.fieldActions(lang, f);
+                    if (!season.buttons().isEmpty()) kb.addRow(season.buttons().toArray(InlineKeyboardButton[]::new));
                     var waterButtons = irrigation.cardButtons(lang, tg, id);
-                    if (!waterButtons.isEmpty()) kb.addRow(waterButtons.toArray(com.pengrad.telegrambot.model.request.InlineKeyboardButton[]::new));
-                    sender.edit(chatId, messageId, cardText(lang, f) + (water.isEmpty() ? "" : "\n" + water)
+                    if (!waterButtons.isEmpty()) kb.addRow(waterButtons.toArray(InlineKeyboardButton[]::new));
+                    sender.edit(chatId, messageId, cardText(lang, f) + (season.line().isEmpty() ? "" : "\n" + season.line())
+                            + (water.isEmpty() ? "" : "\n" + water)
                             + (monitor.isEmpty() ? "" : "\n" + monitor), kb);
                 }, () -> sender.edit(chatId, messageId, messages.text(lang, "field.notFound"), null));
             }

@@ -26,6 +26,7 @@ public class FieldBotService {
 
     private final FieldRepository fieldRepository;
     private final AuditService auditService;
+    private final FieldSeasonService seasonService;
 
     public record FieldCard(long id, String name, Crop crop, BigDecimal areaHa,
                             Long lastJobId, String lastJobStatus, LocalDateTime lastJobAt, Long lastDoneJobId) {}
@@ -72,15 +73,19 @@ public class FieldBotService {
                 .toList();
     }
 
-    /** Almashlab ekish: dala chegarasi o'sha, ekin yangi (g'alladan keyin mosh/poliz) */
+    /** @param askSowing — mavsum yangilandi, ekish sanasini qayta so'rash kerak */
+    public record CropChange(String fieldName, boolean askSowing) {}
+
+    /** Almashlab ekish: dala chegarasi o'sha, ekin yangi (g'alladan keyin mosh/poliz) — mavsum ham (FieldSeasonService) */
     @Transactional
-    public Optional<String> setCrop(long telegramUserId, long fieldId, Crop crop) {
+    public Optional<CropChange> setCrop(long telegramUserId, long fieldId, Crop crop) {
         return owned(telegramUserId, fieldId).map(f -> {
             Crop old = f.getCrop();
             f.setCrop(crop);
+            boolean askSowing = old != crop && seasonService.cropChanged(fieldId, crop);
             auditService.event(AuditEvent.FIELD_UPDATED).target("FIELD", fieldId)
                     .detail("crop", old + " → " + crop).record();
-            return f.getName();
+            return new CropChange(f.getName(), askSowing);
         });
     }
 
