@@ -62,7 +62,8 @@ public class BotOnboarding {
         int from = 0;
         if (!f.created()) {
             for (int i = 0; i < flow.size(); i++) {
-                if (flow.get(i).question() && !onboarding.answered(flow.get(i), f, answers)) { from = i; break; }
+                Step s = flow.get(i);
+                if (s.question() && !onboarding.skipped(s, f, flow) && !onboarding.answered(s, f, answers)) { from = i; break; }
             }
         }
         run(tg, chatId, lang, name, START, flow, from, f.created());
@@ -97,10 +98,11 @@ public class BotOnboarding {
                 if (videoPending) { tutorial.send(chatId, lang); videoPending = false; }
                 continue;
             }
+            if (onboarding.skipped(s, f, flow)) continue;
             if (START.equals(mode) && onboarding.answered(s, f, answers)) continue;
             if (videoPending) { tutorial.send(chatId, lang); videoPending = false; }
             states.enterOnboarding(tg, s.code(), mode);
-            ask(chatId, lang, s, flow);
+            ask(chatId, lang, s, flow, f);
             return;
         }
         // Savollar tugadi (FINISH yo'q yoki profile rejimi)
@@ -108,8 +110,9 @@ public class BotOnboarding {
         else finish(tg, chatId, lang, name, null, true);
     }
 
-    private void ask(long chatId, String lang, Step s, List<Step> flow) {
-        List<Step> questions = flow.stream().filter(Step::question).toList();
+    /** "n/jami" — fermerga so'ralmaydigan savol (lalmi: suv manbai) sanalmaydi */
+    private void ask(long chatId, String lang, Step s, List<Step> flow, FarmerSnapshot f) {
+        List<Step> questions = flow.stream().filter(x -> x.question() && (f == null || !onboarding.skipped(x, f, flow))).toList();
         int n = questions.indexOf(s) + 1;
         String prefix = questions.size() > 1 && n > 0 ? n + "/" + questions.size() + ". " : "";
         sender.send(chatId, prefix + s.text(lang), keyboards.onboardingOptions(s.code(), s.values(), labels(lang, s)));
@@ -126,8 +129,14 @@ public class BotOnboarding {
             run(tg, chatId, lang, "", mode, flow, firstQuestion(flow), false);
             return;
         }
+        FarmerSnapshot f = farmers.find(tg).orElse(null);
+        if (f != null && onboarding.skipped(s.get(), f, flow)) {   // eski holatda qolgan lalmi fermer — keyingisidan
+            int i = flow.indexOf(s.get());
+            run(tg, chatId, lang, "", mode, flow, i + 1, false);
+            return;
+        }
         states.enterOnboarding(tg, code, mode);
-        ask(chatId, lang, s.get(), flow);
+        ask(chatId, lang, s.get(), flow, f);
     }
 
     /** "ob:KOD:QIYMAT" — @return true: shu bo'lim tugmasi edi */

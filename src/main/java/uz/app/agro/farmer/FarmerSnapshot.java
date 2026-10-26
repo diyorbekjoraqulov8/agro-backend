@@ -14,7 +14,12 @@ public record FarmerSnapshot(
 ) {
     /** 3 ta boshlang'ich savolga javob bergan — /start ularni qayta so'ramaydi */
     public boolean onboarded() {
-        return mainCrop != null && irrigationType != null && waterSource != null;
+        return mainCrop != null && irrigationType != null && (waterSource != null || !needsWaterSource());
+    }
+
+    /** Lalmi sug'orilmaydi — suv manbai so'ralmaydi */
+    public boolean needsWaterSource() {
+        return irrigationType != IrrigationType.RAINFED;
     }
 
     static FarmerSnapshot of(FarmerEntity f, boolean created) {

@@ -86,6 +86,19 @@ public class OnboardingService {
                 .orElse(Map.of());
     }
 
+    /**
+     * Fermerga tegishli emas — so'ralmaydi (lalmi: suv manbai). Faqat sug'orish savoli oqimda OLDIN turganda:
+     * admin tartibni almashtirgan bo'lsa, suv savoliga yetganda usul hali eski/noma'lum — so'raladi
+     */
+    public boolean skipped(Step s, FarmerSnapshot f, List<Step> flow) {
+        if (s.target() != StepTarget.WATER_SOURCE || f.needsWaterSource()) return false;
+        for (Step x : flow) {
+            if (x.code().equals(s.code())) return false;
+            if (x.target() == StepTarget.IRRIGATION_TYPE) return true;
+        }
+        return false;
+    }
+
     public boolean answered(Step s, FarmerSnapshot f, Map<String, String> answers) {
         if (s.target() == null) return answers.containsKey(s.code());
         return switch (s.target()) {
