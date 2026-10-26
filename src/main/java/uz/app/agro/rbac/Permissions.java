@@ -18,6 +18,7 @@ public final class Permissions {
     public static final String FARMER_READ   = "farmer:read";
     public static final String FARMER_UPDATE = "farmer:update";
     public static final String FIELD_READ    = "field:read";
+    public static final String FIELD_WRITE   = "field:write";
     public static final String ANALYSIS_READ = "analysis:read";
     public static final String ANALYSIS_RUN  = "analysis:run";
 
@@ -61,6 +62,7 @@ public final class Permissions {
     public static final String CAN_READ_FARMER   = "hasAuthority('" + FARMER_READ + "')";
     public static final String CAN_UPDATE_FARMER = "hasAuthority('" + FARMER_UPDATE + "')";
     public static final String CAN_READ_FIELD    = "hasAuthority('" + FIELD_READ + "')";
+    public static final String CAN_WRITE_FIELD   = "hasAuthority('" + FIELD_WRITE + "')";
     public static final String CAN_READ_ANALYSIS = "hasAuthority('" + ANALYSIS_READ + "')";
     public static final String CAN_RUN_ANALYSIS  = "hasAuthority('" + ANALYSIS_RUN + "')";
 

@@ -21,9 +21,9 @@ public class FieldService {
     private final FieldSeasonRepository seasonRepository;
 
     @PreAuthorize(Permissions.CAN_READ_FIELD)
-    public PageResponse<FieldSummary> search(Long farmerId, Crop crop, String country, Pageable pageable) {
+    public PageResponse<FieldSummary> search(Long farmerId, Crop crop, String country, Boolean lab, Pageable pageable) {
         return PageResponse.of(fieldRepository
-                .findAll(FieldSpecs.filter(farmerId, crop, country), pageable)
+                .findAll(FieldSpecs.filter(farmerId, crop, country, lab), pageable)
                 .map(fieldMapper::toSummary));
     }
 

@@ -1,94 +1,94 @@
-# HANDOFF — keyingi agent uchun (2026-10-19)
+# HANDOFF — keyingi sessiya uchun (2026-10-26)
 
-> Ish shu yerda to'xtatildi. Avval shu faylni, keyin `CLAUDE.md`, `docs/suvtejam-mvp-qollanma.md` ("FAZALAR" bo'limi) va
-> memory'ni o'qing. Brend — **Dropy**, paket `uz.app.agro` o'zgarmaydi.
-> Ish tartibi (memory `workflow-review-and-test`): har fazadan keyin `.claude/agents/` dagi **code-reviewer** va
-> **tester** ni parallel (fonda) ishga tushiring, topilmalarni tuzating, tuzatishlarni qayta sinating.
+> Avval shu faylni, keyin `CLAUDE.md` ni o'qing. Brend — **Dropy**, paket `uz.app.agro` o'zgarmaydi.
+> Tushuntirish o'zbekcha, texnik atamalar inglizcha. Avtomatik test yozilmaydi (ADR #39).
+> **Ish tartibi:** har fazadan keyin `.claude/agents/` dagi **code-reviewer** va **tester** ni parallel (fonda)
+> ishga tushiring, topilmalarni tuzating, tuzatishlarni qayta sinating. Commit — faqat egasi ruxsat bergandan keyin.
+> Oldingi HANDOFF (3b, chegirmalar, support bot) — git tarixida.
 
 ---
 
-## 1. Holat bir qarashda
+## 1. Yo'nalish o'zgardi (egasi qarori, 2026-10-26)
 
-| Ish | Holat |
+- **Botga vaqt sarflamaymiz.** Asosiy e'tibor — **backend xizmatlarini kuchaytirish va aniqligi**. Bot/Mini App'ga keyin ulanadi.
+- Sinov maydoni — **admin panel**: admin xaritada dala chizadi, tizim uni fermer dalasidek kuzatadi, admin holatini ko'radi.
+- **Agronom tasdig'i kutilmaydi** — tavsiyalarni AI yozadi. Kelishilgan chegara: AI umumiy agronomiya darajasida
+  ("azotli o'g'it", "fungitsid kerak bo'lishi mumkin"), aniq doza/preparat nomini aytmaydi.
+- Haqiqiy muammo — **aniqlik o'lchanmagan**: "shimolda o'sish sust" degan topilma haqiqatga mosmi, bilmaymiz.
+- `docs/dala-hisobi-roadmap.md` (H0–H10): H0, H1 bajarildi; H2+ **to'xtatildi**, yangi reja quyida ("L" fazalar).
+  Yo'l xaritasini L-rejaga moslab qayta yozish — ochiq ish.
+
+### Yangi reja — "Tahlil laboratoriyasi"
+
+| Faza | Nima | Holat |
+|---|---|---|
+| **L1** | Admin Lab dala qo'shadi (xaritada chizadi) → fermer dalasi bilan bir xil yo'l: mavsum, birinchi tahlil, monitoring, ob-havo | ✅ review + sinov o'tdi (satellite-service bilan tahlil DONE). Commit — egasi ruxsati |
+| L1b | Dala sahifasida **holat tarixi**: NDVI vaqt bo'yicha, monitoring hodisalari, ogohlantirishlar, fermerga ketgan bo'lardi xabarlar. Python `/analyze` ga `debug` bloki: sahnalar ro'yxati (sana, ochiq %, ishlatildi/rad), NDVI xaritasi (`render.ndvi_map` bor, ishlatilmayapti), kuchsiz zona koordinatasi, zona chegaralari | ⏳ |
+| L2 | "Aslida nima bor edi" izohi (ground truth) har dala/tahlilga → aniqlik ko'rsatkichi | ⏳ egasidan 3–5 ta holati ma'lum real dala kerak |
+| L3 | Motorni kuchaytirish: NDRE (zich ekinda NDVI to'yinadi), ko'p yillik solishtirish, signal/shovqin chegaralari, AI tavsiya qatlami | ⏳ |
+
+## 2. Branch va commit'lar
+
+Branch: **`feature/dala-hisobi`** (main'dan). Commit'lar:
+- `bc0310b` — 3b tuzatishlari, Agro Biznes filtri
+- `39fe625` — H1: ekin mavsumi (`field_seasons`, V40), ekish sanasi, sug'orish usuli, "Hosilni yig'dim", RAINFED (lalmi)
+- `87b787b` — onboarding: lalmi fermerdan suv manbai so'ralmaydi
+
+## 3. L1 — commit qilinmagan (yoki WIP commit'da) o'zgarishlar
+
+**G'oya:** alohida "lab" tizimi emas — admin **haqiqiy dala** qo'shadi. Egasi — tizimning o'z "Lab fermeri".
+Shunda mahsulotning o'zi sinaladi va admin'dagi mavjud dala sahifasi (monitoring kartasi, sug'orish, tahlillar) ishlaydi.
+
+| Joy | Nima |
 |---|---|
-| Support bot (V37), guruhdan tarif berish | ✅ tayyor, sinalgan, commit'da (`8c790c2 Telegram Chat`) |
-| 3a — Chegirmalar (V38, V39) | ✅ tayyor, 2 marta sinalgan, commit'da |
-| 3b — Mavsumiy obuna | ✅ 2026-10-26: qayta sinov 7/7, "A" qarori sinovi 5/5, commit'da |
-| Menyu versiyasi | ⏸ **qoldirildi** (egasi, 2026-10-26) — 4-bo'lim faqat tarix uchun |
-| Haftalik dala holati + "🔒 N ta muammo" teaser | ➡️ `docs/dala-hisobi-roadmap.md` H5 ga ko'chdi |
-| **Keyingi ish** | ➡️ **`docs/dala-hisobi-roadmap.md`** — H1 dan boshlab |
+| `V41__lab_fields.sql` | `farmers.lab` (qisman unique `uk_farmers_lab`), Lab fermer (`telegram_user_id=-1`, `chat_id=-1`), BUSINESS obunasi 2099 gacha (tarif yo'q bo'lsa `RAISE EXCEPTION`), `field:write` permission → ADMIN |
+| `field/LabFieldService` | `create` (`field:write`; ring tekshiruvi → dala → `seasonService.start(id, crop, sownOn)` → `analysisService.run` (STAFF, `analysis:run` ham kerak) → audit), `delete` (faqat Lab dala, fermer dalasi → 409) |
+| `field/Rings` | Ring tekshiruvi bot (`BotPolygonParser`) va admin uchun bitta joyda: `validPoint`, `close`, `name` |
+| `field/dto/CreateLabFieldRequest` | `name, crop, coordinates [[lon,lat]], sownOn?, irrigationMethod?` |
+| `FieldController` | `POST /fields` (201, FieldResponse), `DELETE /fields/{id}` (204), `GET /fields?lab=true/false` |
+| `FieldSeasonService` | `start(fieldId, crop, sownOn)` overload, `validSownOn` |
+| `FieldIntakeService` | `applyBoundary(field, ring, areaHa)` — chegara/maydon/markaz (bot ham ishlatadi) |
+| `FieldResponse.lab`, `FieldSpecs` lab filtri | |
+| Notification | `Recipient.lab`; `NotificationDispatcher` → `store.skipLab` (SKIPPED, "Lab dala — Telegram'ga yuborilmaydi", problems'ga yozilmaydi); `finish(..., problem)` |
+| Chiqarib tashlandi | `AudienceQuery` (kampaniya), `StatsRepository` (fermer/dala soni, analysesByStatus), `FarmerSpecs` (fermerlar ro'yxati) |
+| `BillingService` | Lab fermerga to'lov yozish va uning obunasini bekor qilish → 409 |
+| Admin | `components/app/FieldDrawMap.vue` (bosib chizish), `views/FieldCreateView.vue` (`/fields/new`: xarita, koordinataga borish, GeoJSON qo'yish, nom/ekin/ekish sanasi/sug'orish), `FieldsView` (filtr + "Lab dala" tugmasi), `FieldDetailView` ("Lab dala" badge, ikki bosishli o'chirish), router, api, types, `P.FIELD_WRITE` |
 
-Muhit toza: scratch baza yo'q (`agro` dan boshqa), 8082/8099 portlar bo'sh, scratchpad nusxasi o'chirilgan.
+Tekshirilgan: `./gradlew compileJava` ✅, `npx vue-tsc -b` ✅, migratsiyalar toza bazada ✅.
+Code-reviewer: 🔴 yo'q; 🟡/🟢 tuzatildi (yuqoridagi `Rings`, `analysisService.run`, migratsiya himoyasi, billing, statistika).
+Qolgan 🟢 (ataylab): `FieldSummary` da `lab` yo'q (N+1 bo'lmasin; filtr yetarli); Lab xabarlari "Xabarlar"ni to'ldiradi — keyin filtr.
 
-## 2. Commit qilinmagan o'zgarishlar (`git status`)
+## 4. Keyingi qadamlar (tartib bilan)
 
-Code-reviewer 3b tuzatishlarini tekshirdi — 🔴 yo'q. Uning 🟡/🟢 topilmalari bo'yicha qilingan o'zgarishlar:
+1. ✅ (2026-10-26) tester L1 ni sinadi — hammasi o'tdi. Topilgan eski xato (kampaniya `paid` filtri 500, "ANDEXISTS")
+   `AudienceQuery` da tuzatildi — **qayta sinalmagan**: `POST /notifications/campaigns/preview {"type":"FILTER","paid":true}` → 200.
+   ⚠️ `V41__lab_fields.sql` egasining `agro` bazasida qo'llangan — **faylni endi o'zgartirmang** (Flyway checksum).
+   Kuzatuv: o'zini kesadigan/0 ga poligon ham 201 bilan saqlanadi, tahlil FAILED bo'ladi (admin qo'lda o'chiradi).
+   Sinov ro'yxati (tarix uchun):
+   migratsiya (lab fermer 1 ta, obuna, `field:write` faqat ADMIN); admin POST → 201, `lab=true`, `field_seasons`, `analysis_jobs` STAFF;
+   validatsiya (2 nuqta, 202 nuqta, lat=95, null, bo'sh/81 belgili nom, kelajak/401 kunlik sownOn, 600 ga, noma'lum crop → 400);
+   `field:write`siz rol → 403; DELETE lab → 204, fermer dalasi → 409, yo'q → 404; `?lab=` filtri;
+   Lab xabari → SKIPPED, problems'ga yozilmaydi; statistika va kampaniya auditoriyasi Lab'ni sanamaydi;
+   billing: Lab fermerga to'lov/bekor qilish → 409; bot poligon oqimi (`Rings` refaktori) buzilmagan;
+   iloji bo'lsa satellite-service bilan Lab dala tahlili DONE.
+2. Egasidan commit ruxsati → commit.
+3. L1b spec (qisqa) → kod → review + test.
+4. `docs/dala-hisobi-roadmap.md` ni L-rejaga moslash.
 
-| Fayl | O'zgarish |
-|---|---|
-| `settings/Setting.java` | Mavsum izohi/tavsiflari: "oylar × narx" → "tarif narxi × qolgan kunlar / tarif muddati"; "bir oydan kam" → "tarif muddatidan kam" |
-| `billing/SeasonOffers.java` | izoh "tarif muddatidan kam qoldi" |
-| `bot/BotPlans.java` | javadoc misoli "(150 kun)"; **Agro Biznes filtri `seasonFor(farmerId, current)` ga ko'chirildi** — endi `seasonOffer(tg)` (ya'ni `BotUpdateHandler.requestSeason`, eski `pl:season` tugmasi) ham cheksiz tarif egasiga taklif bermaydi |
-| `settings/SettingsService.java` | `seasonWarning()` ga 2 holat: tarifda `durationDays == null`; mavsum oxirigacha qolgan kun < tarif muddati. `ChronoUnit` import qo'shildi |
-| `admin/src/views/SettingsView.vue` | `paidPlans` dan `contactSales` tariflar chiqarildi (backend ularni rad etadi) |
-| `billing/DiscountPricing.java` | FIXED chegirma belgisi — `d.getValue()` emas, haqiqiy farq `price − finalPrice` (narx 0 ga kesilganda to'g'ri summa) |
-| `supportbot/SupportPlans.java` | `seasonGone()` — taklif yopilgan bo'lsa xodimga oddiy muddat tugmalari qaytadi (PERIODS, METHOD, confirm) |
+## 5. Ochiq savollar egasiga
 
-**2026-10-26 — 3b qayta sinov ✅ (7/7), keyin egasi qarori "A":** Agro Biznes filtri `BotPlans.seasonFor` dan
-`SeasonOffers.offer` ga ko'chdi — endi bot, support guruhi (`sb:pp`, `:99`) va admin (`GET /farmers/{id}/season-offer` → 204)
-uchun bir xil. `EffectivePlan.unlimited()` qo'shildi; `SeasonOffers.periodDays()` — `SettingsService.seasonWarning` ham
-shu bilan hisoblaydi; "muddat yo'q" ogohlantirishi `SEASON_PLAN` qatoriga ko'chdi; izoh va import tartibi tuzatildi.
+- L2 uchun 3–5 ta holati ma'lum real dala (koordinata + "qaysi qismi yomon/nima bo'lgan").
+- Admin "Xabarlar"da Lab xabarlarini alohida ko'rsatish kerakmi.
 
-**Birinchi qadam:**
+## 6. Qo'lda tekshirish (L1)
+
 ```bash
-./gradlew compileJava -q            # kompilyatsiya tekshirilmagan!
-cd admin && npx vue-tsc --noEmit    # yoki loyihadagi type-check skripti
+./gradlew bootRun                                         # V41 qo'llanadi
+psql -d agro -c "SELECT id, full_name, lab FROM farmers WHERE lab;"
+# Admin → Dalalar → "➕ Lab dala" → xaritada chizing → Saqlash → dala sahifasi ochiladi
+psql -d agro -c "SELECT f.id, f.name, s.sowing, j.kind, j.status FROM fields f
+  JOIN farmers fa ON fa.id=f.farmer_id AND fa.lab
+  LEFT JOIN field_seasons s ON s.field_id=f.id AND s.status='ACTIVE'
+  LEFT JOIN analysis_jobs j ON j.field_id=f.id ORDER BY f.id DESC LIMIT 5;"
+psql -d agro -c "SELECT template, status, last_error FROM notifications n JOIN farmers f ON f.id=n.farmer_id AND f.lab ORDER BY n.id DESC LIMIT 5;"
 ```
-
-Reviewer'ning qolgan, **qilinmagan** kichik takliflari (ixtiyoriy):
-- `Setting.SEASON_DISCOUNT` min 0 → 0% da bot "X → X (−0%)" ko'rsatadi. Min 1 yoki 0% da chiziqli narxni yashirish.
-- `SupportPlans.confirmSeason` taklifni tasdiq paytida qayta hisoblaydi — tasdiq xabari kecha ko'rsatilgan bo'lsa summa/`from` farq qiladi. Xato emas, xodimga farqni ko'rsatish mumkin.
-- `docs/suvtejam-mvp-qollanma.md` → "### Mavsumiy obuna (2026-10-18)" da formula hali `⌈kunlar / muddat⌉` — **proporsional** deb yangilang (`narx × kunlar / muddat`, muddatdan kam qolsa taklif yo'q).
-
-## 3. 3b qayta sinovi — qilinishi kerak
-
-Tester limit sababli ikki marta yarim yo'lda to'xtagan. Shu ro'yxat bilan qayta ishga tushiring (2-bo'lim kompilyatsiyadan o'tgach):
-
-1. **Proporsional narx** (`SeasonOffers`): base = price × days / durationDays (UZS — 0 kasr), final = base × (100−pct)/100, days = from..end inklyuziv. Pro 59000/30 kun, 20%, 101 kun → base 198633, final 158906. Obunasiz fermer; joriy obunali fermer (from = oxiri+1); qolgan 29 kun → taklif yo'q (204), 30 kun → bor; pct 0 va 90.
-2. **Agro Biznes** faol obunasi bor fermer: katalogda 🌱 blok yo'q **va** `pl:season` callback → `plans.unavailable`.
-3. **Bot matni**: "(N kun)"; joriy obunali fermerda "📅 …dan boshlanadi (joriy obunangizdan keyin)". uz/ru/en.
-4. **Sozlamalar**: yil 2020–2100 dan tashqari (`+10000-01-01`, `2019-12-31`, `2101-01-01`) → 400; sale-from > end va end o'tgan → GET /settings da warning; qolgan kun < muddat → warning (yangi); `season.plan=BUSINESS` → 400, matn "bu yerda tanlab bo'lmaydi".
-5. **Guruh (SupportPlans)**: mavsumiy tasdiqni 2 marta tez bosish → 1 obuna, "✅ yozildi" xabari almashmaydi; tasdiqdan oldin `season.enabled=false` → `support.plan.seasonGone`, tugmalar qoladi; soxta callback (boshqa planId, `:99`) ishlamaydi.
-6. **Admin**: `GET /farmers/{id}/season-offer` javobida `days` bor; mavsumiy davr bilan to'lov yoziladi.
-7. **FIXED chegirma** 10000.5 → butun so'mga yaxlitlanadi.
-
-Tester qoidalari (avvalgi sinovlardagi muhit): `agro` ga yozilmaydi — `pg_dump agro | pg_restore` nusxa; telegram ID'lar 990000000+id / xodimlar 991000001..; loyiha nusxasi scratchpad'da; `BotConfig` va `SupportBotClient` `127.0.0.1:8099` soxta Telegram API'ga, tokenlar soxta; port 8082, `TELEGRAM_POLLING=false`, `SUPPORT_BOT_POLLING=false`, `SUPPORT_GROUP_ID=-1009999999999`; `SupportBotRunner` sharti faqat nusxada yumshatiladi; JUnit yo'q; oxirida hammasi tozalanadi.
-
-Sinov o'tgach — egasiga xulosa, keyin commit (egasi so'rasa).
-
-## 4. Keyingi faza — Menyu versiyasi (egasi tasdiqlagan)
-
-Muammo: Telegram reply keyboard bot shu menyuni biriktirgan **keyingi** xabargacha eskisicha qoladi. Menyu ko'p javobga
-biriktirilgan, lekin hammasiga emas — yangilanishdan keyin fermerda eski menyu qoladi. "/start bosing" deyish yomon UX.
-
-Kelishilgan g'oya (eski sessiyadagi tavsiya):
-- **Menyu versiyasi** (masalan `farmers.menu_version` yoki bot holatida) va joriy versiya (kod konstantasi yoki sozlama).
-  Fermerning versiyasi eski bo'lsa — uning **birinchi** bosishidagi javobga yangi asosiy menyu majburan biriktiriladi va versiya yangilanadi.
-- Admin "Bildirishnomalar" sahifasida kampaniyaga **"asosiy menyuni yangilash"** belgisi — xabar bilan birga yangi menyu boradi
-  (foydali yangilik bo'lganda; oyiga 1–2 tadan ko'p emas).
-- Telefonda qolgan eski tugmalar baribir ishlaydi (allaqachon bor — `BotMenu`, `BotSection`).
-
-Bu skeletda yo'q yangi narsa → `CLAUDE.md` bo'yicha **avval qisqa spetsifikatsiya**, keyin kod. Yangi migratsiya — **V40**.
-Kerakli joylar: `bot/BotMenu`, `bot/BotSection`, `bot/BotUpdateHandler`, `notification/` (outbox, V23), admin `NotificationsView`.
-Hujjat: `docs/suvtejam-mvp-qollanma.md` ga yangi bo'lim.
-
-## 5. Undan keyin
-
-**Haftalik dala holati va "🔒 N ta muammo topildi" teaser'i** — bepul fermerlarga muammolar soni ko'rinadi, tafsilot Pro'da.
-Bepuldan Pro'ga o'tkazishning asosiy vositasi.
-
-## 6. Kod tashqarisidagi ish (tugagan)
-
-Telegram/Instagram/X kanal strategiyasi bo'yicha maslahat 2026-10-19 da chatda berildi (nom, tavsif, sozlamalar, post turlari,
-agro-kanallar statistikasi). Kod o'zgarishi yo'q. Asosiy fikr: har kanal/reklama uchun alohida deep link
-(`t.me/agroglobalbot?start=<manba>`) — admin'da manba bo'yicha konversiya ko'rinadi.

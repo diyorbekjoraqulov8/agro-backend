@@ -41,10 +41,25 @@ public class FieldSeasonService {
     /** Yangi dala — sanasi so'ralmagan faol mavsum. Dala yozuvi bilan atomik (FieldIntakeService.submit) */
     @Transactional(propagation = Propagation.MANDATORY)
     public void start(long fieldId, Crop crop) {
+        start(fieldId, crop, null);
+    }
+
+    /** Lab dala (LabFieldService): ekish sanasi yaratishda ma'lum bo'lishi mumkin; null — so'ralmagan */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void start(long fieldId, Crop crop, LocalDate sownOn) {
         FieldSeasonEntity s = new FieldSeasonEntity();
         s.setFieldId(fieldId);
         s.setCrop(crop);
+        if (sownOn != null) {
+            s.setSowing(Sowing.SOWN);
+            s.setSownOn(sownOn);
+        }
         seasonRepository.save(s);
+    }
+
+    /** Kelajakda emas va MAX_AGE_DAYS dan eski emas */
+    public static boolean validSownOn(LocalDate sownOn, LocalDate today) {
+        return !sownOn.isAfter(today) && !sownOn.isBefore(today.minusDays(MAX_AGE_DAYS));
     }
 
     /**
@@ -57,7 +72,7 @@ public class FieldSeasonService {
         FieldSeasonEntity s = active(fieldId, crop);
         if (s.getSowing() == Sowing.SOWN) {
             close(s);
-            start(fieldId, crop);
+            start(fieldId, crop, null);
             return true;
         }
         s.setCrop(crop);
@@ -71,7 +86,7 @@ public class FieldSeasonService {
     public Optional<SeasonView> setSowing(long telegramUserId, long fieldId, Sowing sowing, LocalDate sownOn, boolean approx) {
         if (sowing == Sowing.UNANSWERED) return Optional.empty();
         LocalDate today = LocalDate.now();
-        if (sowing == Sowing.SOWN && (sownOn == null || sownOn.isAfter(today) || sownOn.isBefore(today.minusDays(MAX_AGE_DAYS)))) {
+        if (sowing == Sowing.SOWN && (sownOn == null || !validSownOn(sownOn, today))) {
             return Optional.empty();
         }
         return ownedLocked(telegramUserId, fieldId).map(f -> {
@@ -109,7 +124,7 @@ public class FieldSeasonService {
             FieldSeasonEntity s = active(fieldId, f.getCrop());
             if (s.getSowing() != Sowing.SOWN) return Optional.empty();
             close(s);
-            start(fieldId, f.getCrop());
+            start(fieldId, f.getCrop(), null);
             auditService.event(AuditEvent.FIELD_UPDATED).target("FIELD", fieldId)
                     .detail("harvest", s.getCrop() + " " + s.getSownOn() + ".." + s.getFinishedOn())
                     .record();

@@ -43,7 +43,7 @@ export function recommendation(code: string, p: Record<string, unknown>): string
 
 // Ruxsat kodlari — backend Permissions.java bilan bir xil
 export const P = {
-  FARMER_READ: 'farmer:read', FARMER_UPDATE: 'farmer:update', FIELD_READ: 'field:read',
+  FARMER_READ: 'farmer:read', FARMER_UPDATE: 'farmer:update', FIELD_READ: 'field:read', FIELD_WRITE: 'field:write',
   ANALYSIS_READ: 'analysis:read', ANALYSIS_RUN: 'analysis:run',
   BILLING_READ: 'billing:read', BILLING_MANAGE: 'billing:manage',
   USER_READ: 'user:read', ROLE_READ: 'role:read', ROLE_CREATE: 'role:create', ROLE_UPDATE: 'role:update',

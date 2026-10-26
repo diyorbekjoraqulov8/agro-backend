@@ -43,34 +43,38 @@ interface StatsRepository extends Repository<FarmerEntity, Long> {
                         WHERE fl.farmer_id = f.id AND j.status = 'DONE')) AS analyzed,
                    count(*) FILTER (WHERE f.lead_status IN ('REQUESTED', 'CONTACTED', 'PILOT')) AS leads
               FROM farmers f
-             WHERE f.deleted = FALSE AND f.created_date >= :from AND f.created_date < :to
+             WHERE f.deleted = FALSE AND f.lab = FALSE AND f.created_date >= :from AND f.created_date < :to
              GROUP BY 1
              ORDER BY farmers DESC
             """, nativeQuery = true)
     List<SourceRow> bySource(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 
     @Query(value = """
-            SELECT (SELECT count(*) FROM farmers WHERE deleted = FALSE) AS farmers,
-                   (SELECT count(*) FROM fields  WHERE deleted = FALSE) AS fields,
-                   (SELECT COALESCE(sum(area_ha), 0) FROM fields WHERE deleted = FALSE) AS totalAreaHa,
+            SELECT (SELECT count(*) FROM farmers WHERE deleted = FALSE AND lab = FALSE) AS farmers,
+                   (SELECT count(*) FROM fields  WHERE deleted = FALSE AND farmer_id NOT IN (SELECT id FROM farmers WHERE lab)) AS fields,
+                   (SELECT COALESCE(sum(area_ha), 0) FROM fields WHERE deleted = FALSE
+                       AND farmer_id NOT IN (SELECT id FROM farmers WHERE lab)) AS totalAreaHa,
                    (SELECT count(*) FROM farmers WHERE deleted = FALSE
                        AND lead_status IN ('REQUESTED', 'CONTACTED', 'PILOT')) AS leads
             """, nativeQuery = true)
     Totals totals();
 
-    @Query(value = "SELECT status AS key, count(*) AS count FROM analysis_jobs GROUP BY status",
-           nativeQuery = true)
+    @Query(value = """
+            SELECT j.status AS key, count(*) AS count FROM analysis_jobs j
+              JOIN fields fl ON fl.id = j.field_id JOIN farmers f ON f.id = fl.farmer_id
+             WHERE f.lab = FALSE GROUP BY j.status
+            """, nativeQuery = true)
     List<CountRow> analysesByStatus();
 
     @Query(value = """
             SELECT lead_status AS key, count(*) AS count FROM farmers
-             WHERE deleted = FALSE GROUP BY lead_status
+             WHERE deleted = FALSE AND lab = FALSE GROUP BY lead_status
             """, nativeQuery = true)
     List<CountRow> farmersByLeadStatus();
 
     @Query(value = """
             SELECT COALESCE(country_code, '??') AS key, count(*) AS count FROM farmers
-             WHERE deleted = FALSE GROUP BY 1 ORDER BY count DESC LIMIT 20
+             WHERE deleted = FALSE AND lab = FALSE GROUP BY 1 ORDER BY count DESC LIMIT 20
             """, nativeQuery = true)
     List<CountRow> farmersByCountry();
 }

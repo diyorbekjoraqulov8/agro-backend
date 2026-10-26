@@ -22,6 +22,7 @@ const router = createRouter({
         { path: 'farmers', component: () => import('@/views/FarmersView.vue'), meta: { title: 'Fermerlar', perm: P.FARMER_READ } },
         { path: 'farmers/:id', component: () => import('@/views/FarmerDetailView.vue'), meta: { title: 'Fermer', perm: P.FARMER_READ } },
         { path: 'fields', component: () => import('@/views/FieldsView.vue'), meta: { title: 'Dalalar', perm: P.FIELD_READ } },
+        { path: 'fields/new', component: () => import('@/views/FieldCreateView.vue'), meta: { title: 'Lab dala', perm: P.FIELD_WRITE } },
         { path: 'fields/:id', component: () => import('@/views/FieldDetailView.vue'), meta: { title: 'Dala', perm: P.FIELD_READ } },
         { path: 'analyses', component: () => import('@/views/AnalysesView.vue'), meta: { title: 'Tahlillar', perm: P.ANALYSIS_READ } },
         { path: 'analyses/:id', component: () => import('@/views/AnalysisDetailView.vue'), meta: { title: 'Tahlil', perm: P.ANALYSIS_READ } },

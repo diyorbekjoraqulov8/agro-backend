@@ -64,7 +64,7 @@ class NotificationStore {
             n.setAttempts(n.getAttempts() + 1);
             n.setNextAttemptAt(now);
             FarmerEntity f = farmers.get(n.getFarmerId());
-            Recipient to = f == null ? null : new Recipient(f.getId(), f.getTelegramUserId(), f.getChatId(), f.getLanguage(), f.isBlockedBot());
+            Recipient to = f == null ? null : new Recipient(f.getId(), f.getTelegramUserId(), f.getChatId(), f.getLanguage(), f.isBlockedBot(), f.isLab());
             return new Job(n.getId(), n.getChannel(), n.getTemplate(), new java.util.HashMap<>(n.getParams()), to);
         }).toList();
     }
@@ -72,7 +72,13 @@ class NotificationStore {
     /** Fermer o'chirilgan yoki botni bloklagan — yubormaymiz (qayta urinish ham befoyda) */
     @Transactional
     public void skip(long id, String reason) {
-        finish(id, NotificationStatus.SKIPPED, reason);
+        finish(id, NotificationStatus.SKIPPED, reason, true);
+    }
+
+    /** Lab dala (V41) — Telegram'i yo'q fermer: yuborilmaydi, lekin bu xato emas (muammo yozilmaydi) */
+    @Transactional
+    public void skipLab(long id) {
+        finish(id, NotificationStatus.SKIPPED, "Lab dala — Telegram'ga yuborilmaydi", false);
     }
 
     @Transactional
@@ -85,10 +91,10 @@ class NotificationStore {
                 n.setLastError(null);
                 published(n, true);
             }
-            case FAILED -> finish(id, NotificationStatus.FAILED, d.error());
+            case FAILED -> finish(id, NotificationStatus.FAILED, d.error(), true);
             case RETRY -> {
                 if (n.getAttempts() >= settings.getInt(Setting.NOTIFICATION_MAX_ATTEMPTS)) {
-                    finish(id, NotificationStatus.FAILED, d.error());
+                    finish(id, NotificationStatus.FAILED, d.error(), true);
                 } else {
                     n.setStatus(NotificationStatus.PENDING);
                     n.setLastError(cut(d.error()));
@@ -98,11 +104,12 @@ class NotificationStore {
         }
     }
 
-    private void finish(long id, NotificationStatus status, String error) {
+    private void finish(long id, NotificationStatus status, String error, boolean problem) {
         NotificationEntity n = repository.findById(id).orElseThrow();
         n.setStatus(status);
         n.setLastError(cut(error));
         published(n, false);
+        if (!problem) return;
         // Yetmadi: FAILED — xato; SKIPPED (botni bloklagan, fermer yo'q) — fermer tomoni, ogohlantirish.
         // Kampaniyaning SKIPPED'lari yozilmaydi — bloklaganlar ro'yxati kampaniya hisobotida bor (sahifani to'ldirmasin)
         if (status == NotificationStatus.SKIPPED && n.getCampaignId() != null) return;

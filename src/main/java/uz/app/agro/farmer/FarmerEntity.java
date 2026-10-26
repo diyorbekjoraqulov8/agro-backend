@@ -76,6 +76,10 @@ public class FarmerEntity extends BaseEntity {
     @Column(name = "blocked_bot", nullable = false)
     private boolean blockedBot = false;
 
+    /** Lab dalalari egasi (V41, bitta) — Telegram'siz: xabarlari yuborilmaydi, statistika/kampaniyaga kirmaydi */
+    @Column(nullable = false, updatable = false)
+    private boolean lab = false;
+
     // ── Taklif (referral) ──
     /** Shaxsiy taklif kodi — t.me/bot?start=ref_<kod>. Birinchi so'ralganda yasaladi */
     @Column(name = "referral_code", length = 16)

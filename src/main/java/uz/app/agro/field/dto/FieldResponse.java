@@ -13,6 +13,7 @@ public record FieldResponse(
         Long id,
         Long farmerId,
         String farmerName,
+        boolean lab,                            // Lab dalasi (admin chizgan) — fermerniki emas
         String name,
         Crop crop,
         BigDecimal areaHa,

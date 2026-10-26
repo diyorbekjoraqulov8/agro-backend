@@ -13,7 +13,7 @@ public interface NotificationChannel {
     Delivery deliver(Recipient to, String template, Map<String, Object> params);
 
     /** Kimga: kanal o'zi kerakli manzilni oladi (Telegram — chatId) */
-    record Recipient(long farmerId, long telegramUserId, long chatId, String language, boolean blocked) {}
+    record Recipient(long farmerId, long telegramUserId, long chatId, String language, boolean blocked, boolean lab) {}
 
     /** SENT — yetdi; RETRY — vaqtinchalik xato (tarmoq, limit); FAILED — qayta urinish befoyda (bloklagan, noma'lum shablon) */
     record Delivery(Result result, String error) {

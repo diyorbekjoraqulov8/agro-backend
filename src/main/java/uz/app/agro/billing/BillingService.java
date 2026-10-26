@@ -131,6 +131,7 @@ public class BillingService {
     @Transactional
     public SubscriptionResponse recordPayment(Long farmerId, PaymentRequest req) {
         FarmerEntity farmer = requireFarmer(farmerId);
+        if (farmer.isLab()) throw new ConflictException("Lab fermerga to'lov yozilmaydi");
         PlanEntity plan = planRepository.findById(req.planId()).orElseThrow(() -> new NotFoundException("Tarif", req.planId()));
         if (plan.isSystemPlan()) throw new BadRequestException("Tizim tarifiga (" + plan.getCode() + ") to'lov qilinmaydi");
         if (!plan.isActive()) throw new BadRequestException("Tarif faol emas: " + plan.getCode());
@@ -212,6 +213,8 @@ public class BillingService {
     public SubscriptionResponse cancel(Long subscriptionId, CancelRequest req) {
         SubscriptionEntity s = subscriptionRepository.findById(subscriptionId)
                 .orElseThrow(() -> new NotFoundException("Obuna", subscriptionId));
+        // Lab fermer tizim obunasisiz FREE ga tushadi — Lab dalalari monitoringdan jimgina chiqib qoladi
+        if (s.getFarmer().isLab()) throw new ConflictException("Lab dalalarining tizim obunasini bekor qilib bo'lmaydi");
         if (s.getStatus() == SubscriptionEntity.Status.CANCELLED) throw new ConflictException("Obuna allaqachon bekor qilingan");
         s.setStatus(SubscriptionEntity.Status.CANCELLED);
         s.setCancelledAt(LocalDateTime.now());

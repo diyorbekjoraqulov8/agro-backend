@@ -102,15 +102,7 @@ public class FieldIntakeService {
             field.setCrop(crop);
         }
         field.setName(name);
-        field.setBoundaryGeojson(geojson(ring));
-        // Taxminiy maydon — jami limit hisobi uchun darhol; aniq maydonni keyingi tahlil yozadi (Python, UTM)
-        field.setAreaHa(BigDecimal.valueOf(areaHa).setScale(2, RoundingMode.HALF_UP));
-        // Taxminiy markaz (uchlar o'rtachasi) — ro'yxat/xarita uchun
-        double lon = 0, lat = 0;
-        int n = ring.size() - 1;                     // oxirgi nuqta = birinchi
-        for (int i = 0; i < n; i++) { lon += ring.get(i)[0]; lat += ring.get(i)[1]; }
-        field.setCentroidLon(BigDecimal.valueOf(lon / n).setScale(6, RoundingMode.HALF_UP));
-        field.setCentroidLat(BigDecimal.valueOf(lat / n).setScale(6, RoundingMode.HALF_UP));
+        applyBoundary(field, ring, areaHa);
         boolean created = field.getId() == null;
         fieldRepository.save(field);
         if (created) seasonService.start(field.getId(), field.getCrop());   // ekish sanasini bot keyin so'raydi
@@ -120,7 +112,7 @@ public class FieldIntakeService {
         auditService.event(editFieldId != null ? AuditEvent.FIELD_UPDATED : AuditEvent.FIELD_CREATED)
                 .target("FIELD", field.getId())
                 .detail("farmerId", farmer.getId())
-                .detail("vertices", n)
+                .detail("vertices", ring.size() - 1)
                 .detail("areaHaApprox", Math.round(areaHa * 100) / 100.0)
                 .detail("plan", plan.planCode())
                 .record();
@@ -206,6 +198,17 @@ public class FieldIntakeService {
             s += (Math.toRadians(p3[0]) - Math.toRadians(p1[0])) * Math.sin(Math.toRadians(p2[1]));
         }
         return Math.abs(s * r * r / 2) / 10_000;
+    }
+
+    /** Chegara, taxminiy maydon (jami limit uchun darhol; aniqini tahlil yozadi — Python, UTM) va markaz (uchlar o'rtachasi) */
+    static void applyBoundary(FieldEntity field, List<double[]> ring, double areaHa) {
+        field.setBoundaryGeojson(geojson(ring));
+        field.setAreaHa(BigDecimal.valueOf(areaHa).setScale(2, RoundingMode.HALF_UP));
+        double lon = 0, lat = 0;
+        int n = ring.size() - 1;                     // oxirgi nuqta = birinchi
+        for (int i = 0; i < n; i++) { lon += ring.get(i)[0]; lat += ring.get(i)[1]; }
+        field.setCentroidLon(BigDecimal.valueOf(lon / n).setScale(6, RoundingMode.HALF_UP));
+        field.setCentroidLat(BigDecimal.valueOf(lat / n).setScale(6, RoundingMode.HALF_UP));
     }
 
     private static Map<String, Object> geojson(List<double[]> ring) {

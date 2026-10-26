@@ -55,7 +55,12 @@ export interface GeoPolygon { type: 'Polygon'; coordinates: number[][][] }
 export type Sowing = 'UNANSWERED' | 'SOWN' | 'NOT_SOWN' | 'UNKNOWN'
 export interface FieldSeason { crop: Crop; sowing: Sowing; sownOn: string | null; sownOnApprox: boolean }
 export interface FieldResponse extends FieldSummary {
-  farmerName: string | null; boundaryGeojson: GeoPolygon; irrigationMethod: IrrigationType | null; season: FieldSeason | null
+  farmerName: string | null; lab: boolean; boundaryGeojson: GeoPolygon; irrigationMethod: IrrigationType | null; season: FieldSeason | null
+}
+
+// Lab dala — admin xaritada chizadi; coordinates: [[lon, lat], ...]
+export interface CreateLabField {
+  name: string; crop: Crop; coordinates: [number, number][]; sownOn?: string; irrigationMethod?: IrrigationType
 }
 
 // ── Tahlil ───────────────────────────────────────────────────────────────

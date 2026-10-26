@@ -25,4 +25,6 @@ public interface FarmerRepository extends JpaRepository<FarmerEntity, Long>,
     long countByReferredByIdAndActivatedAtIsNotNull(Long referredById);
 
     Optional<FarmerEntity> findByChatId(Long chatId);
+
+    Optional<FarmerEntity> findByLabTrue();
 }

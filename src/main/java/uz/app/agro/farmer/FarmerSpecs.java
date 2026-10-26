@@ -16,6 +16,7 @@ final class FarmerSpecs {
                                               Crop crop, String q) {
         return (root, query, cb) -> {
             List<Predicate> p = new ArrayList<>();
+            p.add(cb.isFalse(root.get("lab")));                 // Lab fermer (V41) — fermer emas; dalalari "Dalalar"da
             if (country != null)    p.add(cb.equal(root.get("countryCode"), country.toUpperCase(Locale.ROOT)));
             if (leadStatus != null) p.add(cb.equal(root.get("leadStatus"), leadStatus));
             if (source != null)     p.add(cb.equal(root.get("source"), source));

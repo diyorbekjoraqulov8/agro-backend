@@ -4,10 +4,10 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 import uz.app.agro.field.Crop;
+import uz.app.agro.field.Rings;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Pattern;
 
 /**
  * Mini App'dan kelgan web_app_data — ISHONCHSIZ kirish: fermer (yoki boshqa odam) Mini App
@@ -16,10 +16,8 @@ import java.util.regex.Pattern;
  */
 final class BotPolygonParser {
 
-    static final int MAX_VERTICES = 200;
+    static final int MAX_VERTICES = Rings.MAX_VERTICES;
     static final int MAX_BYTES = 4096;               // Telegram sendData chegarasi
-    private static final double LAT_MIN = -60, LAT_MAX = 75;
-    private static final Pattern CONTROL = Pattern.compile("\\p{Cntrl}");
 
     /** fieldId — tahrirlash rejimi (Mini App ?fieldId=); EGALIK FieldIntakeService'da tekshiriladi */
     record Parsed(String name, List<double[]> ring, Long fieldId, Crop crop) {}
@@ -44,21 +42,12 @@ final class BotPolygonParser {
         for (JsonNode p : coords) {
             if (!p.isArray() || p.size() != 2 || !p.get(0).isNumber() || !p.get(1).isNumber()) return null;
             double lon = p.get(0).asDouble(), lat = p.get(1).asDouble();
-            if (!Double.isFinite(lon) || !Double.isFinite(lat)
-                    || lon < -180 || lon > 180 || lat < LAT_MIN || lat > LAT_MAX) return null;
+            if (!Rings.validPoint(lon, lat)) return null;
             ring.add(new double[]{lon, lat});
         }
-        double[] first = ring.getFirst(), last = ring.getLast();
-        if (first[0] != last[0] || first[1] != last[1]) {
-            if (ring.size() > MAX_VERTICES) return null;
-            ring.add(new double[]{first[0], first[1]});   // halqa yopilmagan — yopamiz
-        }
-        if (ring.size() < 4) return null;
+        if (!Rings.close(ring)) return null;            // halqa yopilmagan bo'lsa — yopiladi
 
-        String name = root.path("name").isString() ? root.path("name").asString() : "";
-        name = CONTROL.matcher(name).replaceAll("").strip();
-        if (name.isEmpty()) name = defaultName;
-        if (name.codePointCount(0, name.length()) > 80) name = name.substring(0, name.offsetByCodePoints(0, 80));
+        String name = Rings.name(root.path("name").isString() ? root.path("name").asString() : "", defaultName);
         Long fieldId = null;
         JsonNode fid = root.path("fieldId");
         if (!fid.isMissingNode() && !fid.isNull()) {

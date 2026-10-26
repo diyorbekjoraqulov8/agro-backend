@@ -23,6 +23,7 @@ public interface FieldMapper {
     @Mapping(target = "createdDate", source = "entity.createdDate")
     @Mapping(target = "farmerId", source = "entity.farmer.id")
     @Mapping(target = "farmerName", source = "entity.farmer.fullName")
+    @Mapping(target = "lab", source = "entity.farmer.lab")
     @Mapping(target = "season", source = "season")
     FieldResponse toResponse(FieldEntity entity, FieldSeasonEntity season);
 

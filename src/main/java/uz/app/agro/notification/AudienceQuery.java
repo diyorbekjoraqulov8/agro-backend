@@ -52,7 +52,7 @@ class AudienceQuery {
 
     private static Map<String, Object> where(Audience a, StringBuilder sql) {
         Map<String, Object> p = new HashMap<>();
-        sql.append("f.deleted = FALSE AND f.blocked_bot = FALSE");
+        sql.append("f.deleted = FALSE AND f.blocked_bot = FALSE AND f.lab = FALSE");
         if (a.type() == Audience.Type.SINGLE) {
             sql.append(" AND f.id = :farmerId");
             p.put("farmerId", a.farmerId() == null ? -1L : a.farmerId());
@@ -68,7 +68,8 @@ class AudienceQuery {
         }
         if (a.activated() != null) sql.append(a.activated() ? " AND f.activated_at IS NOT NULL" : " AND f.activated_at IS NULL");
         if (a.paid() != null) {
-            sql.append(a.paid() ? " AND" : " AND NOT").append("""
+            // " EXISTS" — text block boshidagi umumiy bo'shliqni kesadi: "ANDEXISTS" bo'lib qolardi
+            sql.append(a.paid() ? " AND" : " AND NOT").append(" ").append("""
                      EXISTS (SELECT 1 FROM farmer_subscriptions s WHERE s.farmer_id = f.id AND s.status = 'ACTIVE'
                              AND current_date BETWEEN s.valid_from AND s.valid_until)""");
         }

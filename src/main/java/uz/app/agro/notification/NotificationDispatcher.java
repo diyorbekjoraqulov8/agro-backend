@@ -55,6 +55,7 @@ class NotificationDispatcher {
         try {
             MDC.put("requestId", "ntf-" + job.id());
             if (job.to() == null) { store.skip(job.id(), "fermer topilmadi"); return; }
+            if (job.to().lab()) { store.skipLab(job.id()); return; }
             if (job.to().blocked()) { store.skip(job.id(), "fermer botni bloklagan"); return; }
             Delivery d;
             try {

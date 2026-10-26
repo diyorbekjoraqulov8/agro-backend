@@ -42,6 +42,8 @@ export const fieldsApi = {
   get: (id: number) => http.get<T.FieldResponse>(`/fields/${id}`),
   water: (id: number) => http.get<T.WaterView>(`/fields/${id}/water`),
   monitoring: (id: number) => http.get<T.FieldMonitoring>(`/fields/${id}/monitoring`),
+  createLab: (body: T.CreateLabField) => http.post<T.FieldResponse>('/fields', body),
+  removeLab: (id: number) => http.del<void>(`/fields/${id}`),
 }
 
 export const analysesApi = {

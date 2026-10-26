@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, Loader2, Satellite } from '@lucide/vue'
+import { ArrowLeft, FlaskConical, Loader2, Satellite, Trash2 } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import PageHeader from '@/components/app/PageHeader.vue'
 import FieldMap from '@/components/app/FieldMap.vue'
 import MonitoringCard from '@/components/app/MonitoringCard.vue'
 import StatusBadge from '@/components/app/StatusBadge.vue'
 import { jobTone } from '@/components/app/badges'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -60,6 +61,23 @@ async function run() {
   }
 }
 
+// Ikki bosish — tasdiq (OnboardingView uslubi)
+const confirmRemove = ref(false)
+async function removeLab() {
+  if (!confirmRemove.value) {
+    confirmRemove.value = true
+    setTimeout(() => (confirmRemove.value = false), 4000)
+    return
+  }
+  try {
+    await fieldsApi.removeLab(id)
+    toast.success('Dala oʻchirildi')
+    router.push('/fields')
+  } catch (e) {
+    toast.error(errorMessage(e))
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -68,6 +86,8 @@ onMounted(load)
   <div v-if="!field" class="space-y-4"><Skeleton class="h-10 w-72" /><Skeleton class="h-80 w-full" /></div>
   <template v-else>
     <PageHeader :title="field.name" :description="`${CROP[field.crop]} · ${field.areaHa != null ? fmtNum(field.areaHa, 2) + ' ga' : 'maydon tahlildan keyin'}`">
+      <Badge v-if="field.lab" variant="secondary"><FlaskConical /> Lab dala</Badge>
+      <Button v-if="field.lab && auth.can(P.FIELD_WRITE)" variant="outline" @click="removeLab"><Trash2 /> {{ confirmRemove ? 'Yana bir bosing' : 'Oʻchirish' }}</Button>
       <Button v-if="auth.can(P.ANALYSIS_RUN)" @click="runOpen = true"><Satellite /> Tahlilga yuborish</Button>
     </PageHeader>
     <div class="grid gap-4 lg:grid-cols-3">
