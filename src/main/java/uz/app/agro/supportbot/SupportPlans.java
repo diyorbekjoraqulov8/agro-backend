@@ -148,14 +148,23 @@ public class SupportPlans {
                 PlanResponse p = plan(Long.parseLong(a[2])).orElse(null);
                 int n = periods(a[3]);
                 if (p == null || n == 0) return;
-                if (n == SEASON && season(topic, p).isEmpty()) return;
+                // contactSales + :99 — faqat soxta callback'da; jim (seasonGone tugmalari ham ko'rsatilmaydi)
+                if (n == SEASON && p.contactSales()) return;
+                if (n == SEASON && season(topic, p).isEmpty()) {
+                    seasonGone(chatId, messageId, topic, p);
+                    return;
+                }
                 client.edit(chatId, messageId, actions.text("support.plan.method", p.name(), periodLabel(p, n)), methodButtons(p, n));
             } else if (data.startsWith(METHOD)) {
                 PlanResponse p = plan(Long.parseLong(a[2])).orElse(null);
                 int n = periods(a[3]);
                 PaymentMethod method = method(a[4]);
                 if (p == null || n == 0 || method == null) return;
-                if (n == SEASON && (p.contactSales() || season(topic, p).isEmpty())) return;
+                if (n == SEASON && p.contactSales()) return;
+                if (n == SEASON && season(topic, p).isEmpty()) {
+                    seasonGone(chatId, messageId, topic, p);
+                    return;
+                }
                 if (p.contactSales()) {
                     Instant now = Instant.now();
                     awaiting.values().removeIf(x -> x.expires().isBefore(now));
@@ -220,10 +229,10 @@ public class SupportPlans {
     private void confirmSeason(long chatId, int messageId, String msgKey, SupportStore.Staff staff, SupportStore.Topic topic,
                                PlanResponse p, PaymentMethod method) {
         // Ikkinchi bosish — jim (birinchisidan keyin obuna mavsum oxirigacha, taklif yo'q: muvaffaqiyat xabari o'chmasin)
-        if (confirmed.contains(msgKey)) return;
+        if (confirmed.contains(msgKey) || p.contactSales()) return;
         SeasonOffer o = season(topic, p).orElse(null);
         if (o == null) {
-            client.edit(chatId, messageId, actions.text("support.plan.seasonGone"), null);
+            seasonGone(chatId, messageId, topic, p);
             return;
         }
         if (!confirmed.add(msgKey)) return;
@@ -239,6 +248,11 @@ public class SupportPlans {
         }
         client.edit(chatId, messageId, actions.text("support.plan.done", p.name(), HumanDates.format("uz", o.until()),
                 staff.user().email()) + "\n💰 " + money(o.finalPrice(), p), null);
+    }
+
+    /** Taklif shu orada yopildi (sozlama, sotuv davri) — xodimda oddiy muddat tugmalari qoladi, /tarif qayta shart emas */
+    private void seasonGone(long chatId, int messageId, SupportStore.Topic topic, PlanResponse p) {
+        client.edit(chatId, messageId, actions.text("support.plan.seasonGone"), periodButtons(p, topic));
     }
 
     private Optional<SeasonOffer> season(SupportStore.Topic topic, PlanResponse p) {

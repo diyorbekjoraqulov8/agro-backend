@@ -1273,7 +1273,9 @@ Reja (2026-10-12, loyiha egasi qarori: 1–7 + ovozli xabar; taklif — 3 do'st 
 - Sozlamalar → "Mavsumiy obuna": `season.enabled` (default o'chiq), `season.plan` (MONTHLY), `season.discount-pct` (20),
   `season.sale-from`, `season.end` (yangi `Setting.Type.DATE`, admin'da sana maydoni).
 - `SeasonOffers.offer`: sotuv davrida (sale-from ≤ bugun < end) — davr bugundan (joriy obuna oxiridan keyin) mavsum oxirigacha,
-  narx = tarif narxi × ⌈kunlar / muddat⌉ × (100 − foiz)%. Chegirmalar bilan qo'shilmaydi.
+  narx **proporsional** = tarif narxi × kunlar / tarif muddati × (100 − foiz)% (kunlar — from..end inklyuziv; so'mda kasrsiz).
+  Qolgan kun tarif muddatidan kam bo'lsa — taklif yo'q (oddiy obuna arzonroq). Agro Biznes (cheksiz) egasiga taklif yo'q.
+  Chegirmalar bilan qo'shilmaydi. Sozlamalar sahifasi ogohlantiradi: tarifda muddat yo'q / qolgan kun muddatdan kam.
 - Bot: tariflar ro'yxatida 🌱 blok + "🌱 Mavsumiy obuna olish" (`pl:season` → xodimlarga so'rov). Support guruhi: muddat
   "🌱 Mavsum oxirigacha" (`sb:pm:<plan>:99`) — summa va davr tasdiqda qayta hisoblanadi. Admin: `GET /farmers/{id}/season-offer`
   (204 — yo'q), "To'lov qildi"da bir bosishda to'ldirish.

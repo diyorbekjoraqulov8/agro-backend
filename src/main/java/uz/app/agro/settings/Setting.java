@@ -38,17 +38,17 @@ public enum Setting {
             "Pro sinovi", "Qaysi tarif sinovga beriladi (tarif kodi, pullik va faol; \"narx kelishiladi\" emas). Xush kelibsiz "
                     + "matni \"avtomatik kuzatuv, cheksiz qayta tahlil\" deydi — tarif shunday boʻlsin"),
 
-    // Mavsumiy obuna: sotuv davrida fermer mavsum oxirigacha bir to'lov bilan oladi (oylar × narx − foiz). Chegirmalar bilan qo'shilmaydi
+    // Mavsumiy obuna: sotuv davrida fermer mavsum oxirigacha bir to'lov bilan oladi (narx × kunlar / tarif muddati − foiz). Chegirmalar bilan qo'shilmaydi
     SEASON_ENABLED("season.enabled", Type.BOOL, "false", null, null,
             "Mavsumiy obuna", "Mavsumiy obuna taklif qilinadi (botdagi tariflar, guruhdagi tarif berish, admin «Toʻlov qildi»)"),
     SEASON_PLAN("season.plan", Type.PLAN, "MONTHLY", null, null,
             "Mavsumiy obuna", "Qaysi tarif mavsumga sotiladi (narxli pullik tarif)"),
     SEASON_DISCOUNT("season.discount-pct", Type.INT, "20", 0, 90,
-            "Mavsumiy obuna", "Chegirma foizi (oylik narx × qolgan oylar dan)"),
+            "Mavsumiy obuna", "Chegirma foizi (tarif narxi × qolgan kunlar / tarif muddati dan)"),
     SEASON_SALE_FROM("season.sale-from", Type.DATE, "2027-03-01", null, null,
             "Mavsumiy obuna", "Sotuv qachondan boshlanadi (shu kundan mavsum oxirigacha taklif koʻrinadi)"),
     SEASON_END("season.end", Type.DATE, "2027-10-31", null, null,
-            "Mavsumiy obuna", "Mavsum oxiri — obuna shu kungacha amal qiladi (taklif shu kuni yopiladi; bir oydan kam qolsa — koʻrinmaydi)"),
+            "Mavsumiy obuna", "Mavsum oxiri — obuna shu kungacha amal qiladi (taklif shu kuni yopiladi; tarif muddatidan kam qolsa — koʻrinmaydi)"),
 
     NOTIFICATION_RATE("notification.rate-per-second", Type.INT, "20", 1, 30,
             "Bildirishnomalar", "Sekundiga nechta xabar yuboriladi (Telegram limiti ~30/s; kampaniya ham shu tezlikda)"),

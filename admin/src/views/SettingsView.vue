@@ -43,7 +43,7 @@ const groups = computed(() => {
   }
   return [...m.entries()]
 })
-const paidPlans = computed(() => plans.value.filter((p) => !p.systemPlan && p.active))
+const paidPlans = computed(() => plans.value.filter((p) => !p.systemPlan && p.active && !p.contactSales))
 
 async function load() {
   try {

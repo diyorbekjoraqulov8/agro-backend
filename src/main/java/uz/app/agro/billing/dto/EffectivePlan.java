@@ -34,6 +34,11 @@ public record EffectivePlan(
         return left.min(maxFieldHa);
     }
 
+    /** Cheksiz maydonli pullik tarif (Agro Biznes) — unga pastroq tarif (mavsumiy ham) taklif qilinmaydi */
+    public boolean unlimited() {
+        return paid && maxTotalHa == null;
+    }
+
     public boolean analysesLeft() {
         return maxAnalyses == null || usedAnalyses < maxAnalyses;
     }

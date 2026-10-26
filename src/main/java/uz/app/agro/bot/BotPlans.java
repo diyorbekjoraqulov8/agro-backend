@@ -55,9 +55,7 @@ public class BotPlans {
         blocks.add(messages.text(lang, "plans.title"));
         for (PlanResponse p : catalog) blocks.add(describe(lang, p, current, prices.get(p.id())));
         // Mavsumiy obuna (Sozlamalar) — alohida taklif: mavsum oxirigacha bir to'lov, foiz chegirma bilan
-        // Cheksiz tarif (Agro Biznes) egasiga pastroq tarif — mavsumiy ham — taklif qilinmaydi
-        boolean unlimited = current != null && current.paid() && current.maxTotalHa() == null;
-        Optional<SeasonOffer> season = unlimited ? Optional.empty() : farmer.flatMap(f -> seasons.offer(f.id(), LocalDate.now()));
+        Optional<SeasonOffer> season = farmer.flatMap(f -> seasons.offer(f.id(), LocalDate.now()));
         season.ifPresent(o -> blocks.add(seasonText(lang, o)));
         Optional<PlanResponse> upgrade = upgrade(catalog);
         // Bepul foydalanuvchiga — pullik tarif foydasi (cheklov raqamlari yuqorida, bu yerda — nima uchun kerakligi)
@@ -69,7 +67,7 @@ public class BotPlans {
             if (p.systemPlan()) continue;
             boolean mine = current != null && current.paid() && p.code().equals(current.planCode());
             // Cheksiz maydonli tarif egasiga (Agro Biznes) pastroq tarifni taklif qilmaymiz — faqat o'zinikini uzaytirish
-            if (!mine && current != null && current.paid() && current.maxTotalHa() == null) continue;
+            if (!mine && current != null && current.unlimited()) continue;
             if (p.contactSales() && !mine) {
                 kb.addRow(new InlineKeyboardButton(messages.text(lang, "plans.apply", p.name())).callbackData(BotBusiness.START));
                 continue;
@@ -120,7 +118,7 @@ public class BotPlans {
                 price.discountName(), price.discountLabel(), BotMessages.date(lang, price.discountEndsOn()));
     }
 
-    /** "🌱 Mavsumiy Pro — 31-oktabrgacha (5 oy): 295 000 → 236 000 so'm (−20%)" */
+    /** "🌱 Mavsumiy Pro — 31-oktabrgacha (150 kun): 295 000 → 236 000 so'm (−20%)" */
     public String seasonText(String lang, SeasonOffer o) {
         String text = messages.text(lang, "plans.season", o.planName(), BotMessages.date(lang, o.until()), String.valueOf(o.days()),
                 money(o.basePrice()), money(o.finalPrice()), currency(lang, o.currency()), String.valueOf(o.discountPct()));

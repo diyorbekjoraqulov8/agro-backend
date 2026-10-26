@@ -79,14 +79,14 @@ public class DiscountPricing {
         DiscountEntity d = best.get();
         BigDecimal finalPrice = d.apply(p.price(), p.currency());
         if (finalPrice.compareTo(p.price()) >= 0) return none;
-        return new PlanPrice(p.id(), p.price(), finalPrice, p.currency(), d.getId(), d.getName(), label(d, p.currency()), d.getEndsOn());
+        return new PlanPrice(p.id(), p.price(), finalPrice, p.currency(), d.getId(), d.getName(), label(d, p.price().subtract(finalPrice)), d.getEndsOn());
     }
 
-    /** "−20%" yoki "−10 000" (valyuta matnda alohida) */
-    static String label(DiscountEntity d, String currency) {
+    /** "−20%" yoki "−10 000" (valyuta matnda alohida). Belgilangan summa (FIXED) — haqiqiy farq (narx yaxlitlangan: 10000.5 → "−10 000") */
+    static String label(DiscountEntity d, BigDecimal saved) {
         if (d.getValueType() == DiscountEntity.ValueType.PERCENT) {
             return "−" + d.getValue().stripTrailingZeros().toPlainString() + "%";
         }
-        return "−" + Money.digits(d.getValue());
+        return "−" + Money.digits(saved);
     }
 }

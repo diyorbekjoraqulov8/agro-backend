@@ -8,6 +8,7 @@ import uz.app.agro.audit.AuditEvent;
 import uz.app.agro.audit.AuditService;
 import uz.app.agro.billing.PlanEntity;
 import uz.app.agro.billing.PlanRepository;
+import uz.app.agro.billing.SeasonOffers;
 import uz.app.agro.common.exception.BadRequestException;
 import uz.app.agro.common.exception.NotFoundException;
 import uz.app.agro.rbac.Permissions;
@@ -201,6 +202,10 @@ public class SettingsService {
         if (s == Setting.SEASON_PLAN && p.getPrice().signum() <= 0) {
             return "«" + p.getName() + "» tarifining narxi 0 — mavsumiy taklif koʻrinmaydi";
         }
+        // Himoya: pullik tarifda muddat DB CHECK bilan majburiy — bu faqat validatsiya chetlanganda
+        if (s == Setting.SEASON_PLAN && p.getDurationDays() == null) {
+            return "«" + p.getName() + "» tarifida muddat yoʻq — mavsumiy taklif koʻrinmaydi";
+        }
         return null;
     }
 
@@ -208,7 +213,14 @@ public class SettingsService {
     private String seasonWarning() {
         LocalDate from = getDate(Setting.SEASON_SALE_FROM), end = getDate(Setting.SEASON_END);
         if (!from.isBefore(end)) return "Sotuv boshlanishi mavsum oxiridan oldin boʻlsin — hozir taklif koʻrinmaydi";
-        if (!end.isAfter(LocalDate.now())) return "Mavsum oxiri oʻtib ketgan — taklif koʻrinmaydi";
+        LocalDate today = LocalDate.now();
+        if (!end.isAfter(today)) return "Mavsum oxiri oʻtib ketgan — taklif koʻrinmaydi";
+        // SeasonOffers.offer: qolgan davr tarif muddatidan qisqa bo'lsa taklif yashiriladi (muddatsiz tarif — SEASON_PLAN qatorida)
+        PlanEntity p = planRepository.findByCode(getString(Setting.SEASON_PLAN)).orElse(null);
+        LocalDate start = from.isAfter(today) ? from : today;
+        if (p != null && p.getDurationDays() != null && SeasonOffers.periodDays(start, end) < p.getDurationDays()) {
+            return "Mavsum oxirigacha «" + p.getName() + "» muddatidan (" + p.getDurationDays() + " kun) kam qolgan — taklif koʻrinmaydi";
+        }
         return null;
     }
 }
