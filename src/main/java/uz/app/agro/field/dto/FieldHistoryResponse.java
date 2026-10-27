@@ -27,7 +27,7 @@ public record FieldHistoryResponse(
     public record NdviPoint(LocalDate date, double ndvi, Double ndmi, String source, Long refId) {}
 
     /**
-     * type: ANALYSIS | MONITORING | WEATHER | NOTIFICATION. status — turga xos (DONE/FAILED, verdict, level,
+     * type: ANALYSIS | MONITORING | WEATHER | NOTIFICATION | OBSERVATION (L2 kuzatuv, status — holat). status — turga xos (DONE/FAILED, verdict, level,
      * SENT/SKIPPED…), data — ko'rsatish uchun qiymatlar (matn admin'da yasaladi)
      */
     public record Event(LocalDateTime at, String type, String status, Long refId, Map<String, Object> data) {}

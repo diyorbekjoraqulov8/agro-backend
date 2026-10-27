@@ -238,13 +238,32 @@ export interface CampaignRequest {
 
 // ── C3: Monitoring ──
 // ── Dala tarixi (L1b) ────────────────────────────────────────────────────
-export type HistoryEventType = 'ANALYSIS' | 'MONITORING' | 'WEATHER' | 'NOTIFICATION'
+export type HistoryEventType = 'ANALYSIS' | 'MONITORING' | 'WEATHER' | 'NOTIFICATION' | 'OBSERVATION'
 export interface FieldHistory {
   from: string; to: string
   seasons: { id: number; crop: Crop; sowing: Sowing; sownOn: string | null; startedOn: string; finishedOn: string | null
              status: 'ACTIVE' | 'FINISHED' }[]
   ndvi: { date: string; ndvi: number; ndmi: number | null; source: 'ANALYSIS' | 'MONITORING'; refId: number }[]
   events: { at: string; type: HistoryEventType; status: string | null; refId: number; data: Record<string, any> }[]
+}
+
+// ── Aniqlik (L2) ─────────────────────────────────────────────────────────
+export type ObsCondition = 'GOOD' | 'WEAK' | 'DAMAGED' | 'BARE' | 'HARVESTED'
+export type ObsCause = 'WATER' | 'NUTRIENT' | 'DISEASE' | 'PEST' | 'WEEDS' | 'SALINITY' | 'LODGING' | 'HAIL' | 'OTHER' | 'UNKNOWN'
+export interface ObservationRequest {
+  observedOn: string; condition: ObsCondition; cause?: ObsCause | null; lat?: number | null; lon?: number | null; note?: string
+}
+export interface Observation extends ObservationRequest { id: number; fieldId: number; authorEmail: string | null; createdDate: string }
+export type ReviewTarget = 'ANALYSIS' | 'MONITORING'
+export type ReviewVerdict = 'CORRECT' | 'PARTIAL' | 'WRONG'
+export interface Review { verdict: ReviewVerdict; note: string | null; reviewer?: string | null }
+export type MatchResult = 'AGREE' | 'DISAGREE' | 'NOT_APPLICABLE' | 'NO_DATA'
+export interface Match { result: MatchResult; reason: string; refId: number | null; distanceM: number | null }
+export interface AccuracyReport {
+  manual: Record<string, Partial<Record<ReviewVerdict, number>>>
+  auto: Record<string, Partial<Record<MatchResult, number>>>
+  rows: { observation: Observation; fieldName: string; lab: boolean; analysis: Match; monitoring: Match }[]
+  truncated: boolean
 }
 
 export type MonitoringVerdict = 'DECLINE' | 'STABLE' | 'HARVEST' | 'NO_CROP' | 'BASELINE'

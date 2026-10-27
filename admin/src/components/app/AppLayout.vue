@@ -2,9 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useIntervalFn } from '@vueuse/core'
-import {
-  TriangleAlert, BarChart3, Bot, CreditCard, FileClock, FolderOpen, Gift, Layers, Megaphone, Route, SlidersHorizontal, LogOut, Map, MessageSquare, ReceiptText, Satellite, Shield, UserRound, Users,
- BadgePercent } from '@lucide/vue'
+import { BadgePercent, BarChart3, Bot, CreditCard, FileClock, FolderOpen, Gift, Layers, LogOut, Map, Megaphone, MessageSquare, ReceiptText, Route, Satellite, Shield, SlidersHorizontal, Target, TriangleAlert, UserRound, Users } from '@lucide/vue'
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader,
   SidebarInset, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail, SidebarTrigger,
@@ -32,6 +30,7 @@ const groups: { label: string; items: NavItem[] }[] = [
       { to: '/farmers', title: 'Fermerlar', icon: Users, perm: P.FARMER_READ },
       { to: '/fields', title: 'Dalalar', icon: Map, perm: P.FIELD_READ },
       { to: '/analyses', title: 'Tahlillar', icon: Satellite, perm: P.ANALYSIS_READ },
+      { to: '/accuracy', title: 'Aniqlik', icon: Target, perm: P.ANALYSIS_READ },
       { to: '/feedback', title: 'Murojaatlar', icon: MessageSquare, perm: P.FEEDBACK_READ },
       { to: '/advisor', title: 'AI maslahat', icon: Bot, perm: P.ADVISOR_READ },
       { to: '/notifications', title: 'Bildirishnomalar', icon: Megaphone, perm: P.NOTIFICATION_READ },

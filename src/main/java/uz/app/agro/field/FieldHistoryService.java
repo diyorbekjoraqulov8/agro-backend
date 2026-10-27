@@ -4,6 +4,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import uz.app.agro.accuracy.FindingReviewEntity;
+import uz.app.agro.accuracy.FindingReviewRepository;
+import uz.app.agro.accuracy.ObservationEntity;
+import uz.app.agro.accuracy.ObservationRepository;
 import uz.app.agro.analysis.AnalysisJob;
 import uz.app.agro.analysis.AnalysisJobRepository;
 import uz.app.agro.common.exception.BadRequestException;
@@ -27,7 +31,7 @@ import java.util.*;
 
 /**
  * L1b: dala holati tarixi bitta javobda — NDVI egri chizig'i (tahlil + monitoring) va hodisalar vaqt chizig'i.
- * So'rovlar: dala, mavsumlar, tahlillar, monitoring, ob-havo, xabarlar — 6 ta, davr uzunligidan qat'i nazar.
+ * So'rovlar: dala, mavsumlar, tahlillar, monitoring, ob-havo, xabarlar, kuzatuvlar, baholar — 8 ta, davrdan qat'i nazar.
  */
 @Service
 @RequiredArgsConstructor
@@ -43,6 +47,8 @@ public class FieldHistoryService {
     private final MonitoringEventRepository monitoringRepository;
     private final WeatherAlertRepository weatherRepository;
     private final NotificationRepository notificationRepository;
+    private final ObservationRepository observationRepository;
+    private final FindingReviewRepository reviewRepository;
 
     /** from/to null — joriy + oldingi mavsum (mavsum yo'q bo'lsa oxirgi 12 oy) */
     @PreAuthorize(Permissions.CAN_READ_FIELD_HISTORY)
@@ -58,6 +64,9 @@ public class FieldHistoryService {
 
         List<NdviPoint> ndvi = new ArrayList<>();
         List<Event> events = new ArrayList<>();
+        // L2: xulosaga xodim bahosi — ANALYSIS/MONITORING hodisasining data.review
+        Map<String, FindingReviewEntity> reviews = new HashMap<>();
+        for (FindingReviewEntity r : reviewRepository.findByFieldId(fieldId)) reviews.put(r.getTargetType() + ":" + r.getTargetId(), r);
 
         // Tahlil o'tgan 12 oyni qamraydi — davr nuqtalari davrdan keyingi 12 oyda yaratilgan tahlilda ham bor
         List<AnalysisJob> jobs = jobRepository.findTop200ByFieldIdAndCreatedDateBetweenOrderByIdDesc(fieldId,
@@ -66,7 +75,9 @@ public class FieldHistoryService {
         for (AnalysisJob j : jobs) {
             LocalDate d = j.getCreatedDate() == null ? null : j.getCreatedDate().toLocalDate();
             if (d == null || d.isBefore(start) || d.isAfter(end)) continue;
-            events.add(new Event(j.getCreatedDate(), "ANALYSIS", j.getStatus().name(), j.getId(), analysisData(j)));
+            Map<String, Object> data = analysisData(j);
+            data.put("review", review(reviews.get("ANALYSIS:" + j.getId())));
+            events.add(new Event(j.getCreatedDate(), "ANALYSIS", j.getStatus().name(), j.getId(), data));
         }
 
         for (MonitoringEventEntity e : monitoringRepository.findByFieldIdAndSceneDateBetweenOrderBySceneDate(fieldId, start, end)) {
@@ -80,6 +91,7 @@ public class FieldHistoryService {
             data.put("declineSide", e.getDeclineSide());
             data.put("improvePct", e.getImprovePct());
             data.put("hasMap", e.getMapFileHashId() != null);
+            data.put("review", review(reviews.get("MONITORING:" + e.getId())));
             events.add(new Event(e.getCreatedDate() != null ? e.getCreatedDate() : e.getSceneDate().atStartOfDay(),
                     "MONITORING", e.getVerdict() != null ? e.getVerdict().name() : null, e.getId(), data));
         }
@@ -106,6 +118,18 @@ public class FieldHistoryService {
             data.put("preview", n.getPreview());
             data.put("lastError", n.getLastError());
             events.add(new Event(n.getCreatedDate(), "NOTIFICATION", n.getStatus().name(), n.getId(), data));
+        }
+
+        for (ObservationEntity o : observationRepository.findByFieldIdAndObservedOnBetweenOrderByObservedOn(fieldId, start, end)) {
+            Map<String, Object> data = new HashMap<>();
+            data.put("observedOn", o.getObservedOn());
+            data.put("cause", o.getCause() != null ? o.getCause().name() : null);
+            data.put("lat", o.getLat());
+            data.put("lon", o.getLon());
+            data.put("note", o.getNote());
+            data.put("author", o.getAuthorEmail());
+            // Kuzatuv sanasi bo'yicha (yozilgan vaqti emas) — grafik va ro'yxat "dalada qachon" ni ko'rsatadi
+            events.add(new Event(o.getObservedOn().atTime(12, 0), "OBSERVATION", o.getCondition().name(), o.getId(), data));
         }
 
         ndvi.sort(Comparator.comparing(NdviPoint::date));
@@ -155,6 +179,15 @@ public class FieldHistoryService {
             }
         }
         return new ArrayList<>(byDate.values());
+    }
+
+    private static Map<String, Object> review(FindingReviewEntity r) {
+        if (r == null) return null;
+        Map<String, Object> m = new HashMap<>();
+        m.put("verdict", r.getVerdict().name());
+        m.put("note", r.getNote());
+        m.put("reviewer", r.getReviewerEmail());
+        return m;
     }
 
     /** Ro'yxat uchun qisqa ko'rinish; to'liq natija (debug bilan) — GET /analyses/{id} */

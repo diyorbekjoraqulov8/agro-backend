@@ -20,6 +20,10 @@ public interface AnalysisJobRepository extends JpaRepository<AnalysisJob, Long>,
     /** Dala tarixi: NDVI nuqtalari result.timeseries'dan — eng yangi tahlil ustun (field ManyToOne o'qilmaydi) */
     List<AnalysisJob> findTop200ByFieldIdAndCreatedDateBetweenOrderByIdDesc(Long fieldId, LocalDateTime from, LocalDateTime to);
 
+    /** L2 aniqlik: kuzatuvli dalalarning tugagan tahlillari, davri [from, to] bilan kesishadiganlari (result — zonalar, debug) */
+    List<AnalysisJob> findByField_IdInAndStatusAndSeasonEndGreaterThanEqualAndSeasonStartLessThanEqual(
+            Collection<Long> fieldIds, AnalysisJob.Status status, java.time.LocalDate from, java.time.LocalDate to);
+
     // Faqat tranzaksiya ICHIDA chaqiriladi — aks holda qulf darhol yechiladi.
     // SKIP LOCKED: ikkinchi instans bir xil job'ni olmaydi
     @Query(value = """

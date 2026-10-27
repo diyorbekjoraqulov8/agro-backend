@@ -26,6 +26,7 @@ const router = createRouter({
         { path: 'fields/:id', component: () => import('@/views/FieldDetailView.vue'), meta: { title: 'Dala', perm: P.FIELD_READ } },
         { path: 'analyses', component: () => import('@/views/AnalysesView.vue'), meta: { title: 'Tahlillar', perm: P.ANALYSIS_READ } },
         { path: 'analyses/:id', component: () => import('@/views/AnalysisDetailView.vue'), meta: { title: 'Tahlil', perm: P.ANALYSIS_READ } },
+        { path: 'accuracy', component: () => import('@/views/AccuracyView.vue'), meta: { title: 'Aniqlik', perm: P.ANALYSIS_READ } },
         { path: 'billing/plans', component: () => import('@/views/PlansView.vue'), meta: { title: 'Tariflar', perm: P.BILLING_READ } },
         { path: 'billing/discounts', component: () => import('@/views/DiscountsView.vue'), meta: { title: 'Chegirmalar', perm: P.BILLING_READ } },
         { path: 'billing/subscriptions', component: () => import('@/views/SubscriptionsView.vue'), meta: { title: 'Toʻlovlar', perm: P.BILLING_READ } },

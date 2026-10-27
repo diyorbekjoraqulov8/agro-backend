@@ -1,94 +1,99 @@
-# HANDOFF — keyingi sessiya uchun (2026-10-26)
+# HANDOFF — keyingi sessiya uchun (2026-10-28)
 
 > Avval shu faylni, keyin `CLAUDE.md` ni o'qing. Brend — **Dropy**, paket `uz.app.agro` o'zgarmaydi.
 > Tushuntirish o'zbekcha, texnik atamalar inglizcha. Avtomatik test yozilmaydi (ADR #39).
 > **Ish tartibi:** har fazadan keyin `.claude/agents/` dagi **code-reviewer** va **tester** ni parallel (fonda)
-> ishga tushiring, topilmalarni tuzating, tuzatishlarni qayta sinating. Commit — faqat egasi ruxsat bergandan keyin.
-> Oldingi HANDOFF (3b, chegirmalar, support bot) — git tarixida.
+> ishga tushiring, topilmalarni tuzating, tuzatishlarni qayta sinating. **Commit — egasi o'zi qiladi.**
+> Oldingi HANDOFF'lar (3b, L1) — git tarixida.
 
 ---
 
-## 1. Yo'nalish o'zgardi (egasi qarori, 2026-10-26)
+## 1. Yo'nalish (egasi qarori, 2026-10-26)
 
-- **Botga vaqt sarflamaymiz.** Asosiy e'tibor — **backend xizmatlarini kuchaytirish va aniqligi**. Bot/Mini App'ga keyin ulanadi.
-- Sinov maydoni — **admin panel**: admin xaritada dala chizadi, tizim uni fermer dalasidek kuzatadi, admin holatini ko'radi.
-- **Agronom tasdig'i kutilmaydi** — tavsiyalarni AI yozadi. Kelishilgan chegara: AI umumiy agronomiya darajasida
-  ("azotli o'g'it", "fungitsid kerak bo'lishi mumkin"), aniq doza/preparat nomini aytmaydi.
-- Haqiqiy muammo — **aniqlik o'lchanmagan**: "shimolda o'sish sust" degan topilma haqiqatga mosmi, bilmaymiz.
-- `docs/dala-hisobi-roadmap.md` (H0–H10): H0, H1 bajarildi; H2+ **to'xtatildi**, yangi reja quyida ("L" fazalar).
-  Yo'l xaritasini L-rejaga moslab qayta yozish — ochiq ish.
+- **Botga vaqt sarflamaymiz** — backend xizmatlari va **aniqligi**. Bot/Mini App keyin ulanadi.
+- Sinov maydoni — **admin panel**: admin "Lab dala" chizadi, tizim uni fermer dalasidek kuzatadi.
+- **Agronom tasdig'i kutilmaydi** — tavsiyani AI yozadi, umumiy darajada (aniq doza/preparat yo'q).
+- Reja va holat — `docs/dala-hisobi-roadmap.md` boshidagi **"L" jadval** (H2+ to'xtatilgan).
 
-### Yangi reja — "Tahlil laboratoriyasi"
+| Faza | Holat |
+|---|---|
+| L1 — Lab dala | ✅ commit `19e3964`, `1cb8096` |
+| L1b — holat tarixi + tahlil debug | ✅ commit `caeca7a` |
+| L2 — ground truth → aniqlik | ✅ review + sinov — **commit qilinmagan** (egasi qiladi) |
+| L3 — motorni kuchaytirish | ⏸ **TO'XTATILGAN — egasi sinayapti** (2026-10-28) |
 
-| Faza | Nima | Holat |
-|---|---|---|
-| **L1** | Admin Lab dala qo'shadi (xaritada chizadi) → fermer dalasi bilan bir xil yo'l: mavsum, birinchi tahlil, monitoring, ob-havo | ✅ review + sinov o'tdi (satellite-service bilan tahlil DONE). Commit — egasi ruxsati |
-| L1b | Dala sahifasida **holat tarixi**: NDVI vaqt bo'yicha, monitoring hodisalari, ogohlantirishlar, fermerga ketgan bo'lardi xabarlar. Python `/analyze` ga `debug` bloki: sahnalar ro'yxati (sana, ochiq %, ishlatildi/rad), NDVI xaritasi (`render.ndvi_map` bor, ishlatilmayapti), kuchsiz zona koordinatasi, zona chegaralari | ⏳ |
-| L2 | "Aslida nima bor edi" izohi (ground truth) har dala/tahlilga → aniqlik ko'rsatkichi | ⏳ egasidan 3–5 ta holati ma'lum real dala kerak |
-| L3 | Motorni kuchaytirish: NDRE (zich ekinda NDVI to'yinadi), ko'p yillik solishtirish, signal/shovqin chegaralari, AI tavsiya qatlami | ⏳ |
+> ⏸ **Hozirgi holat (2026-10-28):** ish shu yerda to'xtatildi. Egasi real dalalarni admin panelda sinab,
+> qaysi qismda kamchilik borligini **aniq ma'lumot bilan** olib keladi. Motorni kuchaytirish (L3) taxmin bilan
+> EMAS, shu ma'lumot bilan boshlanadi — egasi kelmaguncha L3 kodiga tegilmaydi.
 
-## 2. Branch va commit'lar
-
-Branch: **`feature/dala-hisobi`** (main'dan). Commit'lar:
-- `bc0310b` — 3b tuzatishlari, Agro Biznes filtri
-- `39fe625` — H1: ekin mavsumi (`field_seasons`, V40), ekish sanasi, sug'orish usuli, "Hosilni yig'dim", RAINFED (lalmi)
-- `87b787b` — onboarding: lalmi fermerdan suv manbai so'ralmaydi
-
-## 3. L1 — commit qilinmagan (yoki WIP commit'da) o'zgarishlar
-
-**G'oya:** alohida "lab" tizimi emas — admin **haqiqiy dala** qo'shadi. Egasi — tizimning o'z "Lab fermeri".
-Shunda mahsulotning o'zi sinaladi va admin'dagi mavjud dala sahifasi (monitoring kartasi, sug'orish, tahlillar) ishlaydi.
+## 2. L1b — nima qilindi (commit `caeca7a`)
 
 | Joy | Nima |
 |---|---|
-| `V41__lab_fields.sql` | `farmers.lab` (qisman unique `uk_farmers_lab`), Lab fermer (`telegram_user_id=-1`, `chat_id=-1`), BUSINESS obunasi 2099 gacha (tarif yo'q bo'lsa `RAISE EXCEPTION`), `field:write` permission → ADMIN |
-| `field/LabFieldService` | `create` (`field:write`; ring tekshiruvi → dala → `seasonService.start(id, crop, sownOn)` → `analysisService.run` (STAFF, `analysis:run` ham kerak) → audit), `delete` (faqat Lab dala, fermer dalasi → 409) |
-| `field/Rings` | Ring tekshiruvi bot (`BotPolygonParser`) va admin uchun bitta joyda: `validPoint`, `close`, `name` |
-| `field/dto/CreateLabFieldRequest` | `name, crop, coordinates [[lon,lat]], sownOn?, irrigationMethod?` |
-| `FieldController` | `POST /fields` (201, FieldResponse), `DELETE /fields/{id}` (204), `GET /fields?lab=true/false` |
-| `FieldSeasonService` | `start(fieldId, crop, sownOn)` overload, `validSownOn` |
-| `FieldIntakeService` | `applyBoundary(field, ring, areaHa)` — chegara/maydon/markaz (bot ham ishlatadi) |
-| `FieldResponse.lab`, `FieldSpecs` lab filtri | |
-| Notification | `Recipient.lab`; `NotificationDispatcher` → `store.skipLab` (SKIPPED, "Lab dala — Telegram'ga yuborilmaydi", problems'ga yozilmaydi); `finish(..., problem)` |
-| Chiqarib tashlandi | `AudienceQuery` (kampaniya), `StatsRepository` (fermer/dala soni, analysesByStatus), `FarmerSpecs` (fermerlar ro'yxati) |
-| `BillingService` | Lab fermerga to'lov yozish va uning obunasini bekor qilish → 409 |
-| Admin | `components/app/FieldDrawMap.vue` (bosib chizish), `views/FieldCreateView.vue` (`/fields/new`: xarita, koordinataga borish, GeoJSON qo'yish, nom/ekin/ekish sanasi/sug'orish), `FieldsView` (filtr + "Lab dala" tugmasi), `FieldDetailView` ("Lab dala" badge, ikki bosishli o'chirish), router, api, types, `P.FIELD_WRITE` |
+| Python `analysis.py` | `FieldSeries.scenes` (har sahna: `cloud_pct`, `clear_pct`, `used`), `SEARCH_CLOUD_LT`, `zones()` → `(rel, z, peak)` |
+| Python `main.py`, `schemas.py` | `AnalyzeResponse.debug` (`Scene`, `Debug`): sahnalar, chegaralar, mediana, piksellar, sust bo'lak markazi, `ndvi_map_png_base64`. `safe_debug` — xato bo'lsa `None`, tahlil yiqilmaydi |
+| Python `snapshot.py` | `core_point()` ajratildi (snapshot + debug umumiy) |
+| `V42__analysis_ndvi_image.sql` | `analysis_images.ndvi_file_hash_id` + FK `files` |
+| `analysis/` | `AnalysisImages.storeNdvi` (ixtiyoriy, zaxirasiz), `saveSuccess(..., ndviHashId)`, debug PNG result jsonb'dan olib tashlanadi, `GET /analyses/{id}/ndvi.png` |
+| `field/FieldHistoryService` | `GET /fields/{id}/history?from&to` (`field:read` **va** `analysis:read`): NDVI (tahlil timeseries — eng yangi tahlil ustun, + monitoring), hodisalar (ANALYSIS, MONITORING, WEATHER — fermer+katak, NOTIFICATION — jobId/fieldId/status.fieldId/WEATHER_ALERT). 6 so'rov. Default — joriy + oldingi mavsum, bitta mavsumda ≥ 12 oy; ≤ 3 yil |
+| Admin | `FieldHistoryCard.vue` (Chart.js grafik, hodisalar filtri, davr tanlagich), `AnalysisDetailView` "Tahlil asoslari (debug)" (NDVI xaritasi, sahnalar jadvali), `chart.js` bog'liqligi |
 
-Tekshirilgan: `./gradlew compileJava` ✅, `npx vue-tsc -b` ✅, migratsiyalar toza bazada ✅.
-Code-reviewer: 🔴 yo'q; 🟡/🟢 tuzatildi (yuqoridagi `Rings`, `analysisService.run`, migratsiya himoyasi, billing, statistika).
-Qolgan 🟢 (ataylab): `FieldSummary` da `lab` yo'q (N+1 bo'lmasin; filtr yetarli); Lab xabarlari "Xabarlar"ni to'ldiradi — keyin filtr.
+Shu sessiyada yana: Lab dala chizish sahifasi qayta yozildi (`FieldCreateView`, `FieldDrawMap`, `lib/geo.ts`),
+xarita `maxNativeZoom: 17` (Esri qishloqda "Map data not yet available"), DB porti 5433 (compose `db`, faqat
+`127.0.0.1`), CSP'da Nominatim, `BotKeyboards` → `ObjectProvider<MiniAppToken>` (`TELEGRAM_ENABLED=false` ishlaydi),
+tester retseptida `SUPPORT_BOT_POLLING=false` — bular egasi tomonidan commit qilingan.
 
-## 4. Keyingi qadamlar (tartib bilan)
+⚠️ Satellite konteyneri L1b kodi bilan qayta yig'ilgan (`docker compose up -d --build satellite`).
+Egasining 8081 ilovasi qayta ishga tushirilganda V42 qo'llanadi.
 
-1. ✅ (2026-10-26) tester L1 ni sinadi — hammasi o'tdi. Topilgan eski xato (kampaniya `paid` filtri 500, "ANDEXISTS")
-   `AudienceQuery` da tuzatildi — **qayta sinalmagan**: `POST /notifications/campaigns/preview {"type":"FILTER","paid":true}` → 200.
-   ⚠️ `V41__lab_fields.sql` egasining `agro` bazasida qo'llangan — **faylni endi o'zgartirmang** (Flyway checksum).
-   Kuzatuv: o'zini kesadigan/0 ga poligon ham 201 bilan saqlanadi, tahlil FAILED bo'ladi (admin qo'lda o'chiradi).
-   Sinov ro'yxati (tarix uchun):
-   migratsiya (lab fermer 1 ta, obuna, `field:write` faqat ADMIN); admin POST → 201, `lab=true`, `field_seasons`, `analysis_jobs` STAFF;
-   validatsiya (2 nuqta, 202 nuqta, lat=95, null, bo'sh/81 belgili nom, kelajak/401 kunlik sownOn, 600 ga, noma'lum crop → 400);
-   `field:write`siz rol → 403; DELETE lab → 204, fermer dalasi → 409, yo'q → 404; `?lab=` filtri;
-   Lab xabari → SKIPPED, problems'ga yozilmaydi; statistika va kampaniya auditoriyasi Lab'ni sanamaydi;
-   billing: Lab fermerga to'lov/bekor qilish → 409; bot poligon oqimi (`Rings` refaktori) buzilmagan;
-   iloji bo'lsa satellite-service bilan Lab dala tahlili DONE.
-2. Egasidan commit ruxsati → commit.
-3. L1b spec (qisqa) → kod → review + test.
-4. `docs/dala-hisobi-roadmap.md` ni L-rejaga moslash.
+## 3. Keyingi qadamlar (tartib bilan)
 
-## 5. Ochiq savollar egasiga
+1. **Egasi:** L2 ni commit qiladi, ilovani qayta ishga tushiradi (V43), real dalalarni Lab dala qilib chizadi,
+   tahlil DONE bo'lgach "Holat tarixi" → "+ Kuzatuv" va ✅➖❌ baholar → "Aniqlik" sahifasi.
+2. **Egasi qaytganda olib keladi** (keyingi sessiya shundan boshlanadi):
+   - "Aniqlik" sahifasi natijasi (yoki `curl .../api/v1/accuracy | jq`) — qaysi xulosa turi va qaysi sabab ko'p "Mos emas";
+   - har muammoli holat: dala (id yoki GeoJSON), sana, dalada aslida nima bor edi, tizim nima dedi (tahlil #id / monitoring);
+   - UI/oqimdagi noqulayliklar.
+3. **Keyingi sessiya:** ma'lumotni tahlil qilib, eng ko'p adashayotgan joydan L3 ni boshlash.
+   Ma'lumotsiz ko'ringan nomzodlar (tartib — ma'lumotga qarab o'zgaradi):
+   - **Sust zonani poligon sifatida saqlash** — hozir faqat eng katta bo'lak markazi; kichik bo'laklar "uzoq" chiqadi,
+     L2 o'lchovi taxminiy (`accuracy/Match.java`).
+   - **Butun dala muammosi** — zonalar dala medianasiga nisbiy, bir tekis yomon dalani ko'rmaydi (L2'da `RELATIVE_ZONES`).
+     Yechim: o'tgan yillar va ekin turi uchun kutilgan NDVI bilan solishtirish.
+   - **NDRE** — zich ekinda (paxta, makkajo'xori) NDVI ~0.8 da to'yinadi.
+   - Signal/shovqin chegaralari (`GOOD_REL`/`WEAK_REL`, monitoring `drop`), AI tavsiya qatlami — faqat ma'lumot bilan.
+4. Backend kesishma tekshiruvi (`Rings`) — egasi "keyinroq" dedi.
 
-- L2 uchun 3–5 ta holati ma'lum real dala (koordinata + "qaysi qismi yomon/nima bo'lgan").
+## 4. Ochiq savollar / kuzatuvlar
+
+- L2 uchun 3–5 ta holati ma'lum real dala (koordinata + "qaysi qismi yomon / nima bo'lgan / qachon").
 - Admin "Xabarlar"da Lab xabarlarini alohida ko'rsatish kerakmi.
+- Fayl servisi PNG'ni qayta kodlaydi shekilli (Python 17 KB → saqlangan 51 KB) — barcha tahlil rasmlari. Tekshirish kerak.
+- `TELEGRAM_POLLING=false` support botni to'xtatmaydi — sinovda doim `SUPPORT_BOT_POLLING=false`.
 
-## 6. Qo'lda tekshirish (L1)
+## 5. L2 — nima qilindi (commit qilinmagan, 2026-10-28)
+
+| Joy | Nima |
+|---|---|
+| `V43__accuracy.sql` | `field_observations` (soft delete, lat/lon juftligi CHECK), `finding_reviews` (UNIQUE target, soft delete'siz) |
+| `accuracy/` | `ObservationEntity`, `FindingReviewEntity`, `Match` (avtomatik solishtirish qoidalari), `AccuracyService`, `AccuracyController`, dto |
+| API | `POST /fields/{id}/observations`, `PUT/DELETE /observations/{id}`, `PUT/DELETE /findings/{ANALYSIS|MONITORING}/{id}/review` (atomik upsert), `GET /accuracy?lab=` — yozish `field:write`, o'qish `field:read`+`analysis:read` |
+| History | `OBSERVATION` hodisalari, ANALYSIS/MONITORING `data.review` (8 so'rov) |
+| Admin | `ObservationDialog` (+ `FieldPointPicker`), `ReviewButtons`, `FieldHistoryCard` (kuzatuv, baho, grafikda romb), `AccuracyView` (`/accuracy`) |
+
+`Match` qoidalari (taxminiy): tahlil — mavsum cho'qqisi (`peak_date`) kuzatuvga ±45 kun eng yaqini; nuqta sust markazdan
+`√(sust ulush maydoni/π) + 30 m` ichida → mos. Butun dala muammosi → NOT_APPLICABLE (zonalar nisbiy — L3 sababi).
+Monitoring −21…+7 kun, BASELINE hisobga olinmaydi; DAMAGED — DECLINE yoki HARVEST, BARE — DECLINE yoki NO_CROP.
+Cheklov: tahlil faqat eng katta sust bo'lak markazini saqlaydi — kichik bo'laklar "uzoq" chiqishi mumkin.
+
+## 6. Qo'lda tekshirish (L1b, L2)
 
 ```bash
-./gradlew bootRun                                         # V41 qo'llanadi
-psql -d agro -c "SELECT id, full_name, lab FROM farmers WHERE lab;"
-# Admin → Dalalar → "➕ Lab dala" → xaritada chizing → Saqlash → dala sahifasi ochiladi
-psql -d agro -c "SELECT f.id, f.name, s.sowing, j.kind, j.status FROM fields f
-  JOIN farmers fa ON fa.id=f.farmer_id AND fa.lab
-  LEFT JOIN field_seasons s ON s.field_id=f.id AND s.status='ACTIVE'
-  LEFT JOIN analysis_jobs j ON j.field_id=f.id ORDER BY f.id DESC LIMIT 5;"
-psql -d agro -c "SELECT template, status, last_error FROM notifications n JOIN farmers f ON f.id=n.farmer_id AND f.lab ORDER BY n.id DESC LIMIT 5;"
+./gradlew bootRun                                       # V42
+# Admin → Dalalar → Lab dala → "Tahlil" → DONE → "Holat tarixi" kartasi; Tahlil sahifasi → "Tahlil asoslari"
+psql -d agro -c "SELECT id, jsonb_array_length(result->'debug'->'scenes') sc, result->>'scenes_used' u,
+  result->>'scenes_rejected_cloud' r FROM analysis_jobs WHERE status='DONE' ORDER BY id DESC LIMIT 3;"   # sc = u + r
+curl -s -b $J localhost:8081/api/v1/fields/<id>/history | jq '{from, to, ndvi: (.ndvi|length), events: [.events[].type]}'
+# L2: Dala → "Holat tarixi" → "+ Kuzatuv" (nuqta = tahlil debug'idagi sust markaz) → Aniqlik sahifasida "Mos"
+curl -s -b $J localhost:8081/api/v1/accuracy | jq '{manual, auto, rows: [.rows[] | {d: .observation.observedOn, a: .analysis.reason, m: .monitoring.reason}]}'
 ```

@@ -1,4 +1,4 @@
-import type { Crop, DiscountAudience, DiscountKind, FeedbackKind, FeedbackStatus, IrrigationType, JobKind, JobStatus, LeadStatus, PaymentMethod, Sowing, WaterSource } from '@/api/types'
+import type { Crop, DiscountAudience, DiscountKind, FeedbackKind, FeedbackStatus, IrrigationType, JobKind, JobStatus, LeadStatus, MatchResult, ObsCause, ObsCondition, PaymentMethod, ReviewVerdict, Sowing, WaterSource } from '@/api/types'
 
 export const CROP: Record<Crop, string> = {
   COTTON: 'Paxta', WHEAT: 'Bugʻdoy', CORN: 'Makkajoʻxori', RICE: 'Sholi',
@@ -57,6 +57,37 @@ export const P = {
 
 export const WEATHER_KIND: Record<string, string> = { FROST: 'Sovuq', HEAT: 'Jazirama', WIND: 'Kuchli shamol', RAIN: 'Kuchli yomgʻir' }
 export const WEATHER_LEVEL: Record<string, string> = { WARNING: 'Ogohlantirish', DANGER: 'Xavfli' }
+export const CONDITION: Record<ObsCondition, string> = {
+  GOOD: 'Yaxshi', WEAK: 'Sust', DAMAGED: 'Zararlangan', BARE: 'Ekin yoʻq / siyrak', HARVESTED: 'Yigʻib olingan',
+}
+export const CAUSE: Record<ObsCause, string> = {
+  WATER: 'Suv yetishmasligi', NUTRIENT: 'Ozuqa', DISEASE: 'Kasallik', PEST: 'Zararkunanda', WEEDS: 'Begona oʻt',
+  SALINITY: 'Shoʻr', LODGING: 'Yotib qolgan', HAIL: 'Doʻl', OTHER: 'Boshqa', UNKNOWN: 'Nomaʼlum',
+}
+export const REVIEW: Record<ReviewVerdict, string> = { CORRECT: 'Toʻgʻri', PARTIAL: 'Qisman', WRONG: 'Notoʻgʻri' }
+export const MATCH: Record<MatchResult, string> = {
+  AGREE: 'Mos', DISAGREE: 'Mos emas', NOT_APPLICABLE: 'Qoʻllanmaydi', NO_DATA: 'Maʼlumot yoʻq',
+}
+/** Avtomatik solishtirish sababi (accuracy/Match.java) */
+export const MATCH_REASON: Record<string, string> = {
+  HARVESTED: 'Yigʻilgan dala — tahlil zonasi bilan solishtirilmaydi',
+  NO_ANALYSIS: 'Mavsum choʻqqisi kuzatuvdan ±45 kunda boʻlgan tahlil yoʻq',
+  RELATIVE_ZONES: 'Butun dala muammosi: zonalar dala oʻrtachasiga nisbatan — buni koʻrmaydi',
+  LOW_WEAK: 'Sust ulush kam — dala yaxshi deb topilgan',
+  WEAK_ZONE_FOUND: 'Tizim sust zona topgan, aslida dala yaxshi',
+  NO_DEBUG: 'Eski tahlil — sust markaz saqlanmagan, qayta tahlil qiling',
+  NO_WEAK_ZONE: 'Tizim sust zona topmagan',
+  NEAR_WEAK: 'Nuqta tizim topgan sust zonaga tushdi',
+  FAR_FROM_WEAK: 'Nuqta tizim topgan sust zonadan uzoq',
+  IN_WEAK_ZONE: 'Yaxshi joy tizim sust zonasiga tushdi',
+  OUTSIDE_WEAK: 'Yaxshi joy sust zonadan tashqarida',
+  NO_EVENTS: 'Kuzatuvdan −21…+7 kunda monitoring surati yoʻq',
+  HARVEST_DETECTED: 'Monitoring oʻrim/ekin yoʻqligini koʻrgan',
+  NOT_DETECTED: 'Monitoring oʻrimni koʻrmagan',
+  FALSE_DECLINE: 'Monitoring "sustlashdi" degan, aslida yaxshi',
+  NO_DECLINE: 'Monitoring sustlashuvni koʻrmagan',
+  DECLINE_DETECTED: 'Monitoring sustlashuvni koʻrgan',
+}
 export const SOIL: Record<string, string> = { SAND: 'Qumloq', LOAM: 'Oʻrtacha (qumoq)', CLAY: 'Ogʻir (soz)' }
 export const REMINDER: Record<string, string> = { DUE: 'Sugʻorish vaqti', SOON: '1–2 kun qoldi', STATUS: 'Haftalik holat' }
 export const IRRIGATION_SOURCE: Record<string, string> = { FARMER: 'Fermer (✅ Sugʻordim)', SETUP: 'Sozlashda', STAFF: 'Xodim' }

@@ -143,7 +143,7 @@ onMounted(load)
         </CardContent>
       </Card>
 
-      <FieldHistoryCard v-if="auth.can(P.FIELD_READ) && auth.can(P.ANALYSIS_READ)" :field-id="id" />
+      <FieldHistoryCard v-if="auth.can(P.FIELD_READ) && auth.can(P.ANALYSIS_READ)" :field-id="id" :polygon="field.boundaryGeojson" />
       <MonitoringCard :field-id="id" />
 
       <Card v-if="auth.can(P.ANALYSIS_READ)" class="lg:col-span-3">

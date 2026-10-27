@@ -15,6 +15,9 @@ public interface MonitoringEventRepository extends JpaRepository<MonitoringEvent
 
     List<MonitoringEventEntity> findTop20ByFieldIdOrderBySceneDateDesc(Long fieldId);
 
+    List<MonitoringEventEntity> findByFieldIdInAndSceneDateBetweenOrderBySceneDate(Collection<Long> fieldIds,
+                                                                                   java.time.LocalDate from, java.time.LocalDate to);
+
     List<MonitoringEventEntity> findByFieldIdAndSceneDateBetweenOrderBySceneDate(Long fieldId, java.time.LocalDate from,
                                                                                  java.time.LocalDate to);
 

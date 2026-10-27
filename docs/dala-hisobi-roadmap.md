@@ -7,6 +7,29 @@
 
 ---
 
+## ⚠️ Yo'nalish o'zgardi (2026-10-26, egasi qarori) — hozir "L" reja
+
+H2–H10 **to'xtatilgan**. Sabab: motor aniqligi o'lchanmagan — "shimolda o'sish sust" degan xulosa haqiqatga
+mosmi, bilmaymiz. Fermerga yangi ekranlar qurishdan oldin xulosalar to'g'ri ekanini isbotlash kerak.
+
+- **Botga vaqt sarflanmaydi** — backend aniqligi. Bot/Mini App keyin ulanadi.
+- **Sinov maydoni — admin panel:** admin xaritada "Lab dala" chizadi, tizim uni fermer dalasidek kuzatadi
+  (Lab fermer: `farmers.lab`, xabarlar Telegram'ga ketmaydi — SKIPPED).
+- **Agronom tasdig'i kutilmaydi** — tavsiyani AI yozadi, lekin umumiy agronomiya darajasida
+  ("azotli o'g'it", "fungitsid kerak bo'lishi mumkin"); aniq doza/preparat nomi yo'q. 5-tamoyil shunga yumshatildi.
+
+| Faza | Nima | Holat |
+|---|---|---|
+| **L1** | Lab dala: admin xaritada chizadi → mavsum, birinchi tahlil, monitoring, ob-havo. Chizish UI: qidiruv, uchlarni tahrirlash, kesishish tekshiruvi, GeoJSON | ✅ 2026-10-27 (`19e3964`, `1cb8096`) |
+| **L1b** | Holat tarixi: NDVI grafigi (tahlil + monitoring), hodisalar (tahlil, monitoring, ob-havo, xabarlar); tahlil `debug` bloki (sahnalar, NDVI xaritasi, sust markaz, chegaralar) | ✅ 2026-10-27, review + sinov (29/29) |
+| **L2** | Ground truth: kuzatuvlar (sana, holat, sabab, nuqta/butun dala), tahlil/monitoring xulosasiga baho (✅➖❌), avtomatik solishtirish, "Aniqlik" sahifasi | ✅ 2026-10-28, review + sinov. Ma'lumot: egasi admin'da real dalalarni kiritadi |
+| L3 | Motorni kuchaytirish: NDRE (zich ekinda NDVI to'yinadi), ko'p yillik solishtirish, signal/shovqin chegaralari, AI tavsiya qatlami | ⏸ egasi real dalalarda sinab, aniq ma'lumot bilan qaytadi (HANDOFF 3-bo'lim) |
+| — | Backend'da poligon kesishmasi tekshiruvi (`Rings`) — hozir faqat admin UI ushlaydi, API/bot 201 bilan saqlaydi → tahlil FAILED | ⏳ keyinroq (egasi) |
+
+H-fazalar quyida tarix va keyingi bosqich uchun saqlanadi.
+
+---
+
 ## 0. Tamoyillar — har fazada tekshiriladigan qoidalar
 
 1. **Ilova o'zi gapiradi.** Fermer savol bermaydi. AI chat — yordamchi, asosiy yo'l emas.
@@ -14,7 +37,7 @@
    Harakati yo'q signal fermerga ko'rsatilmaydi.
 3. **Kam, lekin aniq.** Spam bo'lsa fermer botni o'chiradi. Har xabar turi uchun kunlik chegara va dedup.
 4. **Sodda til.** Atamasiz, uz/ru/en, keyinchalik ovoz.
-5. **Tasdiqlanmagan agronomik maslahat yo'q.** Preparat, doza, muddat — agronom tasdiqlagan
+5. **Tasdiqlanmagan agronomik maslahat yo'q.** *(2026-10-26: AI umumiy darajada yozadi — yuqoridagi L-reja)* Preparat, doza, muddat — agronom tasdiqlagan
    kontentdan keladi (DB'da, admin tahrirlaydi), koddan yoki AI'dan "o'ylab topilmaydi".
 6. **Halollik.** Sun'iy yo'ldosh (Sentinel-2: 10 m, ~5 kun, bulutda ko'rmaydi) kasallik **nomini** aytmaydi —
    faqat "shu yerda nimadir yomonlashdi". Sababni dalaga borish + rasm aniqlaydi.
@@ -37,7 +60,7 @@
 |---|---|---|
 | H0 | Tayyorgarlik: ochiq ishlarni yopish | ✅ 2026-10-26 (`bc0310b`) |
 | H1 | Ekin mavsumi: ekish sanasi | ✅ 2026-10-26: review + sinov (11/11, parallel 5/5) |
-| H2 | Ekin kalendari (agrotexnika shabloni) | ⏳ |
+| H2 | Ekin kalendari (agrotexnika shabloni) | ⏸ L-rejadan keyin |
 | H3 | Dala vazifalari + "Bajardim" | ⏳ |
 | H4 | **Dala hisobi** ekrani (bot + Mini App + admin) | ⏳ |
 | H5 | Xabar ritmi: kunlik + haftalik xulosa | ⏳ |

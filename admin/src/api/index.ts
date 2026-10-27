@@ -47,6 +47,15 @@ export const fieldsApi = {
   removeLab: (id: number) => http.del<void>(`/fields/${id}`),
 }
 
+export const accuracyApi = {
+  createObservation: (fieldId: number, body: T.ObservationRequest) => http.post<T.Observation>(`/fields/${fieldId}/observations`, body),
+  deleteObservation: (id: number) => http.del<void>(`/observations/${id}`),
+  review: (type: T.ReviewTarget, id: number, body: { verdict: T.ReviewVerdict; note?: string | null }) =>
+    http.put<T.Review>(`/findings/${type}/${id}/review`, body),
+  removeReview: (type: T.ReviewTarget, id: number) => http.del<void>(`/findings/${type}/${id}/review`),
+  report: (lab?: boolean) => http.get<T.AccuracyReport>('/accuracy', lab === undefined ? {} : { lab }),
+}
+
 export const analysesApi = {
   search: (q: Q) => http.get<T.Page<T.AnalysisListItem>>('/analyses', q),
   get: (id: number) => http.get<T.AnalysisResponse>(`/analyses/${id}`),
