@@ -33,6 +33,21 @@ class AnalysisImages {
         }
     }
 
+    /** Debug xaritasi — ixtiyoriy: saqlanmasa null, tahlil baribir DONE (BYTEA zaxirasi yo'q) */
+    String storeNdvi(long jobId, byte[] png) {
+        if (png == null) return null;
+        try {
+            return files.store(png, "tahlil-" + jobId + "-ndvi.png", FileRegistry.Uploader.system()).hashId();
+        } catch (RuntimeException e) {
+            log.warn("tahlil {} NDVI xaritasi saqlanmadi: {}", jobId, e.getMessage());
+            return null;
+        }
+    }
+
+    byte[] ndvi(AnalysisImage img) {
+        return read(img.getNdviFileHashId(), null, img.getJobId());
+    }
+
     byte[] map(AnalysisImage img) {
         return read(img.getMapFileHashId(), img.getMapPng(), img.getJobId());
     }

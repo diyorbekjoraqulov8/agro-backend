@@ -15,8 +15,8 @@ from fastapi.responses import JSONResponse, Response
 
 from app import analysis, boundary, monitor, render, report, snapshot, water, weather
 from app.geometry import CountryIndex, check_area, parse_polygon, to_utm
-from app.schemas import (AnalyzeRequest, AnalyzeResponse, Period, Point, Recommendation, Rejected,
-                         Upstream, Zones)
+from app.schemas import (AnalyzeRequest, AnalyzeResponse, Debug, Period, Point, Recommendation, Rejected,
+                         Scene, Upstream, Zones)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s [%(name)s] %(message)s")
 logging.getLogger("rasterio.session").setLevel(logging.WARNING)   # har COG uchun "boto3 not available"
@@ -108,7 +108,7 @@ def analyze(req: AnalyzeRequest):
                 prev_future.cancel()
             raise Rejected(404, "NO_SCENES")
         ndvi, ndmi = analysis.medians(cur)
-        rel, z = analysis.zones(cur)
+        rel, z, peak_px = analysis.zones(cur)
         season = analysis.growing_season(cur.dates, ndvi)
         stress = analysis.stress_periods(cur.dates, ndvi, ndmi, season)
         t_cur = time.monotonic()
@@ -155,6 +155,7 @@ def analyze(req: AnalyzeRequest):
             map_png_base64=render.zone_map(rel, cur.x, cur.y, poly_utm),
             chart_png_base64=render.season_chart(cur.dates, ndvi, prev.dates if prev else None,
                                                  prev_ndvi, season, stress),
+            debug=safe_debug(cur, rel, peak_px, poly_utm, epsg, req.field_id),
         )
         log.info("field=%s epsg=%s area=%.2fha scenes=%d/%d prev=%s load=%.1fs prev_wait=%.1fs total=%.1fs",
                  req.field_id, epsg, area_ha, len(cur.dates), cur.rejected,
@@ -228,6 +229,32 @@ def monitor_check(req: monitor.MonitorRequest):
         poly_utm, epsg = to_utm(poly)
         check_area(poly_utm.area / 10_000)
         return monitor.check(req, poly, poly_utm, epsg)
+
+
+def safe_debug(cur, rel, peak_px, poly_utm, epsg: int, field_id: int) -> Debug | None:
+    """Debug — faqat admin uchun: xato bo'lsa fermer tahlili yiqilmasin"""
+    try:
+        return debug_block(cur, rel, peak_px, poly_utm, epsg)
+    except Exception:
+        log.warning("field=%s debug bloki yasalmadi", field_id, exc_info=True)
+        return None
+
+
+def debug_block(cur: analysis.FieldSeries, rel: np.ndarray, peak_px: np.ndarray, poly_utm, epsg: int) -> Debug:
+    valid = ~np.isnan(rel)
+    weak = valid & (rel < analysis.WEAK_REL)
+    lon = lat = None
+    if weak.any():
+        lon, lat = snapshot.core_point(weak, cur.x, cur.y, epsg)
+    return Debug(
+        scenes=[Scene(**s) for s in cur.scenes],
+        search_cloud_lt=analysis.SEARCH_CLOUD_LT, min_clear_pct=analysis.MIN_CLEAR * 100,
+        good_rel=analysis.GOOD_REL, weak_rel=analysis.WEAK_REL,
+        peak_ndvi_median=round(float(np.nanmedian(peak_px)), 3), pixels=int(valid.sum()),
+        weak_lat=lat, weak_lon=lon,
+        ndvi_map_png_base64=render.ndvi_map(peak_px, cur.x, cur.y, poly_utm,
+                                            (lon, lat) if lat is not None else None, epsg),
+    )
 
 
 def recommend(z: dict, season, stress, peak: float, prev_peak: float | None, scenes: int) -> list[Recommendation]:

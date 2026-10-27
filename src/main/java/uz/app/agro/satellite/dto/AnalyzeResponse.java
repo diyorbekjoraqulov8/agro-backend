@@ -32,8 +32,19 @@ public record AnalyzeResponse(
 
         // Jackson base64 satrni byte[] ga o'zi ochadi
         @JsonProperty("map_png_base64") byte[] mapPng,
-        @JsonProperty("chart_png_base64") byte[] chartPng
+        @JsonProperty("chart_png_base64") byte[] chartPng,
+        Debug debug                        // L1b; eski satellite-service bo'lsa null
 ) {
+
+    /** Tahlil nimaga asoslangani — admin aniqlikni tekshiradi. ndviMapPng — fayl servisiga, qolgani result jsonb'ga */
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Debug(List<Scene> scenes, double searchCloudLt, double minClearPct, double goodRel, double weakRel,
+                        double peakNdviMedian, int pixels, Double weakLat, Double weakLon,
+                        @JsonProperty("ndvi_map_png_base64") byte[] ndviMapPng) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record Scene(LocalDate date, Double cloudPct, double clearPct, boolean used) {}
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record Zones(double goodPct, double midPct, double weakPct, String weakSide) {}

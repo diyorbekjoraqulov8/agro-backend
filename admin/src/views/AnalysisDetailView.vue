@@ -58,7 +58,16 @@ const viewing = ref<number | null>(null)
 const gallery = computed(() => job.value ? [
   { url: analysesApi.mapUrl(job.value.id), name: `tahlil-${job.value.id}-xarita.png`, caption: 'Zonalar xaritasi' },
   { url: analysesApi.chartUrl(job.value.id), name: `tahlil-${job.value.id}-grafik.png`, caption: 'NDVI grafigi' },
+  ...(r.value?.debug && !ndviMissing.value ? [{ url: analysesApi.ndviUrl(job.value.id), name: `tahlil-${job.value.id}-ndvi.png`, caption: 'NDVI xaritasi (mavsum choʻqqisi)' }] : []),
 ] : [])
+
+// NDVI xaritasi ixtiyoriy (fayl saqlanmagan bo'lishi mumkin) — 404 bo'lsa siniq rasm o'rniga matn
+const ndviMissing = ref(false)
+
+// L1b debug: qaysi suratlar ishlatildi — ro'yxat uzun bo'lsa avval faqat rad etilganlar
+const dbg = computed(() => r.value?.debug ?? null)
+const showAllScenes = ref(false)
+const scenes = computed(() => (dbg.value?.scenes ?? []).filter((s) => showAllScenes.value || !s.used))
 </script>
 
 <template>
@@ -146,6 +155,59 @@ const gallery = computed(() => job.value ? [
           </CardContent>
         </Card>
       </div>
+      <Card v-if="dbg">
+        <CardHeader>
+          <CardTitle class="text-base">Tahlil asoslari (debug)</CardTitle>
+          <CardDescription>Fermerga koʻrsatilmaydi — xulosa nimaga tayangani. Zonalar dala medianasiga nisbatan:
+            yaxshi ≥ {{ dbg.good_rel }}, sust &lt; {{ dbg.weak_rel }} (mediana NDVI {{ fmtNum(dbg.peak_ndvi_median, 2) }})</CardDescription>
+        </CardHeader>
+        <CardContent class="grid gap-6 lg:grid-cols-2">
+          <div class="space-y-3">
+            <button v-if="!ndviMissing" type="button" class="mx-auto block cursor-zoom-in" title="Kattalashtirish" @click="viewing = 2">
+              <img :src="analysesApi.ndviUrl(job.id)" alt="NDVI xaritasi" class="max-h-96 rounded-md transition hover:brightness-95"
+                   @error="ndviMissing = true" />
+            </button>
+            <p v-else class="text-muted-foreground rounded-md border border-dashed p-6 text-center text-sm">NDVI xaritasi saqlanmagan</p>
+            <dl class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+              <dt class="text-muted-foreground">Piksellar (10 m)</dt><dd class="text-right tabular-nums">{{ fmtNum(dbg.pixels) }}</dd>
+              <dt class="text-muted-foreground">Sust boʻlak markazi</dt>
+              <dd class="text-right tabular-nums">
+                <a v-if="dbg.weak_lat != null" class="hover:underline" target="_blank" rel="noopener noreferrer"
+                   :href="`https://www.google.com/maps?q=${dbg.weak_lat},${dbg.weak_lon}`">{{ dbg.weak_lat }}, {{ dbg.weak_lon }}</a>
+                <span v-else>—</span>
+              </dd>
+              <dt class="text-muted-foreground">Qidiruv</dt><dd class="text-right">sahna buluti &lt; {{ dbg.search_cloud_lt }}%</dd>
+              <dt class="text-muted-foreground">Surat qabul qilinadi</dt><dd class="text-right">dala ≥ {{ dbg.min_clear_pct }}% ochiq</dd>
+            </dl>
+          </div>
+          <div class="space-y-2">
+            <div class="flex items-center justify-between text-sm">
+              <span><b>{{ dbg.scenes.filter((s) => s.used).length }}</b> ishlatildi ·
+                <b>{{ dbg.scenes.filter((s) => !s.used).length }}</b> rad etildi</span>
+              <Button variant="ghost" size="sm" @click="showAllScenes = !showAllScenes">
+                {{ showAllScenes ? 'Faqat rad etilganlar' : 'Hammasini koʻrsatish' }}</Button>
+            </div>
+            <div class="max-h-96 overflow-y-auto rounded-md border">
+              <table class="w-full text-sm">
+                <thead class="bg-muted/50 text-muted-foreground sticky top-0 text-xs">
+                  <tr><th class="px-3 py-1.5 text-left font-medium">Sana</th><th class="px-3 py-1.5 text-right font-medium">Sahna buluti</th>
+                    <th class="px-3 py-1.5 text-right font-medium">Dala ochiq</th><th class="px-3 py-1.5 text-left font-medium">Holat</th></tr>
+                </thead>
+                <tbody class="divide-y">
+                  <tr v-for="s in scenes" :key="s.date">
+                    <td class="px-3 py-1.5">{{ fmtDate(s.date) }}</td>
+                    <td class="px-3 py-1.5 text-right tabular-nums">{{ s.cloud_pct == null ? '—' : `${fmtNum(s.cloud_pct, 0)}%` }}</td>
+                    <td class="px-3 py-1.5 text-right tabular-nums">{{ fmtNum(s.clear_pct, 0) }}%</td>
+                    <td class="px-3 py-1.5" :class="s.used ? 'text-green-700 dark:text-green-500' : 'text-muted-foreground'">
+                      {{ s.used ? 'Ishlatildi' : 'Ochiq kam — rad' }}</td>
+                  </tr>
+                  <tr v-if="!scenes.length"><td colspan="4" class="text-muted-foreground px-3 py-6 text-center">Rad etilgan surat yoʻq</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       <p class="text-muted-foreground text-xs">Boshlangan {{ fmtDateTime(job.startedAt) }} · davomiyligi {{ duration(job.startedAt, job.finishedAt) }}</p>
     </div>
   </template>

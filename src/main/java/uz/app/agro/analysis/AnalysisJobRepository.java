@@ -17,6 +17,9 @@ public interface AnalysisJobRepository extends JpaRepository<AnalysisJob, Long>,
 
     java.util.Optional<AnalysisJob> findTopByFieldIdAndStatusOrderByIdDesc(Long fieldId, AnalysisJob.Status status);
 
+    /** Dala tarixi: NDVI nuqtalari result.timeseries'dan — eng yangi tahlil ustun (field ManyToOne o'qilmaydi) */
+    List<AnalysisJob> findTop200ByFieldIdAndCreatedDateBetweenOrderByIdDesc(Long fieldId, LocalDateTime from, LocalDateTime to);
+
     // Faqat tranzaksiya ICHIDA chaqiriladi — aks holda qulf darhol yechiladi.
     // SKIP LOCKED: ikkinchi instans bir xil job'ni olmaydi
     @Query(value = """

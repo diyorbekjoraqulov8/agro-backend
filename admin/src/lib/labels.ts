@@ -55,6 +55,8 @@ export const P = {
   ADVISOR_READ: 'advisor:read', PROBLEMS_READ: 'problems:read', PROBLEMS_MANAGE: 'problems:manage',
 } as const
 
+export const WEATHER_KIND: Record<string, string> = { FROST: 'Sovuq', HEAT: 'Jazirama', WIND: 'Kuchli shamol', RAIN: 'Kuchli yomgʻir' }
+export const WEATHER_LEVEL: Record<string, string> = { WARNING: 'Ogohlantirish', DANGER: 'Xavfli' }
 export const SOIL: Record<string, string> = { SAND: 'Qumloq', LOAM: 'Oʻrtacha (qumoq)', CLAY: 'Ogʻir (soz)' }
 export const REMINDER: Record<string, string> = { DUE: 'Sugʻorish vaqti', SOON: '1–2 kun qoldi', STATUS: 'Haftalik holat' }
 export const IRRIGATION_SOURCE: Record<string, string> = { FARMER: 'Fermer (✅ Sugʻordim)', SETUP: 'Sozlashda', STAFF: 'Xodim' }

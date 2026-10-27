@@ -60,6 +60,13 @@ public class AnalysisController {
         return png(analysisService.image(id, false));
     }
 
+    @Operation(summary = "NDVI xaritasi (PNG, debug)", description = "Huquq: `analysis:read`. Mavsum cho'qqisi mutlaq NDVI, "
+            + "sust bo'lak markazi — qizil doira. L1b dan oldingi tahlilda yo'q (404)")
+    @GetMapping("/analyses/{id}/ndvi.png")
+    public ResponseEntity<byte[]> ndvi(@PathVariable Long id) {
+        return png(analysisService.ndviImage(id));
+    }
+
     @Operation(summary = "Dalani tahlilga yuborish",
                description = "Huquq: `analysis:run`. Navbatga qo'yadi (202), worker 1-2 daqiqada bajaradi. "
                        + "Tana bo'sh — oxirgi 12 oy. Dalada faol tahlil bo'lsa — 409")

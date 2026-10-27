@@ -6,6 +6,7 @@ import { toast } from 'vue-sonner'
 import PageHeader from '@/components/app/PageHeader.vue'
 import FieldMap from '@/components/app/FieldMap.vue'
 import MonitoringCard from '@/components/app/MonitoringCard.vue'
+import FieldHistoryCard from '@/components/app/FieldHistoryCard.vue'
 import StatusBadge from '@/components/app/StatusBadge.vue'
 import { jobTone } from '@/components/app/badges'
 import { Badge } from '@/components/ui/badge'
@@ -142,6 +143,7 @@ onMounted(load)
         </CardContent>
       </Card>
 
+      <FieldHistoryCard v-if="auth.can(P.FIELD_READ) && auth.can(P.ANALYSIS_READ)" :field-id="id" />
       <MonitoringCard :field-id="id" />
 
       <Card v-if="auth.can(P.ANALYSIS_READ)" class="lg:col-span-3">

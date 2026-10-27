@@ -25,6 +25,9 @@ public class AnalysisImage {
     @Column(name = "chart_file_hash_id", length = 32)
     private String chartFileHashId;
 
+    @Column(name = "ndvi_file_hash_id", length = 32)
+    private String ndviFileHashId;                  // L1b debug: mutlaq NDVI xaritasi — faqat faylda, zaxirasiz
+
     @Column(name = "map_png")
     private byte[] mapPng;
 

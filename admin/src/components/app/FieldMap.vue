@@ -16,13 +16,13 @@ function draw() {
   layer = L.polygon(ring.map(([lon, lat]) => [lat!, lon!] as [number, number]), {
     color: '#facc15', weight: 3, fillOpacity: 0.12,
   }).addTo(map)
-  map.fitBounds(layer.getBounds(), { padding: [24, 24] })
+  map.fitBounds(layer.getBounds(), { padding: [24, 24], maxZoom: 18 })   // 17-plitadan ko'p kattalashsa xira
 }
 
 onMounted(() => {
   map = L.map(el.value!, { attributionControl: true, scrollWheelZoom: false })
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    maxZoom: 19, attribution: 'Imagery © Esri',
+    maxNativeZoom: 17, maxZoom: 20, attribution: 'Imagery © Esri',   // FieldDrawMap ZOOM izohi
   }).addTo(map)
   draw()
 })

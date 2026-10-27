@@ -37,7 +37,9 @@ public interface AnalysisImageRepository extends JpaRepository<AnalysisImage, Lo
             SELECT x.hash_id AS hashId, x.job_id AS jobId, f.name AS fieldName
             FROM (SELECT job_id, map_file_hash_id AS hash_id FROM analysis_images WHERE map_file_hash_id IN (:hashIds)
                   UNION ALL
-                  SELECT job_id, chart_file_hash_id FROM analysis_images WHERE chart_file_hash_id IN (:hashIds)) x
+                  SELECT job_id, chart_file_hash_id FROM analysis_images WHERE chart_file_hash_id IN (:hashIds)
+                  UNION ALL
+                  SELECT job_id, ndvi_file_hash_id FROM analysis_images WHERE ndvi_file_hash_id IN (:hashIds)) x
             JOIN analysis_jobs j ON j.id = x.job_id
             LEFT JOIN fields f ON f.id = j.field_id
             """, nativeQuery = true)

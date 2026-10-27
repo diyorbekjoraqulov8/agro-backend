@@ -80,6 +80,12 @@ export interface AnalysisResult {
            irrigation_need_low_m3_ha: number; irrigation_need_high_m3_ha: number } | null
   timeseries: { date: string; ndvi: number; ndmi: number }[]
   recommendations: { code: string; params: Record<string, unknown> }[]
+  debug?: AnalysisDebug | null                     // L1b dan oldingi tahlillarda yo'q
+}
+export interface AnalysisDebug {
+  scenes: { date: string; cloud_pct: number | null; clear_pct: number; used: boolean }[]
+  search_cloud_lt: number; min_clear_pct: number; good_rel: number; weak_rel: number
+  peak_ndvi_median: number; pixels: number; weak_lat: number | null; weak_lon: number | null
 }
 export interface AnalysisResponse extends AnalysisListItem { nextTryAt: string; result: AnalysisResult | null }
 
@@ -231,6 +237,16 @@ export interface CampaignRequest {
 }
 
 // ── C3: Monitoring ──
+// ── Dala tarixi (L1b) ────────────────────────────────────────────────────
+export type HistoryEventType = 'ANALYSIS' | 'MONITORING' | 'WEATHER' | 'NOTIFICATION'
+export interface FieldHistory {
+  from: string; to: string
+  seasons: { id: number; crop: Crop; sowing: Sowing; sownOn: string | null; startedOn: string; finishedOn: string | null
+             status: 'ACTIVE' | 'FINISHED' }[]
+  ndvi: { date: string; ndvi: number; ndmi: number | null; source: 'ANALYSIS' | 'MONITORING'; refId: number }[]
+  events: { at: string; type: HistoryEventType; status: string | null; refId: number; data: Record<string, any> }[]
+}
+
 export type MonitoringVerdict = 'DECLINE' | 'STABLE' | 'HARVEST' | 'NO_CROP' | 'BASELINE'
 export interface MonitoringEvent {
   id: number; sceneDate: string; refDate: string | null; ndvi: number; ndviRef: number | null

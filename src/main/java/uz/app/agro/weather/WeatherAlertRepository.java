@@ -8,9 +8,14 @@ import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 public interface WeatherAlertRepository extends JpaRepository<WeatherAlertEntity, Long> {
+
+    /** Dala tarixi: ogohlantirish fermer + katak bo'yicha (bir katakdagi dalalar umumiy) */
+    List<WeatherAlertEntity> findByFarmerIdAndCellKeyAndEventDateBetweenOrderByEventDate(Long farmerId, String cellKey,
+                                                                                         LocalDate from, LocalDate to);
 
     Optional<WeatherAlertEntity> findByFarmerIdAndCellKeyAndKindAndEventDate(Long farmerId, String cellKey, WeatherRisk.Kind kind, LocalDate eventDate);
 

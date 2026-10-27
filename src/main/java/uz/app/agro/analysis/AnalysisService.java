@@ -68,6 +68,14 @@ public class AnalysisService {
         return map ? images.map(img) : images.chart(img);
     }
 
+    /** L1b debug: mavsum cho'qqisi NDVI xaritasi. Eski tahlil yoki saqlanmagan bo'lsa — 404 */
+    @PreAuthorize(Permissions.CAN_READ_ANALYSIS)
+    public byte[] ndviImage(Long id) {
+        AnalysisImage img = imageRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Tahlil rasmi", id));
+        return images.ndvi(img);
+    }
+
     /** Xodim tahlilni qo'lda ishga tushiradi. STAFF — fermerning bepul kvotasiga kirmaydi. */
     @PreAuthorize(Permissions.CAN_RUN_ANALYSIS)
     @Transactional

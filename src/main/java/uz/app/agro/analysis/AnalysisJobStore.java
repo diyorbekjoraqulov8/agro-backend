@@ -80,7 +80,7 @@ class AnalysisJobStore {
     }
 
     @Transactional
-    public void saveSuccess(long jobId, AnalyzeResponse r, AnalysisImages.Stored files) {   // public — aks holda @Transactional ishlamaydi
+    public void saveSuccess(long jobId, AnalyzeResponse r, AnalysisImages.Stored files, String ndviHashId) {   // public — aks holda @Transactional ishlamaydi
         AnalysisJob job = jobRepository.findById(jobId).orElseThrow();
         job.setStatus(AnalysisJob.Status.DONE);
         job.setFinishedAt(LocalDateTime.now());
@@ -89,6 +89,7 @@ class AnalysisJobStore {
 
         AnalysisImage img = imageRepository.findById(jobId).orElseGet(AnalysisImage::new);
         img.setJobId(jobId);
+        img.setNdviFileHashId(ndviHashId);
         if (files.ok()) {
             img.setMapFileHashId(files.mapHashId());
             img.setChartFileHashId(files.chartHashId());
@@ -206,6 +207,7 @@ class AnalysisJobStore {
         Map<String, Object> m = JsonMapper.shared().convertValue(r, Map.class);
         m.remove("map_png_base64");                  // rasmlar — analysis_images da
         m.remove("chart_png_base64");
+        if (m.get("debug") instanceof Map<?, ?> d) ((Map<String, Object>) d).remove("ndvi_map_png_base64");
         return m;
     }
 

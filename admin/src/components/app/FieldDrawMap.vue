@@ -14,6 +14,9 @@ let handles: L.LayerGroup | null = null
 let labelLayer: L.TileLayer | null = null
 
 const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services'
+// Esri rasmi qishloqda odatda 17-zoom'gacha; undan keyin 404 emas, "Map data not yet available" plitasi keladi.
+// maxNativeZoom'dan keyin plita so'ralmaydi — oxirgi rasm kattalashtiriladi (miniapp/app.js bilan bir xil)
+const ZOOM = { maxNativeZoom: 17, maxZoom: 20 }
 const vertexIcon = L.divIcon({ className: 'fdm-vertex', iconSize: [14, 14] })
 const midIcon = L.divIcon({ className: 'fdm-mid', iconSize: [10, 10] })
 
@@ -87,10 +90,10 @@ function syncLabels() {
 
 onMounted(() => {
   // Default — O'zbekiston markazi
-  map = L.map(el.value!, { attributionControl: true, doubleClickZoom: false, zoomControl: false }).setView([41.0, 66.5], 6)
+  map = L.map(el.value!, { attributionControl: true, doubleClickZoom: false, zoomControl: false, maxZoom: ZOOM.maxZoom }).setView([41.0, 66.5], 6)
   L.control.zoom({ position: 'bottomright' }).addTo(map)
-  L.tileLayer(`${ESRI}/World_Imagery/MapServer/tile/{z}/{y}/{x}`, { maxZoom: 19, attribution: 'Imagery © Esri' }).addTo(map)
-  labelLayer = L.tileLayer(`${ESRI}/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}`, { maxZoom: 19, attribution: 'Labels © Esri' })
+  L.tileLayer(`${ESRI}/World_Imagery/MapServer/tile/{z}/{y}/{x}`, { ...ZOOM, attribution: 'Imagery © Esri' }).addTo(map)
+  labelLayer = L.tileLayer(`${ESRI}/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}`, { ...ZOOM, attribution: 'Labels © Esri' })
   handles = L.layerGroup().addTo(map)
   map.on('click', (e: L.LeafletMouseEvent) => {
     points.value = [...points.value, [round(e.latlng.lng), round(e.latlng.lat)]]

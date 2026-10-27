@@ -46,6 +46,27 @@ class Recommendation(BaseModel):
     params: dict[str, Any] = {}
 
 
+class Scene(BaseModel):
+    date: date
+    cloud_pct: float | None           # sahna bo'yicha (STAC); dala ustidagisi — clear_pct
+    clear_pct: float                  # dala ichidagi ochiq piksellar ulushi
+    used: bool                        # clear_pct ≥ min_clear_pct
+
+
+class Debug(BaseModel):
+    """L1b: tahlil nimaga asoslangani — admin aniqlikni tekshirishi uchun. Fermerga ko'rsatilmaydi"""
+    scenes: list[Scene]               # ≥ search_cloud_lt bulutli sahnalar umuman qidirilmaydi — bu ro'yxatda yo'q
+    search_cloud_lt: float
+    min_clear_pct: float
+    good_rel: float                   # piksel/dala medianasi ≥ shu — "yaxshi"
+    weak_rel: float                   # < shu — "sust"
+    peak_ndvi_median: float           # zonalar shu medianaga nisbatan
+    pixels: int                       # dala ichidagi 10 m piksellar (chet 1 piksel tashlangan)
+    weak_lat: float | None            # eng katta sust bo'lak markazi
+    weak_lon: float | None
+    ndvi_map_png_base64: str          # mavsum cho'qqisi (90-persentil) mutlaq NDVI + sust markaz
+
+
 class AnalyzeResponse(BaseModel):
     field_id: int
     area_ha: float
@@ -65,6 +86,7 @@ class AnalyzeResponse(BaseModel):
     recommendations: list[Recommendation]
     map_png_base64: str
     chart_png_base64: str
+    debug: Debug | None = None
 
 
 class Rejected(Exception):

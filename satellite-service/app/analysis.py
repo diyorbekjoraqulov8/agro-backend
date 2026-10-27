@@ -1,7 +1,7 @@
 """Sentinel-2 L2A (Earth Search, Collection 1) bo'yicha dala tahlili."""
 import logging
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 
 import numpy as np
@@ -20,6 +20,7 @@ EARTH_SEARCH = "https://earth-search.aws.element84.com/v1"
 COLLECTION = "sentinel-2-c1-l2a"
 SCALE, OFFSET = 0.0001, -0.1          # item_assets.*.raster:bands — 2026-10 da tekshirilgan
 BAD_SCL = [0, 1, 3, 8, 9, 10, 11]     # nodata, saturated, bulut soyasi, bulut (o'rta/yuqori), cirrus, qor
+SEARCH_CLOUD_LT = 60                  # sahna bulutliligi (%) shundan ko'p — umuman qidirilmaydi
 MIN_CLEAR = 0.7                       # dalaning 70% dan kami ochiq bo'lsa — sana tashlanadi
 EDGE_M = 10                           # chetdagi 1 piksel (ariq, yo'l) tashlanadi
 GOOD_REL, WEAK_REL = 0.95, 0.85       # dala medianasiga nisbatan
@@ -34,6 +35,7 @@ class FieldSeries:
     x: np.ndarray                     # piksel markazlari, UTM metr
     y: np.ndarray
     rejected: int
+    scenes: list[dict] = field(default_factory=list)   # debug: har sahna — ishlatildimi va nega (L1b)
 
 
 def load_series(poly_wgs: Polygon, poly_utm: Polygon, epsg: int, start: date, end: date) -> FieldSeries | None:
@@ -42,12 +44,19 @@ def load_series(poly_wgs: Polygon, poly_utm: Polygon, epsg: int, start: date, en
             collections=[COLLECTION],
             intersects=mapping(poly_wgs),
             datetime=f"{start.isoformat()}/{end.isoformat()}",
-            query={"eo:cloud_cover": {"lt": 60}},   # sahna bo'yicha; dala ustidagi bulutni SCL hal qiladi
+            query={"eo:cloud_cover": {"lt": SEARCH_CLOUD_LT}},   # sahna bo'yicha; dala ustidagi bulutni SCL hal qiladi
         ).items())
     except APIError as e:
         raise Upstream(f"Earth Search: {e}") from e
     if not items:
         return None
+    # Sahna bo'yicha bulut (STAC metadata) — debug uchun; bir kunda bir nechta plita bo'lsa eng ochig'i
+    cloud: dict[date, float] = {}
+    for it in items:
+        cc = it.properties.get("eo:cloud_cover")
+        if it.datetime is not None and cc is not None:
+            d = it.datetime.date()
+            cloud[d] = min(cloud.get(d, 100.0), float(cc))
 
     try:
         ds = odc.stac.load(
@@ -83,18 +92,23 @@ def load_series(poly_wgs: Polygon, poly_utm: Polygon, epsg: int, start: date, en
 
     clear_frac = (clear.sum(("y", "x")) / inside.sum()).values
     keep = clear_frac >= MIN_CLEAR
+    all_dates = [np.datetime64(t, "D").astype(date) for t in ds.time.values]
+    scenes = [{"date": d, "cloud_pct": round(cloud[d], 1) if d in cloud else None,
+               "clear_pct": round(float(f) * 100, 1), "used": bool(k)}
+              for d, f, k in zip(all_dates, clear_frac, keep)]
     ndvi, ndmi = ndvi.isel(time=keep), ndmi.isel(time=keep)
-    dates = [np.datetime64(t, "D").astype(date) for t in ndvi.time.values]
-    return FieldSeries(dates, ndvi, ndmi, inside, ds.x.values, ds.y.values, int((~keep).sum()))
+    dates = [d for d, k in zip(all_dates, keep) if k]
+    return FieldSeries(dates, ndvi, ndmi, inside, ds.x.values, ds.y.values, int((~keep).sum()), scenes)
 
 
 def medians(s: FieldSeries) -> tuple[np.ndarray, np.ndarray]:
     return (s.ndvi.median(("y", "x")).values, s.ndmi.median(("y", "x")).values)
 
 
-def zones(s: FieldSeries) -> tuple[np.ndarray, dict]:
+def zones(s: FieldSeries) -> tuple[np.ndarray, dict, np.ndarray]:
     """Mavsum cho'qqisidagi har piksel / dala medianasi. Nisbiy — ekin va navga bog'liq emas,
-    dala ichidagi notekislikni (notekis sug'orish izini) ko'rsatadi."""
+    dala ichidagi notekislikni (notekis sug'orish izini) ko'rsatadi.
+    @return rel, zonalar, peak (mutlaq NDVI — debug xaritasi uchun)"""
     peak = s.ndvi.quantile(0.9, dim="time", skipna=True).values
     med = float(np.nanmedian(peak))
     rel = peak / med
@@ -104,7 +118,7 @@ def zones(s: FieldSeries) -> tuple[np.ndarray, dict]:
     weak_mask = valid & (rel < WEAK_REL)
     weak = float(weak_mask.sum()) / total * 100
     return rel, {"good_pct": round(good, 1), "mid_pct": round(100 - good - weak, 1),
-                 "weak_pct": round(weak, 1), "weak_side": weak_side(s, valid, weak_mask)}
+                 "weak_pct": round(weak, 1), "weak_side": weak_side(s, valid, weak_mask)}, peak
 
 
 def weak_side(s: FieldSeries, valid: np.ndarray, weak: np.ndarray) -> str | None:

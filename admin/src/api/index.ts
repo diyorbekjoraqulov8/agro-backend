@@ -42,6 +42,7 @@ export const fieldsApi = {
   get: (id: number) => http.get<T.FieldResponse>(`/fields/${id}`),
   water: (id: number) => http.get<T.WaterView>(`/fields/${id}/water`),
   monitoring: (id: number) => http.get<T.FieldMonitoring>(`/fields/${id}/monitoring`),
+  history: (id: number, q: { from?: string; to?: string } = {}) => http.get<T.FieldHistory>(`/fields/${id}/history`, q),
   createLab: (body: T.CreateLabField) => http.post<T.FieldResponse>('/fields', body),
   removeLab: (id: number) => http.del<void>(`/fields/${id}`),
 }
@@ -55,6 +56,7 @@ export const analysesApi = {
   // <img src> — cookie bir origin'da o'zi ketadi
   mapUrl: (id: number) => `/api/v1/analyses/${id}/map.png`,
   chartUrl: (id: number) => `/api/v1/analyses/${id}/chart.png`,
+  ndviUrl: (id: number) => `/api/v1/analyses/${id}/ndvi.png`,
 }
 
 export const statsApi = {

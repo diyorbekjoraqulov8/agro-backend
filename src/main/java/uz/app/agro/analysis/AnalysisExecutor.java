@@ -40,7 +40,8 @@ class AnalysisExecutor {
             AnalyzeResponse r = satellite.analyze(new AnalyzeRequest(in.fieldId(), in.geometry(), in.crop().name(),
                     in.seasonStart(), in.seasonEnd(), true));
             // Rasmlar diskka — tranzaksiyadan OLDIN (disk yozuvi DB ulanishini band qilmasin)
-            store.saveSuccess(jobId, r, images.store(jobId, r.mapPng(), r.chartPng()));
+            store.saveSuccess(jobId, r, images.store(jobId, r.mapPng(), r.chartPng()),
+                    r.debug() != null ? images.storeNdvi(jobId, r.debug().ndviMapPng()) : null);
             log.info("job {} DONE {} ms: {} ga, {} sahna, {}", jobId, System.currentTimeMillis() - t0,
                     r.areaHa(), r.scenesUsed(), r.countryCode());
         } catch (SatelliteRejectedException e) {

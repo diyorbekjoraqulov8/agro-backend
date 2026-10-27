@@ -65,6 +65,8 @@ public final class Permissions {
     public static final String CAN_WRITE_FIELD   = "hasAuthority('" + FIELD_WRITE + "')";
     public static final String CAN_READ_ANALYSIS = "hasAuthority('" + ANALYSIS_READ + "')";
     public static final String CAN_RUN_ANALYSIS  = "hasAuthority('" + ANALYSIS_RUN + "')";
+    // Dala tarixi tahlil natijalarini ham ko'rsatadi — ikkala huquq
+    public static final String CAN_READ_FIELD_HISTORY = CAN_READ_FIELD + " and " + CAN_READ_ANALYSIS;
 
     public static final String CAN_READ_BILLING   = "hasAuthority('" + BILLING_READ + "')";
     public static final String CAN_MANAGE_BILLING = "hasAuthority('" + BILLING_MANAGE + "')";
