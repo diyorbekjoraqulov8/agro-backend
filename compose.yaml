@@ -30,7 +30,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_HOST_AUTH_METHOD: trust
     ports:
-      - "5433:5432"   # 5432 bu mashinada band bo'lishi mumkin (native Postgres) — .env'da DB_URL shunga mos
+      - "127.0.0.1:5433:5432"   # faqat localhost (trust auth!); 5433 — native Postgres (5432) bilan to'qnashmasin
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:

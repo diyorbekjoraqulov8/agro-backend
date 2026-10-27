@@ -6,6 +6,7 @@ import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.model.request.KeyboardButton;
 import com.pengrad.telegrambot.model.request.ReplyKeyboardMarkup;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 import uz.app.agro.feedback.FeedbackKind;
 import uz.app.agro.field.Crop;
@@ -46,7 +47,8 @@ public class BotKeyboards {
 
     private final BotMessages messages;
     private final TelegramProperties props;
-    private final MiniAppToken tokens;
+    // telegram.enabled=false da bean yo'q — BotKeyboards'ga bot o'chiq bo'lsa ham (admin xabarlari) bog'lanishadi
+    private final ObjectProvider<MiniAppToken> tokens;
 
     public boolean miniAppConfigured() {
         return props.miniappUrl() != null && !props.miniappUrl().isEmpty();
@@ -187,8 +189,9 @@ public class BotKeyboards {
      * PUBLIC_API_URL (https) bo'lmasa — bo'sh (🪄 tugmasi ko'rinmaydi)
      */
     private String apiParams(long tg) {
-        if (!props.inlineMapEnabled()) return "";
-        return "&api=" + URLEncoder.encode(props.publicApiUrl(), StandardCharsets.UTF_8) + "&tk=" + tokens.sign(tg);
+        MiniAppToken t = tokens.getIfAvailable();
+        if (!props.inlineMapEnabled() || t == null) return "";
+        return "&api=" + URLEncoder.encode(props.publicApiUrl(), StandardCharsets.UTF_8) + "&tk=" + t.sign(tg);
     }
 
     /** Fermerning boshqa dalalari — Mini App kulrang chizadi (takror chizilmasin, ustma-ust tushsa ogohlantiradi) */

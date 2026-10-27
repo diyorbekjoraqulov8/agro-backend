@@ -386,14 +386,16 @@ curl -s -o /dev/null    -H 'X-Request-Id: B1' localhost:8081/api/v1/users
 ## 9. ISHGA TUSHIRISH
 
 ```bash
-docker compose up -d          # Postgres — "agro" bazasini o'zi yaratadi (compose.yaml, faqat dev)
-cp .env.example .env          # DB_USERNAME / DB_PASSWORD ni yozing
+cp .env.example .env          # SATELLITE_INTERNAL_KEY ni yozing: openssl rand -hex 24
+docker compose up -d          # Postgres (:5433) + satellite — "agro" bazasini o'zi yaratadi (faqat dev)
 ./gradlew bootRun             # birinchi marta: RSA kalitlari avtomatik yasaladi
 ```
 
 > Yangi device — faqat shu uch qator. Mahalliy Postgres kerak emas, DB konteynerda.
-> Agar portda (5432) allaqachon boshqa Postgres ishlab tursa — uni to'xtatish kerak
-> yoki `compose.yaml` da port'ni o'zgartiring.
+> Tartib muhim: `compose.yaml` `SATELLITE_INTERNAL_KEY` siz umuman ishga tushmaydi (faqat `db` ham).
+> Konteyner Postgres'i **5433** da — mahalliy Postgres (5432) bilan to'qnashmaydi.
+> `.env.example` va `application.yml` default'i 5433 ga qaraydi; mahalliy Postgres ishlatsangiz —
+> `.env` da `DB_URL` ni 5432 ga o'zgartiring.
 
 ### Migratsiyalar
 
