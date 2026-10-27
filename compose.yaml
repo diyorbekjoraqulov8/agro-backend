@@ -1,9 +1,11 @@
-# Dev: Python satellite-service'ni Docker'da ishga tushirish (kompyuterda Python shart emas).
+# Dev: Python satellite-service va Postgres'ni Docker'da ishga tushirish.
 #   docker compose up -d --build     — yig'ish va ishga tushirish
 #   docker compose logs -f satellite — log
 #   docker compose down              — to'xtatish
-# Kalit root .env dagi SATELLITE_INTERNAL_KEY dan olinadi — Java bilan avtomatik bir xil.
-# Java (./gradlew bootRun) va PostgreSQL hozircha kompyuterda; prod compose — S10 da.
+# satellite: kalit root .env dagi SATELLITE_INTERNAL_KEY dan olinadi — Java bilan avtomatik bir xil.
+# db: birinchi marta ko'tarilganda "agro" bazasini o'zi yaratadi (.env.example: DB_USERNAME=postgres,
+#     DB_PASSWORD bo'sh — shuning uchun trust auth).
+# Java (./gradlew bootRun) hozircha kompyuterda; prod compose — deploy/compose.prod.yaml, bunga tegishli emas.
 services:
   satellite:
     build: ./satellite-service
@@ -19,3 +21,23 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: agro
+      POSTGRES_USER: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5433:5432"   # 5432 bu mashinada band bo'lishi mumkin (native Postgres) — .env'da DB_URL shunga mos
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d agro"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

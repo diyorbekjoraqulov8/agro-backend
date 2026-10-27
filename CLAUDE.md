@@ -386,10 +386,14 @@ curl -s -o /dev/null    -H 'X-Request-Id: B1' localhost:8081/api/v1/users
 ## 9. ISHGA TUSHIRISH
 
 ```bash
-createdb agro
+docker compose up -d          # Postgres — "agro" bazasini o'zi yaratadi (compose.yaml, faqat dev)
 cp .env.example .env          # DB_USERNAME / DB_PASSWORD ni yozing
 ./gradlew bootRun             # birinchi marta: RSA kalitlari avtomatik yasaladi
 ```
+
+> Yangi device — faqat shu uch qator. Mahalliy Postgres kerak emas, DB konteynerda.
+> Agar portda (5432) allaqachon boshqa Postgres ishlab tursa — uni to'xtatish kerak
+> yoki `compose.yaml` da port'ni o'zgartiring.
 
 ### Migratsiyalar
 
